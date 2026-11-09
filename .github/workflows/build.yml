@@ -1,0 +1,45 @@
+name: Build Wii U game
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  tests:
+    name: Dragon and game tests (PC, no graphics)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test
+  build:
+    name: Build dragonsbeyond.wuhb
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitppc:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the game
+        run: make
+      - name: Save the finished game file
+        uses: actions/upload-artifact@v4
+        with:
+          name: DragonsBeyond
+          path: dragonsbeyond.wuhb
+  sd-card:
+    name: Ready-to-copy SD card folder
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DragonsBeyond
+          path: dl
+      - name: Put the game and the shader compiler in their folders
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p sd/wiiu/apps sd/wiiu/libs
+          cp dl/dragonsbeyond.wuhb sd/wiiu/apps/
+          gh release download --repo Exzap/CafeGLSL --pattern 'glslcompiler.rpl' --dir sd/wiiu/libs
+          ls -laR sd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DragonsBeyond-SD-card
+          path: sd/

@@ -5,3 +5,8 @@ preview/pose_*.png
 tools/node/node_modules/
 tools/rig/__pycache__/
 rig/*.blend1
+dragon_test
+game_test
+*.elf
+*.rpx
+*.wuhb
