@@ -44,6 +44,11 @@ static Anim3D g_km[K_N][ST_N]; static int g_km_ok[K_N][ST_N];   /* every dragon'
 static Anim3D *kind_model(int k, int st) { if (k == 0) { while (st > 0 && !g_model_ok[st]) st--; return g_model_ok[st] ? &g_model[st] : NULL; }
     while (st > 0 && !g_km_ok[k][st]) st--; return g_km_ok[k][st] ? &g_km[k][st] : NULL; }
 static int kind_has_stage(int k, int st) { return k == 0 ? 1 : g_km_ok[k][st]; }
+static int g_km_tried[K_N][ST_N];
+static void ensure_kind(int k, int upto) {   /* load dragon k's models up to stage upto (once each) */
+    static const char *kn[K_N] = {"forest", "sky", "snow"}, *sn[ST_N] = {"dragonet", "dragon", "beyonder"};
+    if (k <= 0 || k >= K_N || g_gfx_status != GFX_OK) return;
+    for (int st = 0; st <= upto && st < ST_N; st++) if (!g_km_tried[k][st]) { g_km_tried[k][st] = 1; char nm[40]; snprintf(nm, sizeof nm, "%s_%s", kn[k], sn[st]); g_km_ok[k][st] = anim3d_load(&g_km[k][st], nm); } }
 static float kind_scale(int k, int st) { if (k == 0) return dragon_scale(st); while (st > 0 && !g_km_ok[k][st]) st--; return st == ST_DRAGONET ? dragon_scale(ST_DRAGONET) * 0.85f : dragon_scale(st); }
 static struct { int on, mode, anim; float x, y, z, yaw, speed, anim_t; } g_friend;
 static const char *SKY_NAMES[2] = {"SCARLET", "WINDSLY"}, *SNOW_NAMES[2] = {"SNOWFALL", "SNOWSTORM"};
@@ -333,8 +338,8 @@ int game_init(int gfx_status) {
     batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(6000); m_dynhud = gfx_mesh_dynamic(36000);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
-    { static const char *kn[K_N] = {"forest", "sky", "snow"}, *sn[ST_N] = {"dragonet", "dragon", "beyonder"};
-      for (int k = 1; k < K_N; k++) for (int st = 0; st < ST_N; st++) { char nm[40]; snprintf(nm, sizeof nm, "%s_%s", kn[k], sn[st]); g_km_ok[k][st] = anim3d_load(&g_km[k][st], nm); } }
+    /* the other dragons load when they are needed (their world, their rescue, a save that has them): a quicker start */
+    ensure_kind(CAPTIVE[WK_FOREST], ST_DRAGONET);   /* the forest cage holds the sky dragonet */
     gfx_log("Dragons Beyond ready: %d props, %d food, models %d %d %d", g_world.nprop, g_world.nfood, g_model_ok[0], g_model_ok[1], g_model_ok[2]);
     snprintf(g_msg, sizeof g_msg, "WALK TO THE BERRIES. PRESS X TO EAT"); g_msg_t = 8;
     return 1; }
@@ -883,6 +888,7 @@ static void enter_world(int wk, float x, float z, float yaw) {
         build_ground(); build_props();
         scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f);
         scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f); }
+    ensure_kind(CAPTIVE[wk], ST_DRAGONET); for (int k = 1; k < K_N; k++) if (g_has[k]) ensure_kind(k, ST_BEYONDER);
     boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; if (wk == WK_SKY) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; }
     if (g_wrescued[wk]) { g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_boss.t = 10; }
     float sx, sz; world_safe_spot(&g_world, clampf(x, -110, 110), clampf(z, -110, 110), &sx, &sz);
@@ -929,7 +935,7 @@ static void boss_frame(float dt) {
     if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
     if (bev & 8) { snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", BOSS_NAME[g_wk]); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
     if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
-        int c = CAPTIVE[g_wk]; g_rescued = 1; g_has[c] = 1; g_fk = c; g_friend.on = 1; g_friend.x = g_world.cage_x; g_friend.y = g_world.arena_y + 1.2f; g_friend.z = g_world.cage_z; g_friend.yaw = 0;
+        int c = CAPTIVE[g_wk]; ensure_kind(c, ST_BEYONDER); g_rescued = 1; g_has[c] = 1; g_fk = c; g_friend.on = 1; g_friend.x = g_world.cage_x; g_friend.y = g_world.arena_y + 1.2f; g_friend.z = g_world.cage_z; g_friend.yaw = 0;
         dragon_init(&g_other, &g_world, g_friend.x, g_friend.z);
         snprintf(g_msg, sizeof g_msg, "%s IS FREE AND JOINS YOUR TEAM! PRESS + TO SWAP DRAGONS", kind_name(c)); g_msg_t = 8; g_tale_i = 0; g_tale_t = 0; g_tale_w = g_wk; sfx_play(SFX_CHIRP, 1.0f, 0); save_progress(); }
     /* the friend: keeps to the player's side, a little behind; flies when the player flies (unless player 2 is steering it) */
