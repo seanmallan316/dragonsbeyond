@@ -343,6 +343,7 @@ static void shadow_pass(void) {
     draw_dragon(d);
     gfx_shadow_end(); }
 
+static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a);
 static void text_c(const char *s, float y, float size, float r, float g, float b, float a) { batch_text(&g_b, s, 640 - text_width(s, size) / 2, y, size, r, g, b, a); }
 static void draw_hud(int drc) {
     const Dragon *d = &g_dragon; batch_clear(&g_b);
@@ -359,7 +360,7 @@ static void draw_hud(int drc) {
     float L = dragon_length(d->stage);
     int near = world_nearest_food(&g_world, d->x + sinf(d->yaw) * 0.35f * L, d->z + cosf(d->yaw) * 0.35f * L, 0.45f * L + 1.0f);
     if (near >= 0 && d->mode != DM_AIR && d->act_t <= 0) text_c(food_is_meat(g_world.food[near].kind) ? "X : EAT (MEAT, GROWS FAST)" : "X : EAT", 600, 30, 1, 1, 0.7f, 0.9f);
-    if (g_msg_t > 0) text_c(g_msg, 640, 28, 1, 1, 1, clampf(g_msg_t, 0, 1));
+    if (g_msg_t > 0) text_wrap_c(g_msg, 630, 28, 1180, 1, 1, 1, clampf(g_msg_t, 0, 1));
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); text_c("DRAGONS BEYOND", 250, 72, 0.6f, 1, 0.5f, a); text_c("EVERLEAF WILDS", 330, 40, 0.9f, 1, 0.9f, a); }
     static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     batch_text(&g_b, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : ROAR", 300, 690, 18, 1, 1, 1, 0.5f);
@@ -447,7 +448,7 @@ static void text_wrap_c(const char *txt, float y, float size, float maxw, float 
 static void draw_title_dragons(void) {
     /* three dragons (one of each size) circling at different heights, plus the dragonet looping low */
     for (int k = 0; k < 4; k++) { int st = k % 3; Anim3D *m = &g_model[st]; if (!m->ok) continue; float sc = dragon_scale(st) * (k == 3 ? 1 : 1.0f);
-        float R = 22 + k * 11, w = (0.55f - k * 0.08f) * (k & 1 ? -1 : 1), a = g_time * w + k * 1.7f, h = 9 + k * 7 + 2.5f * sinf(g_time * 0.8f + k);
+        float R = 15 + k * 9, w = (0.5f - k * 0.07f) * (k & 1 ? -1 : 1), a = g_time * w + k * 1.7f, h = 7 + k * 5 + 2.5f * sinf(g_time * 0.8f + k);
         Vec3 pos = v3(cosf(a) * R, h, sinf(a) * R); float yaw = atan2f(-sinf(a) * w, cosf(a) * w) ;   /* face along the circle */
         Mat4 base = m4_mul(m4_mul(m4_translate(pos.x, pos.y, pos.z), m4_rotate_y(yaw)), m4_mul(m4_rotate_z(w > 0 ? -0.35f : 0.35f), m4_scale(sc, sc, sc)));
         int clip = anim3d_clip(m, "fly"); gfx_state(ST_SOLID); anim3d_draw(m, clip < 0 ? 0 : clip, g_time + k * 0.3f, &base, 1.12f, 1.12f, 1.1f, 1); }
@@ -459,7 +460,7 @@ static void draw_title_hud(void) {
     float pulse = 0.75f + 0.25f * sinf(g_time * 3);
     if (g_state == G_TITLE) {
         batch_rect(&g_b, 0, 150, 1280, 190, 0, 0.08f, 0, 0.35f);
-        text_c("DRAGONS BEYOND", 170, 96, 0.55f, 1, 0.45f, 1); text_c("DRAGONS BEYOND", 166, 96, 0.9f, 1, 0.8f, 1);
+        text_c("DRAGONS BEYOND", 174, 74, 0.35f, 0.7f, 0.3f, 1); text_c("DRAGONS BEYOND", 170, 74, 0.9f, 1, 0.8f, 1);
         text_c("EVERLEAF WILDS", 272, 34, 0.9f, 1, 0.9f, 0.9f);
         text_c(g_dragon.stage > 0 || g_dragon.growth > 0 ? "PRESS A TO CONTINUE" : "PRESS A", 600, 40, 1, 1, 1, pulse);
         text_c("A GAME DESIGNED BY A 10 YEAR OLD DRAGON EXPERT", 690, 18, 1, 1, 1, 0.6f);
@@ -492,7 +493,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (g_state != G_PLAY) {
         if (g_state == G_TITLE && in.a_press && g_state_t > 0.5f) { g_state = G_NAME; g_state_t = 0; sfx_play(SFX_MENU_OK, 0.5f, 0); }
         else if (g_state == G_NAME) { if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) { g_name ^= 1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } if (in.a_press && g_state_t > 0.3f) { g_state = G_STORY; g_state_t = 0; g_story_i = 0; } }
-        else if (g_state == G_STORY) { if ((in.a_press && g_state_t > 0.4f) || g_state_t > 12) { g_state_t = 0; if (++g_story_i >= STORY_N) { g_state = G_PLAY; g_title_t = 4.0f; snprintf(g_msg, sizeof g_msg, "%s WOKE UP ALONE AND HUNGRY. PRESS X TO EAT", NAMES[g_name]); g_msg_t = 9; } } }
+        else if (g_state == G_STORY) { if ((in.a_press && g_state_t > 0.4f) || g_state_t > 12) { g_state_t = 0; if (++g_story_i >= STORY_N) { g_state = G_PLAY; g_title_t = 4.0f; snprintf(g_msg, sizeof g_msg, "%s IS HUNGRY. WALK TO A BUSH AND PRESS X", NAMES[g_name]); g_msg_t = 9; } } }
         memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));
         g_dragon.anim_t += dt; title_camera();
         gfx_frame_begin(); gfx_shadow_none();
