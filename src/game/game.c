@@ -794,6 +794,11 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (ev & 2) save_progress();
     if (!g_world.crystal_found) { float dx = g_dragon.x - g_world.crystal_x, dz = g_dragon.z - g_world.crystal_z, dy = g_dragon.y - g_world.crystal_y; if (dx * dx + dz * dz + dy * dy < (1.2f + 0.5f * dragon_length(g_dragon.stage)) * (1.2f + 0.5f * dragon_length(g_dragon.stage))) { g_world.crystal_found = 1; snprintf(g_msg, sizeof g_msg, "SECRET EGG CRYSTAL FOUND! 1 OF 10"); g_msg_t = 6; sfx_play(SFX_UNLOCK, 0.8f, 0); platform_rumble(0.8f, 0.5f); save_progress(); } }
     g_save_t += dt; if (g_save_t > 20) { g_save_t = 0; save_progress(); }
+    if (!g_rescued && g_dragon.stage >= ST_DRAGON && !g_boss.woke) {   /* point the way to the cage */
+        static float hint_t = 4; hint_t -= dt;
+        if (hint_t <= 0 && g_msg_t <= 0) { hint_t = 25; snprintf(g_msg, sizeof g_msg, "A DRAGONET IS CRYING FOR HELP! FLY TO THE BLUE DOT ON THE GAMEPAD MAP"); g_msg_t = 6; } }
+    if (!g_rescued) { float dx = g_world.cage_x - g_dragon.x, dz = g_world.cage_z - g_dragon.z; static float chirp_t;
+        chirp_t -= dt; if (chirp_t <= 0 && dx * dx + dz * dz < 55 * 55) { chirp_t = 3.5f; float pan = clampf((dx * cosf(g_cam_yaw) - dz * sinf(g_cam_yaw)) / 30.0f, -1, 1); sfx_play(SFX_CHIRP, 0.5f, pan); } }
     if (g_msg_t > 0) g_msg_t -= dt;
     if (g_title_t > 0) g_title_t -= dt;
     camera_update(dt);
