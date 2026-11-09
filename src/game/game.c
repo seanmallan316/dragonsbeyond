@@ -389,7 +389,7 @@ static void tour_input(Pad *p, float t) {
         int near = world_nearest_food(&g_world, d->x, d->z, 400);
         if (near >= 0 && d->stage == ST_DRAGONET) { const Food *f = &g_world.food[near]; float dx = f->x - d->x, dz = f->z - d->z, dist = sqrtf(dx * dx + dz * dz);
             float ang = atan2f(dx, dz) - g_cam_yaw; if (dist > 1.0f) { p->sx = sinf(ang); p->sy = cosf(ang); p->zr = dist > 6; } else if (d->act_t <= 0 && t - last_eat > 0.5f) { p->x = 1; last_eat = t; } }
-        else if (d->stage >= ST_DRAGON && d->evolve_t <= 0 && d->act_t <= 0 && t > 20) { p->a = 1; p->sy = 1; }   /* take off */
+        else if (d->stage >= ST_DRAGON && d->evolve_t <= 0 && d->act_t <= 0) { p->a = fmodf(t, 1.0f) < 0.5f; p->sy = 1; }   /* take off (tap A) */
     } else { p->a = fmodf(t, 6.0f) < 3.5f; p->sy = 0.4f; p->sx = 0.5f * sinf(t * 0.4f); }   /* flap in bursts, circle */
     if (fmodf(t, 30.0f) < 0.05f && t > 25 && d->mode != DM_AIR) p->y = 1;   /* a roar now and then */
 }
