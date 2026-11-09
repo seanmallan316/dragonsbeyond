@@ -29,7 +29,9 @@ static Anim3D g_model[ST_N]; static int g_model_ok[ST_N];
 enum { PM_OAK = 0, PM_PALM, PM_FERN, PM_BUSH, PM_MUSH, PM_IRON, PM_N }; static PropModel g_pm[PM_N]; static SceneLayer g_lay_tree, g_lay_palm, g_lay_fern, g_lay_bush;
 static const char *PM_NAMES[PM_N] = {"oak", "palm", "fern", "berrybush", "mushroom", "ironhorn"};
 /* Ironhorn guards the cage that holds the Sky dragonet; once freed, she follows the player everywhere */
-static Boss g_boss; static int g_rescued; static Anim3D g_sky; static int g_sky_ok;
+static Boss g_boss; static int g_rescued; static Anim3D g_skym[ST_N]; static int g_skym_ok[ST_N];   /* the sky dragon's three stages (grown ones optional) */
+static Anim3D *sky_model(int st) { while (st > 0 && !g_skym_ok[st]) st--; return g_skym_ok[st] ? &g_skym[st] : NULL; }
+static float sky_scale(int st) { while (st > 0 && !g_skym_ok[st]) st--; return st == ST_DRAGONET ? dragon_scale(ST_DRAGONET) * 0.85f : dragon_scale(st); }
 static struct { int on, mode, anim; float x, y, z, yaw, speed, anim_t; } g_friend;
 static const char *SKY_NAMES[2] = {"SCARLET", "WINDSLY"};
 /* Dragon Swap: g_kind is who the player is (0 the forest dragon, 1 the sky dragonet); g_other holds the other one's progress */
@@ -254,7 +256,7 @@ int game_init(int gfx_status) {
     batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(2000); m_dynhud = gfx_mesh_dynamic(36000);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
-    g_sky_ok = anim3d_load(&g_sky, "sky_dragonet");
+    { static const char *sn[ST_N] = {"sky_dragonet", "sky_dragon", "sky_beyonder"}; for (int k = 0; k < ST_N; k++) g_skym_ok[k] = anim3d_load(&g_skym[k], sn[k]); }
     gfx_log("Dragons Beyond ready: %d props, %d food, models %d %d %d", g_world.nprop, g_world.nfood, g_model_ok[0], g_model_ok[1], g_model_ok[2]);
     snprintf(g_msg, sizeof g_msg, "WALK TO THE BERRIES. PRESS X TO EAT"); g_msg_t = 8;
     return 1; }
@@ -267,13 +269,13 @@ void game_set_save_path(const char *path) { snprintf(g_save_path, sizeof g_save_
 static void save_progress(void) {
     if (!g_save_path[0]) return; FILE *f = fopen(g_save_path, "w"); if (!f) return;
     { const Dragon *fo = g_kind ? &g_other : &g_dragon, *sk = g_kind ? &g_dragon : &g_other;   /* always saved as forest, then sky */
-      fprintf(f, "DB1 %d %d %.1f %.2f %.2f %.3f %.1f %d %d %d %.1f %.1f\n", g_name, fo->stage, fo->growth, g_dragon.x, g_dragon.z, g_dragon.yaw, fo->hearts, g_world.crystal_found, g_rescued, g_kind, sk->growth, sk->hearts); } fclose(f); }
+      fprintf(f, "DB1 %d %d %.1f %.2f %.2f %.3f %.1f %d %d %d %.1f %.1f %d\n", g_name, fo->stage, fo->growth, g_dragon.x, g_dragon.z, g_dragon.yaw, fo->hearts, g_world.crystal_found, g_rescued, g_kind, sk->growth, sk->hearts, sk->stage); } fclose(f); }
 static int load_progress(void) {
     if (!g_save_path[0]) return 0; FILE *f = fopen(g_save_path, "r"); if (!f) return 0;
-    int name, stage, cr = 0, resc = 0, kind = 0; float growth, x, z, yaw, hearts, sgrowth = 0, shearts = 3; int n = fscanf(f, "DB1 %d %d %f %f %f %f %f %d %d %d %f %f", &name, &stage, &growth, &x, &z, &yaw, &hearts, &cr, &resc, &kind, &sgrowth, &shearts); fclose(f);
+    int name, stage, cr = 0, resc = 0, kind = 0; float growth, x, z, yaw, hearts, sgrowth = 0, shearts = 3; int sstage = 0; int n = fscanf(f, "DB1 %d %d %f %f %f %f %f %d %d %d %f %f %d", &name, &stage, &growth, &x, &z, &yaw, &hearts, &cr, &resc, &kind, &sgrowth, &shearts, &sstage); fclose(f);
     if (n < 7 || stage < 0 || stage >= ST_N) return 0; g_world.crystal_found = cr;
     if (resc) { g_rescued = 1; g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_friend.on = 1; g_friend.x = x - 3; g_friend.z = z - 3; g_friend.y = world_height(&g_world, g_friend.x, g_friend.z);
-        dragon_init(&g_other, &g_world, g_friend.x, g_friend.z); g_other.growth = clampf(sgrowth, 0, dragon_need(0) - 1); g_other.hearts = clampf(shearts, 1, 3); }
+        dragon_init(&g_other, &g_world, g_friend.x, g_friend.z); g_other.stage = sstage >= 0 && sstage < ST_N ? sstage : 0; g_other.max_hearts = 3 + 2 * g_other.stage; g_other.growth = clampf(sgrowth, 0, dragon_need(g_other.stage) - 1); g_other.hearts = clampf(shearts, 1, g_other.max_hearts); }
     g_name = name & 1; g_dragon.stage = stage; g_dragon.growth = growth; g_dragon.x = clampf(x, -100, 100); g_dragon.z = clampf(z, -100, 100); g_dragon.yaw = yaw;
     g_dragon.max_hearts = 3 + 2 * stage; g_dragon.hearts = clampf(hearts, 1, g_dragon.max_hearts); g_dragon.y = world_height(&g_world, g_dragon.x, g_dragon.z);
     if (resc && (kind & 1)) { Dragon fo = g_dragon; g_dragon = g_other; g_dragon.x = fo.x; g_dragon.z = fo.z; g_dragon.y = fo.y; g_dragon.yaw = fo.yaw; g_other = fo; g_kind = 1; }
@@ -404,7 +406,7 @@ static void draw_dragon(const Dragon *d) {
     if (d->evolve_t > 0) {   /* grows from the old size to the new in the first second, with a glow */
         float t = clampf(1 - d->evolve_t / 2.0f, 0, 1); float from = dragon_scale(st - 1 >= 0 ? st - 1 : 0); sc = from + (sc - from) * clampf(t * 1.6f, 0, 1); }
     Anim3D *m = &g_model[st]; if (!m->ok) m = g_model_ok[0] ? &g_model[0] : NULL;
-    if (g_kind == 1) { m = g_sky_ok ? &g_sky : NULL; sc = dragon_scale(ST_DRAGONET) * 0.85f; }
+    if (g_kind == 1) { m = sky_model(st); sc = sky_scale(st); if (d->evolve_t > 0) { float t = clampf(1 - d->evolve_t / 2.0f, 0, 1); float from = sky_scale(st > 0 ? st - 1 : 0); sc = from + (sc - from) * clampf(t * 1.6f, 0, 1); } }
     if (!m) return;
     Mat4 base = dragon_matrix(d, sc); int clip = anim3d_clip(m, dragon_anim_name(d->anim)); if (clip < 0) clip = 0;
     gfx_state(ST_SOLID);
@@ -434,19 +436,18 @@ static void draw_ironhorn(Vec3 eye) {
     else if (b->state == B_DOWN) { float k = fminf(1, b->t / 0.8f); roll = 1.35f * k; y -= 0.6f * k; }
     Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(b->x, y, b->z), m4_rotate_y(yaw)), m4_rotate_x(pitch)), m4_rotate_z(roll));
     gfx_state(ST_SOLID); gfx_bind(m->tex); gfx_draw(m->mesh[lod], &mm, 1, 1, 1, 1); gfx_bind(NULL); }
-static void draw_sky_dragon(float x, float y, float z, float yaw, int anim, float anim_t, float scale, int air) {
-    if (!g_sky_ok) return; int clip = anim3d_clip(&g_sky, dragon_anim_name(anim)); if (clip < 0) clip = 0;
+static void draw_sky_dragon(int st, float x, float y, float z, float yaw, int anim, float anim_t, int air) {
+    Anim3D *m = sky_model(st); if (!m) return; float scale = sky_scale(st); int clip = anim3d_clip(m, dragon_anim_name(anim)); if (clip < 0) clip = 0;
     Mat4 mm = m4_mul(m4_mul(m4_translate(x, y, z), m4_rotate_y(yaw)), m4_scale(scale, scale, scale));
     anim3d_set_bend(0, air ? 0.35f : 0, air ? 0.4f : 0, g_time * 5.5f + 1.3f);
-    gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(&g_sky, clip, anim_t, &mm, 1.1f, 1.1f, 1.1f, 1); gfx_bump(0); gfx_bind(NULL); }
+    gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(m, clip, anim_t, &mm, 1.1f, 1.1f, 1.1f, 1); gfx_bump(0); gfx_bind(NULL); }
 static void draw_arena(Vec3 eye) {
     draw_ironhorn(eye);
-    float sc = dragon_scale(ST_DRAGONET) * 0.85f;
     if (!g_rescued) { float open = g_boss.cage_open, ground = g_world.arena_y + 0.1f; float cy = g_world.cage_y - open * (g_world.cage_y - ground);
         float dx = g_world.cage_x - eye.x, dz = g_world.cage_z - eye.z;
-        if (dx * dx + dz * dz < 140 * 140) draw_sky_dragon(g_world.cage_x, cy + 0.08f, g_world.cage_z, atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z) + 0.4f * sinf(g_time * 0.7f), DA_IDLE, g_time, sc, 0); }
+        if (dx * dx + dz * dz < 140 * 140) draw_sky_dragon(ST_DRAGONET, g_world.cage_x, cy + 0.08f, g_world.cage_z, atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z) + 0.4f * sinf(g_time * 0.7f), DA_IDLE, g_time, 0); }
     if (g_friend.on) {
-        if (g_kind == 0) draw_sky_dragon(g_friend.x, g_friend.y, g_friend.z, g_friend.yaw, g_friend.anim, g_friend.anim_t, sc, g_friend.mode);
+        if (g_kind == 0) draw_sky_dragon(g_other.stage, g_friend.x, g_friend.y, g_friend.z, g_friend.yaw, g_friend.anim, g_friend.anim_t, g_friend.mode);
         else {   /* the forest dragon follows while the player is the sky dragonet */
             int st = g_other.stage; Anim3D *m = g_model_ok[st] ? &g_model[st] : (g_model_ok[0] ? &g_model[0] : NULL);
             if (m) { int clip = anim3d_clip(m, dragon_anim_name(g_friend.anim)); if (clip < 0) clip = 0; float fs = dragon_scale(st);
@@ -762,7 +763,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt);
     if (g_kind == 1) {
         if (g_dragon.mode == DM_AIR && in.a && g_dragon.vy < 0) g_dragon.vy += 6.0f * dt;   /* a sky dragon rides the air: much longer glides */
-        if (g_dragon.stage > ST_DRAGONET) { g_dragon.stage = ST_DRAGONET; g_dragon.growth = dragon_need(0) - 1; g_dragon.evolve_t = 0; g_dragon.max_hearts = 3; g_dragon.hearts = fminf(g_dragon.hearts, 3); ev &= ~2;
+        if (g_dragon.stage > ST_DRAGONET && !g_skym_ok[g_dragon.stage]) { g_dragon.stage--; g_dragon.growth = dragon_need(g_dragon.stage) - 1; g_dragon.evolve_t = 0; g_dragon.max_hearts = 3 + 2 * g_dragon.stage; g_dragon.hearts = fminf(g_dragon.hearts, g_dragon.max_hearts); ev &= ~2;
             static int told; if (!told) { told = 1; snprintf(g_msg, sizeof g_msg, "%s IS READY TO GROW! HER GROWN-UP LOOK COMES IN A LATER UPDATE", active_name()); g_msg_t = 6; } } }
     { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
       float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4));
