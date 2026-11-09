@@ -27,6 +27,12 @@ class Clip:
     def key(self, f, rots, locs=None):
         for b in pb: b.rotation_euler = (0, 0, 0); b.location = (0, 0, 0)
         for name, (x, y, z) in rots.items():
+            if name.endswith('@body'):   # x = turn about the body's left-right axis: + swings the foot back toward the tail
+                bn = name[:-5]
+                if bn in pb:
+                    inv = pb[bn].bone.matrix_local.to_3x3().inverted()
+                    pb[bn].rotation_euler = mathutils.Quaternion(inv @ mathutils.Vector((1, 0, 0)), r(x)).to_euler('XYZ')
+                continue
             if name not in pb: continue
             if name.startswith('wing'):   # wings: x = flap about the body's axis (+ = tip up), z = sweep about the vertical, whatever the bone's own axes are
                 inv = pb[name].bone.matrix_local.to_3x3().inverted()
@@ -103,8 +109,10 @@ def fly(t):
     # bird-like stroke: the wing rests ~42 deg up, so -42 = level; +-88 around level brings the tips nearly together
     # over the back on the upstroke and under the belly on the downstroke
     rots = wings_flap(t, 88, -42)
-    tuck = {f'leg{tag}_upper': (35 if tag[0] == 'F' else 40, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')}
-    tuck.update({f'leg{tag}_lower': (-70, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')})
+    # flying pose: front legs folded up under the chest, back legs swept back along the tail
+    tuck = {}
+    for tag in ('FL', 'FR'): tuck[f'leg{tag}_upper@body'] = (88, 0, 0); tuck[f'leg{tag}_lower@body'] = (8, 0, 0); tuck[f'leg{tag}_foot@body'] = (15, 0, 0)
+    for tag in ('BL', 'BR'): tuck[f'leg{tag}_upper@body'] = (72, 0, 0); tuck[f'leg{tag}_lower@body'] = (38, 0, 0); tuck[f'leg{tag}_foot@body'] = (25, 0, 0)
     rots.update(tuck)
     # the body answers every beat: chest rises on the downstroke, a wave runs from the neck back through the tail
     rots.update({'spine1': (-6 + 5 * S(t, 0.6), 0, 0), 'spine2': (-4 + 5 * S(t, 1.2), 0, 0), 'chest': (-4 + 4 * S(t), 0, 0),
