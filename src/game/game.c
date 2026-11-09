@@ -542,7 +542,9 @@ static void draw_hud(int drc) {
             for (int i = 0; i < (int)dd->max_hearts; i++) { float full = clampf(dd->hearts - i, 0, 1); float hx = x + 170 - dd->max_hearts * 19 + i * 38; batch_rect(&g_b, hx, 392, 30, 26, 0.25f, 0.05f, 0.08f, 0.8f); if (full > 0) batch_rect(&g_b, hx + 3, 395, 24 * full, 20, 0.95f, 0.2f, 0.3f, 1); }
             const char *q = k == 0 ? "STRONG TAIL, FLIES WHEN GROWN" : "LIGHT AS AIR: LONG GLIDES"; batch_text(&g_b, q, x + 170 - text_width(q, 16) / 2, 446, 16, 1, 1, 1, 0.75f);
             if (k == g_kind) { const char *you = "PLAYING NOW"; batch_text(&g_b, you, x + 170 - text_width(you, 16) / 2, 476, 16, 0.6f, 1, 0.6f, 1); } }
-        text_c("LEFT / RIGHT: CHOOSE    A: SWAP    B OR +: BACK", 560, 22, 1, 1, 1, 0.9f); }
+        text_c("LEFT / RIGHT: CHOOSE    A: SWAP    X: SHARE FOOD    B OR +: BACK", 560, 22, 1, 1, 1, 0.9f);
+        { char gb[64]; for (int k = 0; k < 2; k++) { const Dragon *dd = k == g_kind ? &g_dragon : &g_other; float x = k == 0 ? 250 : 690; snprintf(gb, sizeof gb, "FOOD %.0f / %.0f", dd->growth, dragon_need(dd->stage)); if (dd->stage < ST_BEYONDER) batch_text(&g_b, gb, x + 170 - text_width(gb, 16) / 2, 420, 16, 0.7f, 1, 0.7f, 0.9f); } }
+        if (g_msg_t > 0) text_c(g_msg, 610, 22, 1, 0.95f, 0.5f, 1); }
     if (!g_b.n) return; gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL); (void)drc; }
 
 
@@ -756,6 +758,15 @@ void game_frame(const Pad *pads, int npads, float dt) {
         if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) { g_swap_sel ^= 1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
         if (in.a_press) { if (g_swap_sel != g_kind) do_swap(); g_swap_open = 0; }
         if (in.b_press) { g_swap_open = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
+        if (in.x_press) {   /* share food: hand 10 growth from the dragon you are playing to the other one */
+            Dragon *o = &g_other; float room = dragon_need(o->stage) - o->growth;
+            if (g_dragon.growth < 10) { snprintf(g_msg, sizeof g_msg, "EAT MORE FIRST: YOU NEED 10 FOOD TO SHARE"); g_msg_t = 3; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
+            else if (o->stage >= ST_BEYONDER || room <= 0) { snprintf(g_msg, sizeof g_msg, "YOUR FRIEND IS FULL!"); g_msg_t = 3; }
+            else { float give = fminf(10, room); g_dragon.growth -= give; o->growth += give; sfx_play(SFX_MUNCH, 0.7f, 0); sfx_play(SFX_CHIRP, 0.5f, 0);
+                if (o->growth >= dragon_need(o->stage) && o->stage < ST_BEYONDER && (g_kind == 1 || g_skym_ok[o->stage + 1])) { o->stage++; o->growth = 0; o->max_hearts += 2; o->hearts = o->max_hearts;
+                    snprintf(g_msg, sizeof g_msg, "SHARED! YOUR FRIEND GREW INTO A %s!", dragon_stage_name(o->stage)); }
+                else snprintf(g_msg, sizeof g_msg, "SHARED FOOD WITH YOUR FRIEND");
+                g_msg_t = 3; save_progress(); } }
         goto paused; }
     if (p->up && !q->up) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
     g_look_x = p->rx;
