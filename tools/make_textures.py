@@ -131,3 +131,26 @@ for _ in range(220):
     leaf = leaf.rotate(a, resample=Image.BICUBIC); im.alpha_composite(leaf, (int(cx - L), int(cy - L)))
 arr = np.asarray(im).astype(float); arr[..., :3] *= (0.8 + 0.4 * noise(N, 3, 9))[..., None]
 save('leaves', arr)
+
+# ---- third pass: photoreal-leaning ground set (grass with blade detail, dirt, rock) for bump shading
+N = 1024
+def blades(seed, n_blades, col_lo, col_hi, length=(14, 40)):
+    im = Image.new('RGB', (N, N), (0, 0, 0)); dr = ImageDraw.Draw(im); r = np.random.default_rng(seed)
+    base = noise(N, 5, seed + 1)
+    arr = (mix(col_lo, col_hi, base)).astype(np.uint8); im = Image.fromarray(arr); dr = ImageDraw.Draw(im)
+    for _ in range(n_blades):
+        x, y = r.random() * N, r.random() * N; L = length[0] + r.random() * (length[1] - length[0]); a = (r.random() - 0.5) * 1.2 - np.pi / 2
+        t = r.random(); c = tuple(int(v) for v in (np.array(col_lo) * (1 - t) + np.array(col_hi) * t) * (0.7 + 0.6 * r.random()))
+        x2, y2 = x + np.cos(a) * L, y + np.sin(a) * L; dr.line((x, y, x2, y2), fill=c, width=int(1 + r.random() * 2))
+        # wrap the ones that cross the edge so the tile is seamless
+        for ox, oy in ((N, 0), (-N, 0), (0, N), (0, -N)): dr.line((x + ox, y + oy, x2 + ox, y2 + oy), fill=c, width=2)
+    return np.asarray(im).astype(float)
+g = blades(31, 26000, (34, 70, 26), (118, 160, 58))
+shade = noise(N, 4, 33); g = g * (0.8 + 0.4 * shade)[..., None]
+save('grass', np.dstack([g, np.full((N, N), 255)]))
+# dirt: packed earth with pebbles and cracks
+d = mix((86, 64, 42), (150, 122, 86), noise(N, 6, 41)); d = mix(d, (60, 44, 30), np.clip((noise(N, 8, 42) - 0.58) * 6, 0, 1)); d = mix(d, (170, 150, 120), np.clip((noise(N, 7, 43) - 0.68) * 8, 0, 1))
+save('dirt', np.dstack([d, np.full((N, N), 255)]))
+# rock: layered grey stone with lichen
+rk = mix((78, 76, 72), (150, 146, 138), noise(N, 6, 51)); rk = mix(rk, (50, 50, 48), np.clip((noise(N, 8, 52) - 0.6) * 6, 0, 1)); rk = mix(rk, (120, 135, 80), np.clip((noise(N, 4, 53) - 0.62) * 5, 0, 1) * 0.5)
+save('rock', np.dstack([rk, np.full((N, N), 255)]))

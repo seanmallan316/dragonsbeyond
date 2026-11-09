@@ -40,7 +40,7 @@ $(TARGET).wuhb: $(TARGET).rpx content/hello.txt content/icon.png assets/splash_t
 TESTFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-misleading-indentation -fsanitize=address,undefined -DKK_CONTENT_DIR='"content/"' -Isrc
 test:
 	gcc $(TESTFLAGS) tests/dragon_test.c src/game/world.c src/game/dragon.c -lm -o dragon_test && ./dragon_test
-	gcc $(TESTFLAGS) tests/game_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o game_test && ASAN_OPTIONS=detect_leaks=0 ./game_test
+	gcc $(TESTFLAGS) tests/game_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/game/props.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o game_test && ASAN_OPTIONS=detect_leaks=0 ./game_test
 
 clean:
 	rm -f $(TARGET).elf $(TARGET).rpx $(TARGET).wuhb $(TARGET)-tour.elf $(TARGET)-tour.rpx dragon_test game_test

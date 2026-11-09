@@ -3,6 +3,7 @@
 #include "world.h"
 #include "dragon.h"
 #include "anim3d.h"
+#include "props.h"
 #include "../render/gfx.h"
 #include "../render/batch.h"
 #include "../render/assets.h"
@@ -17,6 +18,8 @@ static int g_gfx_status;
 static World g_world;
 static Dragon g_dragon;
 static Anim3D g_model[ST_N]; static int g_model_ok[ST_N];
+enum { PM_OAK = 0, PM_PALM, PM_FERN, PM_BUSH, PM_MUSH, PM_N }; static PropModel g_pm[PM_N]; static SceneLayer g_lay_tree, g_lay_palm, g_lay_fern;
+static const char *PM_NAMES[PM_N] = {"oak", "palm", "fern", "berrybush", "mushroom"};
 static float g_time, g_cam_yaw; static int g_cam_mode;   /* 0 rider, 1 overhead, 2 dragon's eyes */
 static Vec3 g_eye, g_at; static float g_look_x, g_look_hold;
 static Pad g_prev[KK_PADS];
@@ -28,7 +31,7 @@ static const char *NAMES[2] = {"FLO-RIDA", "LEAF BLOWER"};
 
 /* textures and meshes */
 static Texture *tx_grass, *tx_dirt, *tx_bark, *tx_leaves, *tx_fern, *tx_bush, *tx_rock, *tx_water, *tx_spark, *tx_font, *tx_tuft, *tx_flower, *tx_cloud;
-static Mesh *m_ground, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains;
+static Mesh *m_ground, *m_ground_dirt, *m_ground_rock, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains;
 static Mesh *m_dynfood, *m_dynspark, *m_dynhud;   /* refilled per view (each at most twice a frame) */
 #define DYN_CAP 48000
 static Vertex g_dynv[DYN_CAP]; static Batch g_b;
@@ -43,23 +46,35 @@ static void tv_push(Vec3 p, Vec3 n, float u, float v, float r, float g, float b,
 static void tv_tri(Vec3 a, Vec3 b, Vec3 c, Vec3 na, Vec3 nb, Vec3 nc, float ua, float va, float ub, float vb, float uc, float vc, float r, float g, float bl) { tv_push(a, na, ua, va, r, g, bl, 1); tv_push(b, nb, ub, vb, r, g, bl, 1); tv_push(c, nc, uc, vc, r, g, bl, 1); }
 static Mesh *tv_mesh(void) { return tmpn ? gfx_mesh_static(tmpv, tmpn) : NULL; }
 
+static float hashf2(int x, int y, unsigned sd) { unsigned h = (unsigned)x * 374761393u + (unsigned)y * 668265263u + sd * 982451653u; h = (h ^ (h >> 13)) * 1274126177u; return (float)((h ^ (h >> 16)) & 0xFFFF) / 65535.0f; }
+static float vnoise2(float x, float y, unsigned sd) { int xi = (int)floorf(x), yi = (int)floorf(y); float fx = x - xi, fy = y - yi; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+    float a = hashf2(xi, yi, sd), b = hashf2(xi + 1, yi, sd), c = hashf2(xi, yi + 1, sd), d = hashf2(xi + 1, yi + 1, sd); return (a + (b - a) * fx) + ((c + (d - c) * fx) - (a + (b - a) * fx)) * fy; }
+/* how much dirt and bare rock show at a point: dirt in patches and along the meadow's worn ring, rock on steep ground */
+static void ground_layers(float x, float z, float ny, float *dirt, float *rock) {
+    float n = vnoise2(x * 0.045f + 11, z * 0.045f + 3, 77) * 0.6f + vnoise2(x * 0.15f, z * 0.15f, 78) * 0.4f;
+    float d = clampf((n - 0.56f) * 5.0f, 0, 1); float ring = fabsf(sqrtf(x * x + z * z) - 9.0f); d = fmaxf(d, clampf(1 - ring / 2.2f, 0, 1) * 0.8f * clampf((vnoise2(x * 0.3f, z * 0.3f, 79) - 0.2f) * 2, 0, 1));
+    float r = clampf((0.78f - ny) * 5.0f, 0, 1); *dirt = d * (1 - r); *rock = r; }
 static void build_ground(void) {
     tv_begin((W_GRID - 1) * (W_GRID - 1) * 6);
-    for (int j = 0; j < W_GRID - 1; j++) for (int i = 0; i < W_GRID - 1; i++) {
-        Vec3 p[4]; Vec3 n[4]; float c[4][3];
-        for (int k = 0; k < 4; k++) { int ii = i + (k & 1), jj = j + (k >> 1); float x = -W_SIZE / 2 + W_SIZE * ii / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * jj / (W_GRID - 1);
-            p[k] = v3(x, g_world.h[jj][ii], z); n[k] = world_normal(&g_world, x, z);
-            float slope = 1 - n[k].y; float hgt = clampf((p[k].y + 4) / 30.0f, 0, 1);
-            /* vertex colours: lush green low, drier yellow-green up the hills, grey on steep rock */
-            float r = 0.62f + 0.3f * hgt, g = 0.84f - 0.1f * hgt, b = 0.55f + 0.2f * hgt;
-            float rk = clampf((slope - 0.35f) * 4, 0, 1); r = r * (1 - rk) + 0.75f * rk; g = g * (1 - rk) + 0.72f * rk; b = b * (1 - rk) + 0.7f * rk;
-            if (world_in_pond(&g_world, x, z)) { r *= 0.8f; g *= 0.85f; b *= 0.8f; }
-            c[k][0] = r; c[k][1] = g; c[k][2] = b; }
-        float s = 1.25f; float u0 = i * s, v0 = j * s, u1 = u0 + s, v1 = v0 + s;
-        /* each corner keeps its own colour, so the shading is smooth across the ground */
-        tv_push(p[0], n[0], u0, v0, c[0][0], c[0][1], c[0][2], 1); tv_push(p[2], n[2], u0, v1, c[2][0], c[2][1], c[2][2], 1); tv_push(p[1], n[1], u1, v0, c[1][0], c[1][1], c[1][2], 1);
-        tv_push(p[1], n[1], u1, v0, c[1][0], c[1][1], c[1][2], 1); tv_push(p[2], n[2], u0, v1, c[2][0], c[2][1], c[2][2], 1); tv_push(p[3], n[3], u1, v1, c[3][0], c[3][1], c[3][2], 1); }
-    m_ground = tv_mesh();
+    static float dirtw[W_GRID][W_GRID], rockw[W_GRID][W_GRID];
+    for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) { float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1); Vec3 n = world_normal(&g_world, x, z); ground_layers(x, z, n.y, &dirtw[j][i], &rockw[j][i]); }
+    for (int layer = 0; layer < 3; layer++) {
+        tv_begin((W_GRID - 1) * (W_GRID - 1) * 6);
+        for (int j = 0; j < W_GRID - 1; j++) for (int i = 0; i < W_GRID - 1; i++) {
+            Vec3 p[4]; Vec3 n[4]; float c[4][4]; float wsum = 0;
+            for (int k = 0; k < 4; k++) { int ii = i + (k & 1), jj = j + (k >> 1); float x = -W_SIZE / 2 + W_SIZE * ii / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * jj / (W_GRID - 1);
+                p[k] = v3(x, g_world.h[jj][ii] + (layer ? 0.03f * layer : 0), z); n[k] = world_normal(&g_world, x, z);
+                float hgt = clampf((p[k].y + 4) / 30.0f, 0, 1); float shade = 0.9f + 0.2f * vnoise2(x * 0.08f, z * 0.08f, 5);
+                float r = (0.7f + 0.2f * hgt) * shade, g = (0.9f - 0.05f * hgt) * shade, b = (0.62f + 0.15f * hgt) * shade;
+                if (layer == 1) { r = g = b = 1.0f * shade; } if (layer == 2) { r = g = b = 1.0f; }
+                float a = layer == 0 ? 1 : (layer == 1 ? dirtw[jj][ii] : rockw[jj][ii]); wsum += a;
+                c[k][0] = r; c[k][1] = g; c[k][2] = b; c[k][3] = a; }
+            if (layer && wsum < 0.02f) continue;
+            float s = layer == 2 ? 0.9f : 1.6f; float u0 = i * s, v0 = j * s, u1 = u0 + s, v1 = v0 + s;
+            tv_push(p[0], n[0], u0, v0, c[0][0], c[0][1], c[0][2], c[0][3]); tv_push(p[2], n[2], u0, v1, c[2][0], c[2][1], c[2][2], c[2][3]); tv_push(p[1], n[1], u1, v0, c[1][0], c[1][1], c[1][2], c[1][3]);
+            tv_push(p[1], n[1], u1, v0, c[1][0], c[1][1], c[1][2], c[1][3]); tv_push(p[2], n[2], u0, v1, c[2][0], c[2][1], c[2][2], c[2][3]); tv_push(p[3], n[3], u1, v1, c[3][0], c[3][1], c[3][2], c[3][3]); }
+        if (layer == 0) m_ground = tv_mesh(); else if (layer == 1) m_ground_dirt = tv_mesh(); else m_ground_rock = tv_mesh(); }
+
     /* the pond: a disc at water level */
     tv_begin(64 * 3); Vec3 cc = v3(g_world.pond_x, g_world.pond_y, g_world.pond_z); float R = g_world.pond_r * 1.25f;
     for (int i = 0; i < 64; i++) { float a0 = i * 6.2831853f / 64, a1 = (i + 1) * 6.2831853f / 64;
@@ -101,26 +116,26 @@ static void build_props(void) {
     /* trunks (bark) */
     tv_begin(W_MAXPROPS * 8 * 6 * 2);
     for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float y = world_height(&g_world, p->x, p->z); Vec3 b = v3(p->x, y - 0.5f, p->z);
-        if (p->kind == P_TREE) { float h = 7.5f * p->scale; tv_cone(b, v3(p->x + sinf(p->yaw) * 0.6f, y + h * 0.75f, p->z + cosf(p->yaw) * 0.6f), 0.55f * p->scale, 0.25f * p->scale, 8, 2, 0);
+        if (p->kind == P_TREE && !g_pm[PM_OAK].ok) { float h = 7.5f * p->scale; tv_cone(b, v3(p->x + sinf(p->yaw) * 0.6f, y + h * 0.75f, p->z + cosf(p->yaw) * 0.6f), 0.55f * p->scale, 0.25f * p->scale, 8, 2, 0);
             for (int k = 0; k < 3; k++) { float a = p->yaw + k * 2.1f; Vec3 t = v3(p->x + sinf(a) * 2.2f * p->scale, y + h * (0.75f + 0.2f), p->z + cosf(a) * 2.2f * p->scale); tv_cone(v3(p->x + sinf(p->yaw) * 0.6f, y + h * 0.7f, p->z + cosf(p->yaw) * 0.6f), t, 0.22f * p->scale, 0.08f * p->scale, 6, 1, 0.1f); } }
-        else if (p->kind == P_PALM) { float h = 9.0f * p->scale; tv_cone(b, v3(p->x + sinf(p->yaw) * 1.5f, y + h, p->z + cosf(p->yaw) * 1.5f), 0.4f * p->scale, 0.25f * p->scale, 7, 2, 0.15f); } }
+        else if (p->kind == P_PALM && !g_pm[PM_PALM].ok) { float h = 9.0f * p->scale; tv_cone(b, v3(p->x + sinf(p->yaw) * 1.5f, y + h, p->z + cosf(p->yaw) * 1.5f), 0.4f * p->scale, 0.25f * p->scale, 7, 2, 0.15f); } }
     m_bark = tv_mesh();
     /* canopies: lumpy leaf balls plus fluff, and the palm crowns */
     tv_begin(W_MAXPROPS * 260 * 3 + W_MAXFOOD * 140 * 3);
     for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float y = world_height(&g_world, p->x, p->z);
-        if (p->kind == P_TREE) { float h = 7.5f * p->scale; Vec3 c = v3(p->x + sinf(p->yaw) * 0.6f, y + h * 0.95f, p->z + cosf(p->yaw) * 0.6f);
+        if (p->kind == P_TREE && !g_pm[PM_OAK].ok) { float h = 7.5f * p->scale; Vec3 c = v3(p->x + sinf(p->yaw) * 0.6f, y + h * 0.95f, p->z + cosf(p->yaw) * 0.6f);
             float tint = 0.85f + frand01(&s) * 0.3f; tv_ball(c, 3.9f * p->scale, 2.9f * p->scale, 3.9f * p->scale, i * 31 + 5, 0.18f, 1.6f, tint, tint, tint * 0.92f, 0.25f);
             for (int k = 0; k < 3; k++) { float a = p->yaw + k * 2.1f; Vec3 t = v3(p->x + sinf(a) * 2.2f * p->scale, y + h * 0.95f + 0.4f, p->z + cosf(a) * 2.2f * p->scale); tv_ball(t, 2.2f * p->scale, 1.7f * p->scale, 2.2f * p->scale, i * 31 + k, 0.2f, 1.1f, tint, tint, tint * 0.92f, 0.3f); } }
     }
     /* the berry bushes: round leafy balls (the berries themselves are drawn live, so they can be eaten) */
-    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (f->kind != F_BERRY) continue; tv_ball(v3(f->x, f->y + 0.35f, f->z), 0.6f, 0.45f, 0.6f, i * 13 + 1, 0.2f, 1.0f, 0.95f, 1.0f, 0.9f, 0.15f); }
+    for (int i = 0; i < g_world.nfood && !g_pm[PM_BUSH].ok; i++) { const Food *f = &g_world.food[i]; if (f->kind != F_BERRY) continue; tv_ball(v3(f->x, f->y + 0.35f, f->z), 0.6f, 0.45f, 0.6f, i * 13 + 1, 0.2f, 1.0f, 0.95f, 1.0f, 0.9f, 0.15f); }
     m_leaves = tv_mesh();
     /* ferns (splayed fronds) and the palm crowns share the frond texture */
     tv_begin(W_MAXPROPS * 60 + 64);
     for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float y = world_height(&g_world, p->x, p->z);
-        if (p->kind == P_FERN) { for (int k = 0; k < 7; k++) { float a = p->yaw + k * 0.9f; float len = 1.6f * p->scale; Vec3 b = v3(p->x, y - 0.05f, p->z); Vec3 tip = v3(p->x + sinf(a) * len, y + 0.9f * p->scale, p->z + cosf(a) * len); Vec3 ax = v3(cosf(a) * 0.45f * p->scale, 0, -sinf(a) * 0.45f * p->scale); Vec3 n = v3(0, 1.0f, 0), ns = v3(0, 1.3f, 0);
+        if (p->kind == P_FERN && !g_pm[PM_FERN].ok) { for (int k = 0; k < 7; k++) { float a = p->yaw + k * 0.9f; float len = 1.6f * p->scale; Vec3 b = v3(p->x, y - 0.05f, p->z); Vec3 tip = v3(p->x + sinf(a) * len, y + 0.9f * p->scale, p->z + cosf(a) * len); Vec3 ax = v3(cosf(a) * 0.45f * p->scale, 0, -sinf(a) * 0.45f * p->scale); Vec3 n = v3(0, 1.0f, 0), ns = v3(0, 1.3f, 0);
             tv_tri(v3(b.x - ax.x, b.y, b.z - ax.z), v3(b.x + ax.x, b.y, b.z + ax.z), tip, n, n, ns, 0, 1, 1, 1, 0.5f, 0, 1, 1, 1); tv_tri(v3(b.x + ax.x, b.y, b.z + ax.z), v3(b.x - ax.x, b.y, b.z - ax.z), tip, n, n, ns, 1, 1, 0, 1, 0.5f, 0, 1, 1, 1); } }
-        if (p->kind == P_PALM) { float h = 9.0f * p->scale; Vec3 top = v3(p->x + sinf(p->yaw) * 1.5f, y + h, p->z + cosf(p->yaw) * 1.5f);
+        if (p->kind == P_PALM && !g_pm[PM_PALM].ok) { float h = 9.0f * p->scale; Vec3 top = v3(p->x + sinf(p->yaw) * 1.5f, y + h, p->z + cosf(p->yaw) * 1.5f);
             for (int k = 0; k < 7; k++) { float a = p->yaw + k * 0.9f; Vec3 ax = v3(cosf(a) * 1.1f, 0, -sinf(a) * 1.1f); Vec3 tip = v3(top.x + sinf(a) * 4.5f * p->scale, top.y - 1.6f * p->scale, top.z + cosf(a) * 4.5f * p->scale); Vec3 mid = v3(top.x + sinf(a) * 2.2f * p->scale, top.y + 0.6f * p->scale, top.z + cosf(a) * 2.2f * p->scale);
                 Vec3 n = v3(0, 1.0f, 0), ns = v3(0, 1.5f, 0);
                 tv_tri(v3(top.x - ax.x, top.y, top.z - ax.z), v3(top.x + ax.x, top.y, top.z + ax.z), mid, n, n, n, 0, 1, 1, 1, 0.5f, 0.5f, 0.9f, 1, 0.8f);
@@ -186,7 +201,9 @@ int game_init(int gfx_status) {
     tx_rock = asset_texture("rock", 1, NULL, NULL); tx_water = asset_texture("water", 1, NULL, NULL); tx_spark = asset_texture("sparkle", 0, NULL, NULL);
     tx_tuft = asset_texture("grasstuft", 0, NULL, NULL); tx_flower = asset_texture("flowers", 0, NULL, NULL); tx_cloud = asset_texture("cloud", 0, NULL, NULL);
     tx_font = asset_texture("font_hd", 0, NULL, NULL); if (tx_font) g_font_hd = 1;
+    for (int i = 0; i < PM_N; i++) propmodel_load(&g_pm[i], PM_NAMES[i]);
     build_ground(); build_props();
+    scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 9.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 10.0f, 0.2f); scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.3f, 0.05f);
     batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(2000); m_dynhud = gfx_mesh_dynamic(36000);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
@@ -238,13 +255,13 @@ static void camera_update(float dt) {
         float dx = want.x - p->x, dz = want.z - p->z, d2 = dx * dx + dz * dz; if (d2 > 36) continue;
         float py = world_height(&g_world, p->x, p->z); float h = (p->kind == P_TREE ? 7.5f : 9.0f) * p->scale;
         float trunk_r = 1.0f; if (d2 < trunk_r * trunk_r && want.y < py + h) { float dd = sqrtf(d2) + 1e-4f; want.x = p->x + dx / dd * trunk_r; want.z = p->z + dz / dd * trunk_r; }
-        if (p->kind == P_TREE) { Vec3 c = v3(p->x + sinf(p->yaw) * 0.6f, py + h * 0.95f, p->z + cosf(p->yaw) * 0.6f); float R = 4.3f * p->scale; Vec3 off = v3_sub(want, c); float od = sqrtf(v3_dot(off, off));
+        if (p->kind == P_TREE) { Vec3 c = v3(p->x + (g_pm[PM_OAK].ok ? 0 : sinf(p->yaw) * 0.6f), py + h * (g_pm[PM_OAK].ok ? 0.8f : 0.95f), p->z + (g_pm[PM_OAK].ok ? 0 : cosf(p->yaw) * 0.6f)); float R = (g_pm[PM_OAK].ok ? 3.6f : 4.3f) * p->scale; Vec3 off = v3_sub(want, c); float od = sqrtf(v3_dot(off, off));
             if (od < R) { float push = R - od; if (off.y < -R * 0.3f || od < 0.01f) want.y = c.y - R; else { want.x += off.x / od * push; want.y += off.y / od * push; want.z += off.z / od * push; } } } }
     if (g_cam_mode == 2) { g_eye = want; g_at = at; }
     else { float kk = 1 - expf(-dt * 6); g_eye = v3(g_eye.x + (want.x - g_eye.x) * kk, g_eye.y + (want.y - g_eye.y) * kk, g_eye.z + (want.z - g_eye.z) * kk); g_at = v3(g_at.x + (at.x - g_at.x) * kk, g_at.y + (at.y - g_at.y) * kk, g_at.z + (at.z - g_at.z) * kk); } }
 
 /* ---------- drawing ---------- */
-static Vec3 sun_dir(void) { return v3_norm(v3(0.45f, 0.8f, 0.35f)); }
+static Vec3 sun_dir(void) { return v3_norm(v3(0.55f, 0.62f, 0.4f)); }   /* late-afternoon sun: long shadows, shapes read as solid */
 /* small solid shapes for the food, lit by their normals, flat-coloured (they use the white block in the font texture) */
 static void bq_push(Vec3 p, Vec3 n, float r, float g, float b) { if (g_b.n < g_b.cap) { Vertex q = {p.x, p.y, p.z, n.x, n.y, n.z, WHITE_U, WHITE_V, r, g, b, 1}; g_b.v[g_b.n++] = q; } }
 static void batch_ball(Vec3 c, float rx, float ry, float rz, int la, int lo, float r, float g, float b, float ybias) {
@@ -261,12 +278,17 @@ static void batch_cyl(Vec3 base, Vec3 top, float r0, float r1, int seg, float r,
         bq_push(b0, n0, r, g, b); bq_push(t0, n0, r, g, b); bq_push(b1, n1, r, g, b); bq_push(b1, n1, r, g, b); bq_push(t0, n0, r, g, b); bq_push(t1, n1, r, g, b); } }
 static void draw_food3d(Vec3 eye) {
     batch_clear(&g_b);
+    /* real models: bushes (duller when the berries are eaten) and mushrooms, one draw each */
+    gfx_state(ST_SOLID);
+    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; float dx = f->x - eye.x, dz = f->z - eye.z; float d2 = dx * dx + dz * dz; if (d2 > 130 * 130) continue; int lod = d2 > 40 * 40;
+        if (f->kind == F_BERRY && g_pm[PM_BUSH].ok) { float t = f->alive ? 1.0f : 0.72f; propmodel_draw(&g_pm[PM_BUSH], lod, f->x, f->y - 0.05f, f->z, f->yaw, 1.1f / fmaxf(g_pm[PM_BUSH].radius, 0.1f) * 0.9f, t, t * 1.05f, t); }
+        if (f->kind == F_MUSHROOM && g_pm[PM_MUSH].ok && f->alive) propmodel_draw(&g_pm[PM_MUSH], lod, f->x, f->y - 0.02f, f->z, f->yaw, 0.5f + 0.03f * sinf(f->phase), 1, 1, 1); }
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue;
         float dx = f->x - eye.x, dz = f->z - eye.z; float d2 = dx * dx + dz * dz; if (d2 > 120 * 120) continue; int lod = d2 > 35 * 35;
-        if (f->kind == F_BERRY) {   /* red berries sitting on the (static) bush */
+        if (f->kind == F_BERRY && !g_pm[PM_BUSH].ok) {   /* red berries sitting on the (static) bush */
             unsigned s = (unsigned)i * 97 + 13; for (int k = 0; k < 6; k++) { float a = frand01(&s) * 6.28f, el = 0.3f + frand01(&s) * 1.1f, rr = 0.55f; Vec3 c = v3(f->x + cosf(el) * sinf(a) * rr, f->y + 0.4f + sinf(el) * 0.45f, f->z + cosf(el) * cosf(a) * rr);
                 batch_ball(c, 0.1f, 0.1f, 0.1f, lod ? 2 : 3, lod ? 4 : 5, 0.9f, 0.12f, 0.2f, 1); } }
-        else if (f->kind == F_MUSHROOM) { float h = 0.42f + 0.05f * sinf(f->phase); batch_cyl(v3(f->x, f->y - 0.05f, f->z), v3(f->x, f->y + h, f->z), 0.09f, 0.08f, 6, 0.93f, 0.88f, 0.75f);
+        else if (f->kind == F_MUSHROOM && !g_pm[PM_MUSH].ok) { float h = 0.42f + 0.05f * sinf(f->phase); batch_cyl(v3(f->x, f->y - 0.05f, f->z), v3(f->x, f->y + h, f->z), 0.09f, 0.08f, 6, 0.93f, 0.88f, 0.75f);
             batch_ball(v3(f->x, f->y + h, f->z), 0.32f, 0.2f, 0.32f, 3, lod ? 6 : 8, 0.85f, 0.2f, 0.18f, 0.25f);
             if (!lod) { unsigned s = (unsigned)i * 31; for (int k = 0; k < 4; k++) { float a = frand01(&s) * 6.28f, rr = 0.1f + frand01(&s) * 0.15f; batch_ball(v3(f->x + sinf(a) * rr, f->y + h + 0.2f * sqrtf(fmaxf(0, 1 - (rr / 0.32f) * (rr / 0.32f))) , f->z + cosf(a) * rr), 0.045f, 0.03f, 0.045f, 2, 4, 1, 0.98f, 0.9f, 1); } } }
         else if (f->kind == F_GRUB) { Vec3 fw = v3(sinf(f->yaw), 0, cosf(f->yaw)); float wig = sinf(f->phase * 10) * 0.05f; Vec3 rt = v3(fw.z, 0, -fw.x);
@@ -323,17 +345,19 @@ static void draw_scene(int drc) {
     float aspect = gfx_aspect(drc); Vec3 eye = g_eye, at = g_at;
     Mat4 proj = m4_perspective(g_cam_mode == 2 ? 1.25f : 1.05f, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir();
-    gfx_grade(0.8f, 0.45f, 0.6f, 0.95f); gfx_light(v3(1.0f, 0.96f, 0.85f), v3(0.6f, 0.7f, 0.85f), v3(0.38f, 0.42f, 0.25f), eye);
-    gfx_shadow_use(1); gfx_camera(&vp, L, 0.45f, 0.74f, 0.82f, 0.92f, 120, 480); gfx_shadow_use(0);
+    gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye);
+    gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, 0.74f, 0.82f, 0.92f, 120, 480); gfx_shadow_use(0);
     Mat4 id = m4_identity();
     /* sky, around the camera, no depth */
     Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0);
     if (m_mountains) gfx_draw_ex(m_mountains, &id, 1, 1, 1, 1, 0, 1, 0, 0);
     gfx_clear_depth(drc);
     gfx_state(ST_SOLID);
-    gfx_bind(tx_grass); gfx_bump(2); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_bump(0);
+    gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1);
+    gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_bump(3); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_bump(4); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID);
     gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1);
     gfx_bind(tx_rock); if (m_rock) gfx_draw(m_rock, &id, 1, 1, 1, 1);
+    scenelayer_draw(&g_lay_tree, eye, 75); scenelayer_draw(&g_lay_palm, eye, 75); scenelayer_draw(&g_lay_fern, eye, 45);
     gfx_state(ST_CUTOUT);
     gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1);
     gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1);
@@ -356,6 +380,7 @@ static void shadow_pass(void) {
     Mat4 lvp = m4_mul(proj, view), id = m4_identity();
     if (!gfx_shadow_begin(&lvp)) return;
     gfx_state(ST_SOLID); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); if (m_rock) gfx_draw(m_rock, &id, 1, 1, 1, 1);
+    scenelayer_draw(&g_lay_tree, v3(d->x, d->y, d->z), 0); scenelayer_draw(&g_lay_palm, v3(d->x, d->y, d->z), 0);   /* the trees' shadows (low detail is plenty for a shadow) */
     draw_dragon(d);
     gfx_shadow_end(); }
 
@@ -518,9 +543,9 @@ void game_frame(const Pad *pads, int npads, float dt) {
         g_dragon.anim_t += dt; title_camera();
         gfx_frame_begin(); gfx_shadow_none();
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
-            gfx_grade(0.8f, 0.45f, 0.6f, 0.95f); gfx_light(v3(1.0f, 0.96f, 0.85f), v3(0.6f, 0.7f, 0.85f), v3(0.38f, 0.42f, 0.25f), g_eye); gfx_camera(&vp, sun_dir(), 0.45f, 0.74f, 0.82f, 0.92f, 120, 480);
+            gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, 0.74f, 0.82f, 0.92f, 120, 480);
             Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_mountains) gfx_draw_ex(m_mountains, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_clear_depth(0);
-            gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(2); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_bump(0); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1);
+            gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); scenelayer_draw(&g_lay_tree, g_eye, 75); scenelayer_draw(&g_lay_palm, g_eye, 75); scenelayer_draw(&g_lay_fern, g_eye, 45);
             gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
             draw_title_dragons();
             { Mat4 cm = m4_translate(fmodf(g_time * 1.5f, 900.0f) - 450.0f, 0, 0); gfx_state(ST_DEPTH | ST_BLEND); gfx_bind(tx_cloud); if (m_clouds) { gfx_draw_ex(m_clouds, &cm, 1, 1, 1, 0.9f, 0, 1, 0, 0); Mat4 cm2 = m4_translate(cm.m[12] + 900.0f, 0, 0); gfx_draw_ex(m_clouds, &cm2, 1, 1, 1, 0.9f, 0, 1, 0, 0); } }
