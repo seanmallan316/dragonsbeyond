@@ -726,9 +726,15 @@ static void draw_map(void) {
 #define MY(z) (CY - (z) * S)
     batch_clear(&g_b);
     batch_rect(&g_b, 0, 0, 1280, 720, 0.08f, 0.14f, 0.08f, 1);
-    batch_rect(&g_b, MX(-W_SIZE / 2), MY(W_SIZE / 2), W_SIZE * S, W_SIZE * S, 0.3f, 0.55f, 0.25f, 1);
+    if (g_wk == WK_SKY) {   /* the Sky Kingdom: white cloud, green islands */
+        batch_rect(&g_b, MX(-W_SIZE / 2), MY(W_SIZE / 2), W_SIZE * S, W_SIZE * S, 0.86f, 0.9f, 0.96f, 1);
+        float cs = W_SIZE / (W_GRID - 1);
+        for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) { float h = g_world.h[j][i]; if (h < W_CLOUDS + 4) continue; float x = -W_SIZE / 2 + cs * i, z = -W_SIZE / 2 + cs * j; float t = clampf(h / 22.0f, 0, 1);
+            batch_rect(&g_b, MX(x - cs / 2), MY(z + cs / 2), cs * S + 1, cs * S + 1, 0.3f - 0.1f * t, 0.55f - 0.12f * t, 0.25f - 0.05f * t, 1); } }
+    else batch_rect(&g_b, MX(-W_SIZE / 2), MY(W_SIZE / 2), W_SIZE * S, W_SIZE * S, 0.3f, 0.55f, 0.25f, 1);
+    { float ccx, ccz; if (column_at(&ccx, &ccz)) { batch_rect(&g_b, MX(ccx) - 7, MY(ccz) - 7, 14, 14, 0.7f, 0.9f, 1, 1); batch_rect(&g_b, MX(ccx) - 3, MY(ccz) - 20, 6, 40, 0.9f, 1, 1, 0.8f); } }   /* the wind column */
     /* hills: darker where the ground is high */
-    for (int j = 0; j < W_GRID - 1; j += 2) for (int i = 0; i < W_GRID - 1; i += 2) { float h = g_world.h[j][i]; if (h < 6) continue; float t = clampf((h - 6) / 20.0f, 0, 1); float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1); batch_rect(&g_b, MX(x), MY(z) - 2 * S, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 0.3f + 0.3f * t, 0.45f + 0.1f * t, 0.2f + 0.1f * t, 0.9f); }
+    for (int j = 0; j < W_GRID - 1 && g_wk == WK_FOREST; j += 2) for (int i = 0; i < W_GRID - 1; i += 2) { float h = g_world.h[j][i]; if (h < 6) continue; float t = clampf((h - 6) / 20.0f, 0, 1); float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1); batch_rect(&g_b, MX(x), MY(z) - 2 * S, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 0.3f + 0.3f * t, 0.45f + 0.1f * t, 0.2f + 0.1f * t, 0.9f); }
     map_disc(MX(g_world.pond_x), MY(g_world.pond_z), g_world.pond_r * 1.25f * S, 24, 0.25f, 0.55f, 0.85f, 1);
     for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float r = p->kind == P_TREE || p->kind == P_PALM ? 4.5f : 2.5f; float cr = p->kind == P_ROCK ? 0.5f : 0.12f, cg = p->kind == P_ROCK ? 0.5f : 0.35f, cb = p->kind == P_ROCK ? 0.48f : 0.1f; map_disc(MX(p->x), MY(p->z), r, 6, cr, cg, cb, 1); }
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue; float cr = 1, cg = 1, cb = 1;
