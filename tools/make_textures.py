@@ -89,3 +89,45 @@ save('sparkle', np.dstack([np.full((128, 128), 255), np.full((128, 128), 250), n
 # icon 128x128
 ic = Image.open(os.path.join(os.path.dirname(__file__), '..', 'concept', 'forest_dragonet_side.png')).convert('RGB').resize((128, 128), Image.LANCZOS)
 ic.save(os.path.join(OUT, '..', 'icon.png')); print('icon')
+
+# ---- second pass: richer grass, grass tufts, flowers, clouds, calmer leaves
+N = 512
+g1 = noise(N, 7, 21); g2 = noise(N, 4, 22); g3 = noise(N, 8, 23)
+g = mix((46, 92, 34), (96, 142, 52), g1); g = mix(g, (128, 160, 70), np.clip((g3 - 0.58) * 5, 0, 1) * 0.7); g = mix(g, (36, 70, 30), np.clip((0.42 - g2) * 3, 0, 1) * 0.6)
+g = mix(g, (120, 110, 60), np.clip((noise(N, 5, 24) - 0.66) * 6, 0, 1) * 0.5)   # a few dry patches
+save('grass', np.dstack([g, np.full((N, N), 255)]))
+# grass tuft (cutout): a fan of blades from the bottom centre
+im = Image.new('RGBA', (N, N), (0, 0, 0, 0)); dr = ImageDraw.Draw(im); r2 = np.random.default_rng(5)
+for _ in range(70):
+    x0 = N / 2 + (r2.random() - 0.5) * 120; h = 180 + r2.random() * 280; bend = (r2.random() - 0.5) * 260; w = 10 + r2.random() * 14
+    col = (int(60 + r2.random() * 60), int(130 + r2.random() * 90), int(40 + r2.random() * 40), 255)
+    pts = [(x0 - w / 2, N), (x0 + w / 2, N), (x0 + bend * 0.5 + 2, N - h * 0.6), (x0 + bend, N - h), (x0 + bend * 0.5 - 2, N - h * 0.6)]
+    dr.polygon(pts, fill=col)
+save('grasstuft', np.asarray(im).astype(float))
+# flowers (cutout): small clusters of 5-petal flowers in a few colours, on thin stems
+im = Image.new('RGBA', (N, N), (0, 0, 0, 0)); dr = ImageDraw.Draw(im); r2 = np.random.default_rng(6)
+cols = [(255, 230, 80), (255, 120, 150), (250, 250, 250), (170, 130, 255), (255, 150, 60)]
+for _ in range(16):
+    cx = N / 2 + (r2.random() - 0.5) * 300; cy = N * 0.25 + r2.random() * N * 0.35; rad = 18 + r2.random() * 14; col = cols[int(r2.random() * len(cols))]
+    dr.line((cx, N, cx, cy), fill=(70, 120, 50, 255), width=5)
+    for k in range(5):
+        a = k * 2 * np.pi / 5 + r2.random() * 0.3; dr.ellipse((cx + np.cos(a) * rad - rad * 0.6, cy + np.sin(a) * rad - rad * 0.6, cx + np.cos(a) * rad + rad * 0.6, cy + np.sin(a) * rad + rad * 0.6), fill=col + (255,))
+    dr.ellipse((cx - rad * 0.45, cy - rad * 0.45, cx + rad * 0.45, cy + rad * 0.45), fill=(255, 210, 60, 255))
+save('flowers', np.asarray(im).astype(float))
+# cloud (cutout, soft): a puffy cumulus
+yy, xx = np.mgrid[0:N, 0:N]; cl = np.zeros((N, N)); r2 = np.random.default_rng(7)
+for _ in range(14):
+    cx, cy, rr = N * (0.25 + r2.random() * 0.5), N * (0.45 + r2.random() * 0.2), N * (0.1 + r2.random() * 0.12)
+    cl = np.maximum(cl, np.clip(1 - np.sqrt((xx - cx) ** 2 + ((yy - cy) * 1.4) ** 2) / rr, 0, 1))
+cl = np.clip(cl * 1.6 - 0.2, 0, 1); shade = 0.82 + 0.18 * np.clip((N * 0.6 - yy) / (N * 0.3), 0, 1)
+save('cloud', np.dstack([255 * shade, 255 * shade, 255 * np.minimum(1, shade + 0.03), cl * 255]))
+# calmer leaf texture: softer, rounder leaves, less contrast
+im = Image.new('RGBA', (N, N), (0, 0, 0, 0)); r2 = np.random.default_rng(8)
+for _ in range(220):
+    cx, cy = r2.random(2) * N; a = r2.random() * 360; L = 46 + r2.random() * 40; W = L * 0.62
+    base = 95 + r2.random() * 40; col = (int(base * 0.45), int(base * 1.25), int(base * 0.4), 255)
+    leaf = Image.new('RGBA', (int(L * 2), int(L * 2)), (0, 0, 0, 0)); ld = ImageDraw.Draw(leaf)
+    ld.ellipse((L - W / 2, L - L / 2, L + W / 2, L + L / 2), fill=col)
+    leaf = leaf.rotate(a, resample=Image.BICUBIC); im.alpha_composite(leaf, (int(cx - L), int(cy - L)))
+arr = np.asarray(im).astype(float); arr[..., :3] *= (0.8 + 0.4 * noise(N, 3, 9))[..., None]
+save('leaves', arr)

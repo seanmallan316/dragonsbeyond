@@ -33,6 +33,8 @@ void anim3d_draw(Anim3D *a, int c, float t, const Mat4 *base, float r, float g, 
     float fpos = cl->dur > 0 ? t / cl->dur * (cl->loop ? cl->nf : cl->nf - 1) : 0; int i0, i1; float w;
     if (cl->loop) { fpos = fmodf(fpos, (float)cl->nf); if (fpos < 0) fpos += cl->nf; i0 = (int)fpos; i1 = (i0 + 1) % cl->nf; w = fpos - i0; }
     else { if (fpos < 0) fpos = 0; if (fpos > cl->nf - 1) fpos = (float)(cl->nf - 1); i0 = (int)fpos; i1 = i0 + 1 < cl->nf ? i0 + 1 : i0; w = fpos - i0; }
+    if (a->filled && a->last_c == c && a->last_t == t) { gfx_bind(a->tex); gfx_draw_ex(a->mesh, base, r, g, b, alpha, 0.25f, 0, 0, 0); return; }   /* same pose as the last call this frame: reuse it */
+    a->filled = 1; a->last_c = c; a->last_t = t;
     const uint8_t *f0 = cl->data + (size_t)i0 * a->nv * 10, *f1 = cl->data + (size_t)i1 * a->nv * 10;
     for (int k = 0; k < a->nt * 3; k++) { uint32_t v = a->idx[k]; const uint8_t *p0 = f0 + v * 10, *p1 = f1 + v * 10; Vertex *o = &a->vb[k];
         o->px = (rd16(p0) + (rd16(p1) - rd16(p0)) * w) * (1.0f / 4000); o->py = (rd16(p0 + 2) + (rd16(p1 + 2) - rd16(p0 + 2)) * w) * (1.0f / 4000); o->pz = (rd16(p0 + 4) + (rd16(p1 + 4) - rd16(p0 + 4)) * w) * (1.0f / 4000);

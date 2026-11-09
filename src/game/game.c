@@ -23,10 +23,10 @@ static Pad g_prev[KK_PADS];
 static char g_msg[64]; static float g_msg_t; static float g_title_t = 4.0f;
 
 /* textures and meshes */
-static Texture *tx_grass, *tx_dirt, *tx_bark, *tx_leaves, *tx_fern, *tx_berry, *tx_bush, *tx_rock, *tx_water, *tx_mush, *tx_grub, *tx_fish, *tx_spark, *tx_font;
-static Mesh *m_ground, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky;
-static Mesh *m_dyn;        /* food, sparkles, HUD: refilled per view */
-#define DYN_CAP 24000
+static Texture *tx_grass, *tx_dirt, *tx_bark, *tx_leaves, *tx_fern, *tx_bush, *tx_rock, *tx_water, *tx_spark, *tx_font, *tx_tuft, *tx_flower, *tx_cloud;
+static Mesh *m_ground, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains;
+static Mesh *m_dynfood, *m_dynspark, *m_dynhud;   /* refilled per view (each at most twice a frame) */
+#define DYN_CAP 48000
 static Vertex g_dynv[DYN_CAP]; static Batch g_b;
 static uint32_t n_sky;
 
@@ -51,7 +51,7 @@ static void build_ground(void) {
             float rk = clampf((slope - 0.35f) * 4, 0, 1); r = r * (1 - rk) + 0.75f * rk; g = g * (1 - rk) + 0.72f * rk; b = b * (1 - rk) + 0.7f * rk;
             if (world_in_pond(&g_world, x, z)) { r *= 0.8f; g *= 0.85f; b *= 0.8f; }
             c[k][0] = r; c[k][1] = g; c[k][2] = b; }
-        float s = 0.25f; float u0 = i * s, v0 = j * s, u1 = u0 + s, v1 = v0 + s;
+        float s = 0.6f; float u0 = i * s, v0 = j * s, u1 = u0 + s, v1 = v0 + s;
         tv_tri(p[0], p[2], p[1], n[0], n[2], n[1], u0, v0, u0, v1, u1, v0, (c[0][0] + c[2][0] + c[1][0]) / 3, (c[0][1] + c[2][1] + c[1][1]) / 3, (c[0][2] + c[2][2] + c[1][2]) / 3);
         tv_tri(p[1], p[2], p[3], n[1], n[2], n[3], u1, v0, u0, v1, u1, v1, (c[1][0] + c[2][0] + c[3][0]) / 3, (c[1][1] + c[2][1] + c[3][1]) / 3, (c[1][2] + c[2][2] + c[3][2]) / 3); }
     m_ground = tv_mesh();
@@ -101,23 +101,27 @@ static void build_props(void) {
         else if (p->kind == P_PALM) { float h = 9.0f * p->scale; tv_cone(b, v3(p->x + sinf(p->yaw) * 1.5f, y + h, p->z + cosf(p->yaw) * 1.5f), 0.4f * p->scale, 0.25f * p->scale, 7, 2, 0.15f); } }
     m_bark = tv_mesh();
     /* canopies: lumpy leaf balls plus fluff, and the palm crowns */
-    tv_begin(W_MAXPROPS * 260 * 3);
+    tv_begin(W_MAXPROPS * 260 * 3 + W_MAXFOOD * 140 * 3);
     for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float y = world_height(&g_world, p->x, p->z);
         if (p->kind == P_TREE) { float h = 7.5f * p->scale; Vec3 c = v3(p->x + sinf(p->yaw) * 0.6f, y + h * 0.95f, p->z + cosf(p->yaw) * 0.6f);
-            float tint = 0.85f + frand01(&s) * 0.3f; tv_ball(c, 3.6f * p->scale, 2.6f * p->scale, 3.6f * p->scale, i * 31 + 5, 0.22f, 2.5f, tint, tint, tint * 0.9f, 0.25f);
-            for (int k = 0; k < 3; k++) { float a = p->yaw + k * 2.1f; Vec3 t = v3(p->x + sinf(a) * 2.2f * p->scale, y + h * 0.95f + 0.4f, p->z + cosf(a) * 2.2f * p->scale); tv_ball(t, 2.0f * p->scale, 1.5f * p->scale, 2.0f * p->scale, i * 31 + k, 0.25f, 1.5f, tint, tint, tint * 0.9f, 0.3f); } }
-        else if (p->kind == P_PALM) { float h = 9.0f * p->scale; Vec3 top = v3(p->x + sinf(p->yaw) * 1.5f, y + h, p->z + cosf(p->yaw) * 1.5f);
+            float tint = 0.85f + frand01(&s) * 0.3f; tv_ball(c, 3.9f * p->scale, 2.9f * p->scale, 3.9f * p->scale, i * 31 + 5, 0.18f, 1.6f, tint, tint, tint * 0.92f, 0.25f);
+            for (int k = 0; k < 3; k++) { float a = p->yaw + k * 2.1f; Vec3 t = v3(p->x + sinf(a) * 2.2f * p->scale, y + h * 0.95f + 0.4f, p->z + cosf(a) * 2.2f * p->scale); tv_ball(t, 2.2f * p->scale, 1.7f * p->scale, 2.2f * p->scale, i * 31 + k, 0.2f, 1.1f, tint, tint, tint * 0.92f, 0.3f); } }
+    }
+    /* the berry bushes: round leafy balls (the berries themselves are drawn live, so they can be eaten) */
+    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (f->kind != F_BERRY) continue; tv_ball(v3(f->x, f->y + 0.45f, f->z), 0.8f, 0.6f, 0.8f, i * 13 + 1, 0.2f, 1.0f, 0.95f, 1.0f, 0.9f, 0.15f); }
+    m_leaves = tv_mesh();
+    /* ferns (splayed fronds) and the palm crowns share the frond texture */
+    tv_begin(W_MAXPROPS * 60 + 64);
+    for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float y = world_height(&g_world, p->x, p->z);
+        if (p->kind == P_FERN) { for (int k = 0; k < 7; k++) { float a = p->yaw + k * 0.9f; float len = 1.6f * p->scale; Vec3 b = v3(p->x, y - 0.05f, p->z); Vec3 tip = v3(p->x + sinf(a) * len, y + 0.9f * p->scale, p->z + cosf(a) * len); Vec3 ax = v3(cosf(a) * 0.45f * p->scale, 0, -sinf(a) * 0.45f * p->scale); Vec3 n = v3(0, 1.0f, 0), ns = v3(0, 1.3f, 0);
+            tv_tri(v3(b.x - ax.x, b.y, b.z - ax.z), v3(b.x + ax.x, b.y, b.z + ax.z), tip, n, n, ns, 0, 1, 1, 1, 0.5f, 0, 1, 1, 1); tv_tri(v3(b.x + ax.x, b.y, b.z + ax.z), v3(b.x - ax.x, b.y, b.z - ax.z), tip, n, n, ns, 1, 1, 0, 1, 0.5f, 0, 1, 1, 1); } }
+        if (p->kind == P_PALM) { float h = 9.0f * p->scale; Vec3 top = v3(p->x + sinf(p->yaw) * 1.5f, y + h, p->z + cosf(p->yaw) * 1.5f);
             for (int k = 0; k < 7; k++) { float a = p->yaw + k * 0.9f; Vec3 ax = v3(cosf(a) * 1.1f, 0, -sinf(a) * 1.1f); Vec3 tip = v3(top.x + sinf(a) * 4.5f * p->scale, top.y - 1.6f * p->scale, top.z + cosf(a) * 4.5f * p->scale); Vec3 mid = v3(top.x + sinf(a) * 2.2f * p->scale, top.y + 0.6f * p->scale, top.z + cosf(a) * 2.2f * p->scale);
                 Vec3 n = v3(0, 1.0f, 0), ns = v3(0, 1.5f, 0);
                 tv_tri(v3(top.x - ax.x, top.y, top.z - ax.z), v3(top.x + ax.x, top.y, top.z + ax.z), mid, n, n, n, 0, 1, 1, 1, 0.5f, 0.5f, 0.9f, 1, 0.8f);
                 tv_tri(v3(mid.x - ax.x * 0.8f, mid.y, mid.z - ax.z * 0.8f), v3(mid.x + ax.x * 0.8f, mid.y, mid.z + ax.z * 0.8f), tip, n, n, ns, 0, 0.5f, 1, 0.5f, 0.5f, 0, 0.9f, 1, 0.8f);
                 tv_tri(v3(top.x + ax.x, top.y, top.z + ax.z), v3(top.x - ax.x, top.y, top.z - ax.z), mid, n, n, n, 1, 1, 0, 1, 0.5f, 0.5f, 0.9f, 1, 0.8f);
                 tv_tri(v3(mid.x + ax.x * 0.8f, mid.y, mid.z + ax.z * 0.8f), v3(mid.x - ax.x * 0.8f, mid.y, mid.z - ax.z * 0.8f), tip, n, n, ns, 1, 0.5f, 0, 0.5f, 0.5f, 0, 0.9f, 1, 0.8f); } } }
-    m_leaves = tv_mesh();
-    /* ferns and bushes: crossed quads */
-    tv_begin(W_MAXPROPS * 36);
-    for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float y = world_height(&g_world, p->x, p->z);
-        if (p->kind == P_FERN) tv_cross(v3(p->x, y - 0.1f, p->z), 2.6f * p->scale, 2.0f * p->scale, p->yaw, 0.25f, 3, 1, 1, 1); }
     m_fern = tv_mesh();
     tv_begin(W_MAXPROPS * 36);
     for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float y = world_height(&g_world, p->x, p->z);
@@ -128,6 +132,32 @@ static void build_props(void) {
     for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float y = world_height(&g_world, p->x, p->z);
         if (p->kind == P_ROCK) tv_ball(v3(p->x, y - 0.3f * p->scale, p->z), 1.4f * p->scale, 0.9f * p->scale, 1.1f * p->scale, i * 17 + 3, 0.3f, 1.0f, 1, 1, 1, 0); }
     m_rock = tv_mesh();
+    /* grass tufts and flowers: scattered everywhere the ground is not too steep, denser near the start */
+    unsigned ts = 4242; tv_begin(2600 * 12);
+    for (int i = 0; i < 2600; i++) { float x = (frand01(&ts) - 0.5f) * (W_SIZE - 20), z = (frand01(&ts) - 0.5f) * (W_SIZE - 20); if (world_in_pond(&g_world, x, z)) continue; Vec3 n = world_normal(&g_world, x, z); if (n.y < 0.8f) continue;
+        float y = world_height(&g_world, x, z); float sc = 0.7f + frand01(&ts) * 0.8f; float tint = 0.85f + frand01(&ts) * 0.3f; tv_cross(v3(x, y - 0.05f, z), 1.1f * sc, 0.75f * sc, frand01(&ts) * 3.14f, 0.18f, 2, tint, tint, tint); }
+    m_tufts = tv_mesh();
+    tv_begin(700 * 12);
+    for (int i = 0; i < 700; i++) { float x = (frand01(&ts) - 0.5f) * (W_SIZE - 40), z = (frand01(&ts) - 0.5f) * (W_SIZE - 40); if (world_in_pond(&g_world, x, z)) continue; Vec3 n = world_normal(&g_world, x, z); if (n.y < 0.85f) continue;
+        float y = world_height(&g_world, x, z); float sc = 0.6f + frand01(&ts) * 0.5f; tv_cross(v3(x, y - 0.02f, z), 1.2f * sc, 0.7f * sc, frand01(&ts) * 3.14f, 0.1f, 2, 1, 1, 1); }
+    m_flowers = tv_mesh();
+    /* clouds: big soft quads high up, facing down-ish so they read from below and from the air */
+    tv_begin(40 * 12);
+    for (int i = 0; i < 40; i++) { float x = (frand01(&ts) - 0.5f) * 900, z = (frand01(&ts) - 0.5f) * 900, y = 110 + frand01(&ts) * 80, w = 50 + frand01(&ts) * 70, h = w * 0.45f; float a = frand01(&ts) * 3.14f; Vec3 ax = v3(cosf(a) * w / 2, 0, -sinf(a) * w / 2), az = v3(sinf(a) * h / 2, 0, cosf(a) * h / 2); Vec3 nn = v3(0, 1, 0);
+        Vec3 p0 = v3(x - ax.x - az.x, y, z - ax.z - az.z), p1 = v3(x + ax.x - az.x, y, z + ax.z - az.z), p2 = v3(x + ax.x + az.x, y, z + ax.z + az.z), p3 = v3(x - ax.x + az.x, y, z - ax.z + az.z);
+        tv_tri(p0, p1, p2, nn, nn, nn, 0, 1, 1, 1, 1, 0, 1, 1, 1); tv_tri(p0, p2, p3, nn, nn, nn, 0, 1, 1, 0, 0, 0, 1, 1, 1); tv_tri(p0, p2, p1, nn, nn, nn, 0, 1, 1, 0, 1, 1, 1, 1, 1); tv_tri(p0, p3, p2, nn, nn, nn, 0, 1, 0, 0, 1, 0, 1, 1, 1);
+        /* an upright copy so they have some body from the side */
+        Vec3 q0 = v3(x - ax.x, y - h * 0.3f, z - ax.z), q1 = v3(x + ax.x, y - h * 0.3f, z + ax.z), q2 = v3(x + ax.x, y + h * 0.3f, z + ax.z), q3 = v3(x - ax.x, y + h * 0.3f, z - ax.z);
+        tv_tri(q0, q1, q2, nn, nn, nn, 0, 1, 1, 1, 1, 0, 1, 1, 1); tv_tri(q0, q2, q3, nn, nn, nn, 0, 1, 1, 0, 0, 0, 1, 1, 1); tv_tri(q0, q2, q1, nn, nn, nn, 0, 1, 1, 0, 1, 1, 1, 1, 1); tv_tri(q0, q3, q2, nn, nn, nn, 0, 1, 0, 0, 1, 0, 1, 1, 1); }
+    m_clouds = tv_mesh();
+    /* a ring of far mountains, in the fog's colours, so the world never shows an edge */
+    tv_begin(96 * 6); { const int M = 96; float hs[97]; unsigned ms = 99; for (int i = 0; i < M; i++) hs[i] = 60 + frand01(&ms) * 110; hs[M] = hs[0];
+        for (int i = 0; i < M; i++) { float a0 = i * 6.2831853f / M, a1 = (i + 1) * 6.2831853f / M; float R0 = 420 + 40 * sinf(i * 1.3f), R1 = 420 + 40 * sinf((i + 1) * 1.3f);
+            Vec3 b0 = v3(sinf(a0) * R0, -20, cosf(a0) * R0), b1 = v3(sinf(a1) * R1, -20, cosf(a1) * R1), t0 = v3(sinf(a0) * R0, hs[i], cosf(a0) * R0), t1 = v3(sinf(a1) * R1, hs[i + 1], cosf(a1) * R1);
+            float c0 = 0.42f + 0.1f * (hs[i] / 170), c1 = 0.42f + 0.1f * (hs[i + 1] / 170); Vec3 nn = v3(0, 1, 0);
+            tv_tri(b0, t0, b1, nn, nn, nn, 0, 0, 0, 0, 0, 0, c0, c0 + 0.1f, c0 + 0.2f); tmpv[tmpn - 3].r = 0.5f; tmpv[tmpn - 3].g = 0.62f; tmpv[tmpn - 3].b = 0.78f; tmpv[tmpn - 1].r = 0.5f; tmpv[tmpn - 1].g = 0.62f; tmpv[tmpn - 1].b = 0.78f;
+            tv_tri(b1, t0, t1, nn, nn, nn, 0, 0, 0, 0, 0, 0, c1, c1 + 0.1f, c1 + 0.2f); tmpv[tmpn - 3].r = 0.5f; tmpv[tmpn - 3].g = 0.62f; tmpv[tmpn - 3].b = 0.78f; } }
+    m_mountains = tv_mesh();
     /* sky dome: unlit, coloured by height */
     tv_begin(16 * 24 * 6);
     for (int i = 0; i < 8; i++) for (int j = 0; j < 24; j++) {
@@ -146,12 +176,12 @@ int game_init(int gfx_status) {
     dragon_init(&g_dragon, &g_world, 0, 0);
     if (gfx_status != GFX_OK) return 0;
     tx_grass = asset_texture("grass", 1, NULL, NULL); tx_dirt = asset_texture("dirt", 1, NULL, NULL); tx_bark = asset_texture("bark", 1, NULL, NULL);
-    tx_leaves = asset_texture("leaves", 1, NULL, NULL); tx_fern = asset_texture("fern", 0, NULL, NULL); tx_berry = asset_texture("berrybush", 0, NULL, NULL); tx_bush = asset_texture("bush", 0, NULL, NULL);
-    tx_rock = asset_texture("rock", 1, NULL, NULL); tx_water = asset_texture("water", 1, NULL, NULL); tx_mush = asset_texture("mushroom", 0, NULL, NULL);
-    tx_grub = asset_texture("grub", 0, NULL, NULL); tx_fish = asset_texture("fish", 0, NULL, NULL); tx_spark = asset_texture("sparkle", 0, NULL, NULL);
+    tx_leaves = asset_texture("leaves", 1, NULL, NULL); tx_fern = asset_texture("fern", 0, NULL, NULL); tx_bush = asset_texture("bush", 0, NULL, NULL);
+    tx_rock = asset_texture("rock", 1, NULL, NULL); tx_water = asset_texture("water", 1, NULL, NULL); tx_spark = asset_texture("sparkle", 0, NULL, NULL);
+    tx_tuft = asset_texture("grasstuft", 0, NULL, NULL); tx_flower = asset_texture("flowers", 0, NULL, NULL); tx_cloud = asset_texture("cloud", 0, NULL, NULL);
     tx_font = asset_texture("font_hd", 0, NULL, NULL); if (tx_font) g_font_hd = 1;
     build_ground(); build_props();
-    batch_init(&g_b, g_dynv, DYN_CAP); m_dyn = gfx_mesh_dynamic(DYN_CAP);
+    batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(2000); m_dynhud = gfx_mesh_dynamic(36000);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
     gfx_log("Dragons Beyond ready: %d props, %d food, models %d %d %d", g_world.nprop, g_world.nfood, g_model_ok[0], g_model_ok[1], g_model_ok[2]);
@@ -188,23 +218,38 @@ static void camera_update(float dt) {
 
 /* ---------- drawing ---------- */
 static Vec3 sun_dir(void) { return v3_norm(v3(0.45f, 0.8f, 0.35f)); }
-static void draw_food_kind(Vec3 eye, int kind, Texture *t) {
+/* small solid shapes for the food, lit by their normals, flat-coloured (they use the white block in the font texture) */
+static void bq_push(Vec3 p, Vec3 n, float r, float g, float b) { if (g_b.n < g_b.cap) { Vertex q = {p.x, p.y, p.z, n.x, n.y, n.z, WHITE_U, WHITE_V, r, g, b, 1}; g_b.v[g_b.n++] = q; } }
+static void batch_ball(Vec3 c, float rx, float ry, float rz, int la, int lo, float r, float g, float b, float ybias) {
+    for (int i = 0; i < la; i++) for (int j = 0; j < lo; j++) {
+        float t0 = 3.14159265f * i / la, t1 = 3.14159265f * (i + 1) / la, p0 = 6.2831853f * j / lo, p1 = 6.2831853f * (j + 1) / lo;
+        Vec3 n00 = v3(sinf(t0) * sinf(p0), cosf(t0), sinf(t0) * cosf(p0)), n01 = v3(sinf(t0) * sinf(p1), cosf(t0), sinf(t0) * cosf(p1)), n10 = v3(sinf(t1) * sinf(p0), cosf(t1), sinf(t1) * cosf(p0)), n11 = v3(sinf(t1) * sinf(p1), cosf(t1), sinf(t1) * cosf(p1));
+        Vec3 q00 = v3(c.x + n00.x * rx, c.y + n00.y * ry * (n00.y > 0 ? 1 : ybias), c.z + n00.z * rz), q01 = v3(c.x + n01.x * rx, c.y + n01.y * ry * (n01.y > 0 ? 1 : ybias), c.z + n01.z * rz);
+        Vec3 q10 = v3(c.x + n10.x * rx, c.y + n10.y * ry * (n10.y > 0 ? 1 : ybias), c.z + n10.z * rz), q11 = v3(c.x + n11.x * rx, c.y + n11.y * ry * (n11.y > 0 ? 1 : ybias), c.z + n11.z * rz);
+        if (i > 0) { bq_push(q00, n00, r, g, b); bq_push(q10, n10, r, g, b); bq_push(q01, n01, r, g, b); }
+        if (i < la - 1) { bq_push(q01, n01, r, g, b); bq_push(q10, n10, r, g, b); bq_push(q11, n11, r, g, b); } } }
+static void batch_cyl(Vec3 base, Vec3 top, float r0, float r1, int seg, float r, float g, float b) {
+    for (int i = 0; i < seg; i++) { float a0 = i * 6.2831853f / seg, a1 = (i + 1) * 6.2831853f / seg; Vec3 n0 = v3(sinf(a0), 0, cosf(a0)), n1 = v3(sinf(a1), 0, cosf(a1));
+        Vec3 b0 = v3(base.x + n0.x * r0, base.y, base.z + n0.z * r0), b1 = v3(base.x + n1.x * r0, base.y, base.z + n1.z * r0), t0 = v3(top.x + n0.x * r1, top.y, top.z + n0.z * r1), t1 = v3(top.x + n1.x * r1, top.y, top.z + n1.z * r1);
+        bq_push(b0, n0, r, g, b); bq_push(t0, n0, r, g, b); bq_push(b1, n1, r, g, b); bq_push(b1, n1, r, g, b); bq_push(t0, n0, r, g, b); bq_push(t1, n1, r, g, b); } }
+static void draw_food3d(Vec3 eye) {
     batch_clear(&g_b);
-    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (f->kind != kind) continue;
-        float dx = f->x - eye.x, dz = f->z - eye.z; if (dx * dx + dz * dz > 150 * 150) continue;
-        float ang = atan2f(dx, dz); Vec3 ax = v3(cosf(ang), 0, -sinf(ang)); Vec3 n = v3(0, 1, 0);
-        if (kind == F_BERRY) { if (!f->alive && f->regrow > 20) continue; float s = 1.3f; batch_quad(&g_b, v3(f->x, f->y + s * 0.5f - 0.08f, f->z), v3(ax.x * s * 0.6f, 0, ax.z * s * 0.6f), v3(0, s * 0.5f, 0), n, 0, 0, 1, 1, 1, 1, 1, 1); }
-        else if (kind == F_MUSHROOM) { if (!f->alive) continue; float s = 0.7f; batch_quad(&g_b, v3(f->x, f->y + s * 0.5f, f->z), v3(ax.x * s * 0.5f, 0, ax.z * s * 0.5f), v3(0, s * 0.5f, 0), n, 0, 0, 1, 1, 1, 1, 1, 1); }
-        else if (kind == F_GRUB) { if (!f->alive) continue; float s = 0.6f; Vec3 fw = v3(sinf(f->yaw), 0, cosf(f->yaw)), rt = v3(cosf(f->yaw), 0, -sinf(f->yaw)); float wig = sinf(f->phase * 12) * 0.06f;
-            batch_quad(&g_b, v3(f->x, f->y + 0.1f, f->z), v3(rt.x * s * 0.35f + fw.x * wig, 0, rt.z * s * 0.35f + fw.z * wig), v3(fw.x * s * 0.5f, 0.03f, fw.z * s * 0.5f), n, 0, 0, 1, 1, 1, 1, 1, 1); }
-        else { if (!f->alive) continue; float s = 0.9f; Vec3 fw = v3(sinf(f->yaw), 0, cosf(f->yaw)); batch_quad(&g_b, v3(f->x, f->y, f->z), v3(fw.x * s * 0.5f, 0, fw.z * s * 0.5f), v3(0, s * 0.3f, 0), n, 0, 0, 1, 1, 1, 1, 1, 0.9f); } }
-    if (!g_b.n) return; gfx_mesh_update(m_dyn, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(t); gfx_state(ST_CUTOUT); gfx_draw_ex(m_dyn, &id, 1, 1, 1, 1, 0.05f, 0, 0, 0); }
-static void draw_berry_bushes_eaten(Vec3 eye) {   /* the green bush stays when the berries are gone */
-    batch_clear(&g_b); Vec3 n = v3(0, 1, 0);
-    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (f->kind != F_BERRY || f->alive) continue;
-        float dx = f->x - eye.x, dz = f->z - eye.z; if (dx * dx + dz * dz > 150 * 150) continue; float ang = atan2f(dx, dz); Vec3 ax = v3(cosf(ang), 0, -sinf(ang)); float s = 1.3f;
-        batch_quad(&g_b, v3(f->x, f->y + s * 0.5f - 0.08f, f->z), v3(ax.x * s * 0.6f, 0, ax.z * s * 0.6f), v3(0, s * 0.5f, 0), n, 0, 0, 1, 1, 1, 1, 1, 1); }
-    if (!g_b.n) return; gfx_mesh_update(m_dyn, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_bush); gfx_state(ST_CUTOUT); gfx_draw_ex(m_dyn, &id, 1, 1, 1, 1, 0.05f, 0, 0, 0); }
+    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue;
+        float dx = f->x - eye.x, dz = f->z - eye.z; float d2 = dx * dx + dz * dz; if (d2 > 120 * 120) continue; int lod = d2 > 35 * 35;
+        if (f->kind == F_BERRY) {   /* red berries sitting on the (static) bush */
+            unsigned s = (unsigned)i * 97 + 13; for (int k = 0; k < 6; k++) { float a = frand01(&s) * 6.28f, el = 0.3f + frand01(&s) * 1.1f, rr = 0.72f; Vec3 c = v3(f->x + cosf(el) * sinf(a) * rr, f->y + 0.55f + sinf(el) * 0.6f, f->z + cosf(el) * cosf(a) * rr);
+                batch_ball(c, 0.1f, 0.1f, 0.1f, lod ? 2 : 3, lod ? 4 : 5, 0.9f, 0.12f, 0.2f, 1); } }
+        else if (f->kind == F_MUSHROOM) { float h = 0.42f + 0.05f * sinf(f->phase); batch_cyl(v3(f->x, f->y - 0.05f, f->z), v3(f->x, f->y + h, f->z), 0.09f, 0.08f, 6, 0.93f, 0.88f, 0.75f);
+            batch_ball(v3(f->x, f->y + h, f->z), 0.32f, 0.2f, 0.32f, 3, lod ? 6 : 8, 0.85f, 0.2f, 0.18f, 0.25f);
+            if (!lod) { unsigned s = (unsigned)i * 31; for (int k = 0; k < 4; k++) { float a = frand01(&s) * 6.28f, rr = 0.1f + frand01(&s) * 0.15f; batch_ball(v3(f->x + sinf(a) * rr, f->y + h + 0.2f * sqrtf(fmaxf(0, 1 - (rr / 0.32f) * (rr / 0.32f))) , f->z + cosf(a) * rr), 0.045f, 0.03f, 0.045f, 2, 4, 1, 0.98f, 0.9f, 1); } } }
+        else if (f->kind == F_GRUB) { Vec3 fw = v3(sinf(f->yaw), 0, cosf(f->yaw)); float wig = sinf(f->phase * 10) * 0.05f; Vec3 rt = v3(fw.z, 0, -fw.x);
+            for (int k = 0; k < 3; k++) { float o = 0.14f - k * 0.14f; float w = sinf(f->phase * 10 + k * 1.5f) * 0.04f; batch_ball(v3(f->x + fw.x * o + rt.x * (wig + w), f->y + 0.11f, f->z + fw.z * o + rt.z * (wig + w)), 0.13f, 0.11f, 0.15f, 3, lod ? 5 : 6, 0.9f, 0.78f, 0.45f, 1); }
+            batch_ball(v3(f->x + fw.x * 0.3f + rt.x * wig, f->y + 0.12f, f->z + fw.z * 0.3f + rt.z * wig), 0.1f, 0.1f, 0.1f, 3, 5, 0.45f, 0.28f, 0.15f, 1); }
+        else { Vec3 fw = v3(sinf(f->yaw), 0, cosf(f->yaw)); Vec3 rt = v3(fw.z, 0, -fw.x); float sw = sinf(f->phase * 6) * 0.08f;
+            batch_ball(v3(f->x, f->y, f->z), 0.1f, 0.14f, 0.1f, 3, 6, 0.4f, 0.6f, 0.9f, 1); batch_ball(v3(f->x + fw.x * 0.18f, f->y, f->z + fw.z * 0.18f), 0.08f, 0.1f, 0.08f, 2, 5, 0.4f, 0.6f, 0.9f, 1); batch_ball(v3(f->x - fw.x * 0.2f + rt.x * sw, f->y, f->z - fw.z * 0.2f + rt.z * sw), 0.06f, 0.1f, 0.06f, 2, 4, 0.3f, 0.5f, 0.8f, 1);
+            Vec3 t0 = v3(f->x - fw.x * 0.26f + rt.x * sw, f->y, f->z - fw.z * 0.26f + rt.z * sw), t1 = v3(f->x - fw.x * 0.42f + rt.x * sw * 2, f->y + 0.12f, f->z - fw.z * 0.42f + rt.z * sw * 2), t2 = v3(f->x - fw.x * 0.42f + rt.x * sw * 2, f->y - 0.12f, f->z - fw.z * 0.42f + rt.z * sw * 2);
+            bq_push(t0, rt, 0.3f, 0.5f, 0.8f); bq_push(t1, rt, 0.3f, 0.5f, 0.8f); bq_push(t2, rt, 0.3f, 0.5f, 0.8f); bq_push(t0, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); bq_push(t2, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); bq_push(t1, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); } }
+    if (!g_b.n) return; gfx_mesh_update(m_dynfood, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_font); gfx_state(ST_SOLID); gfx_draw_ex(m_dynfood, &id, 1, 1, 1, 1, 0.3f, 0, 0, 0); }
 
 static void draw_dragon(const Dragon *d) {
     int st = d->stage; float sc = dragon_scale(st);
@@ -214,7 +259,7 @@ static void draw_dragon(const Dragon *d) {
     Mat4 base = dragon_matrix(d, sc); int clip = anim3d_clip(m, dragon_anim_name(d->anim)); if (clip < 0) clip = 0;
     gfx_state(ST_SOLID);
     float glow = d->evolve_t > 0 ? 0.5f + 0.5f * sinf(g_time * 20) : 0;
-    anim3d_draw(m, clip, d->anim_t, &base, 1 + glow, 1 + glow, 1 + 0.6f * glow, 1); gfx_bind(NULL); }
+    anim3d_draw(m, clip, d->anim_t, &base, 1.12f + glow, 1.12f + glow, 1.1f + 0.6f * glow, 1); gfx_bind(NULL); }
 
 static void draw_sparkles(const Dragon *d, Vec3 eye) {
     if (d->evolve_t <= 0) return; batch_clear(&g_b); unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
@@ -223,17 +268,18 @@ static void draw_sparkles(const Dragon *d, Vec3 eye) {
         float rise = fmodf(t * (0.8f + frand01(&s)) + ph, 2.0f); float sz = 0.08f * L * (1 - rise / 2) + 0.05f;
         Vec3 c = v3(d->x + cosf(a + t) * r, d->y + h + rise * L * 0.6f, d->z + sinf(a + t) * r);
         batch_quad(&g_b, c, v3(right.x * sz, 0, right.z * sz), v3(up.x * sz, up.y * sz, up.z * sz), v3(0, 1, 0), 0, 0, 1, 1, 1, 1, 0.7f, 1 - rise / 2); }
-    gfx_mesh_update(m_dyn, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_spark); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_draw_ex(m_dyn, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
+    gfx_mesh_update(m_dynspark, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_spark); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_draw_ex(m_dynspark, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
 
 static void draw_scene(int drc) {
     float aspect = gfx_aspect(drc); Vec3 eye = g_eye, at = g_at;
     Mat4 proj = m4_perspective(g_cam_mode == 2 ? 1.25f : 1.05f, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir();
     gfx_light(v3(1.0f, 0.96f, 0.85f), v3(0.55f, 0.65f, 0.8f), v3(0.35f, 0.4f, 0.2f), eye);
-    gfx_shadow_use(1); gfx_camera(&vp, L, 0.42f, 0.78f, 0.86f, 0.95f, 90, 420); gfx_shadow_use(0);
+    gfx_shadow_use(1); gfx_camera(&vp, L, 0.45f, 0.74f, 0.82f, 0.92f, 120, 480); gfx_shadow_use(0);
     Mat4 id = m4_identity();
     /* sky, around the camera, no depth */
     Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0);
+    if (m_mountains) gfx_draw_ex(m_mountains, &id, 1, 1, 1, 1, 0, 1, 0, 0);
     gfx_clear_depth(drc);
     gfx_state(ST_SOLID);
     gfx_bind(tx_grass); gfx_bump(2); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_bump(0);
@@ -243,16 +289,18 @@ static void draw_scene(int drc) {
     gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1);
     gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1);
     gfx_bind(tx_bush); if (m_bushes) gfx_draw(m_bushes, &id, 1, 1, 1, 1);
-    draw_food_kind(eye, F_BERRY, tx_berry); draw_berry_bushes_eaten(eye); draw_food_kind(eye, F_MUSHROOM, tx_mush); draw_food_kind(eye, F_GRUB, tx_grub);
+    gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
+    gfx_bind(tx_flower); if (m_flowers) gfx_draw(m_flowers, &id, 1, 1, 1, 1);
+    draw_food3d(eye);
     if (g_cam_mode != 2) draw_dragon(&g_dragon);
     gfx_state(ST_TRANSPARENT); gfx_bind(tx_water); gfx_draw_ex(m_water, &id, 1, 1, 1, 0.8f, 0.9f, 0, g_time * 0.02f, g_time * 0.013f);
-    draw_food_kind(eye, F_FISH, tx_fish);
     draw_sparkles(&g_dragon, eye);
+    { Mat4 cm = m4_translate(fmodf(g_time * 1.5f, 900.0f) - 450.0f, 0, 0); gfx_state(ST_DEPTH | ST_BLEND); gfx_bind(tx_cloud); if (m_clouds) { gfx_draw_ex(m_clouds, &cm, 1, 1, 1, 0.9f, 0, 1, 0, 0); Mat4 cm2 = m4_translate(cm.m[12] + 900.0f, 0, 0); gfx_draw_ex(m_clouds, &cm2, 1, 1, 1, 0.9f, 0, 1, 0, 0); } }
     gfx_bind(NULL); }
 
 static void shadow_pass(void) {
     const Dragon *d = &g_dragon; Vec3 L = sun_dir();
-    Vec3 c = v3(d->x + sinf(g_cam_yaw) * 15, d->y, d->z + cosf(g_cam_yaw) * 15); const float half = 55.0f, dep = 260.0f;
+    Vec3 c = v3(d->x + sinf(g_cam_yaw) * 25, d->y, d->z + cosf(g_cam_yaw) * 25); const float half = 85.0f, dep = 300.0f;
     c.x = floorf(c.x / (2 * half / 1024)) * (2 * half / 1024); c.z = floorf(c.z / (2 * half / 1024)) * (2 * half / 1024);
     Mat4 view = m4_look_at(v3(c.x + L.x * dep * 0.5f, c.y + L.y * dep * 0.5f, c.z + L.z * dep * 0.5f), c, v3(0, 1, 0));
     Mat4 proj = m4_identity(); proj.m[0] = 1.0f / half; proj.m[5] = 1.0f / half; proj.m[10] = -2.0f / dep; proj.m[14] = -1.0f;
@@ -281,9 +329,9 @@ static void draw_hud(int drc) {
     if (near >= 0 && d->mode != DM_AIR && d->act_t <= 0) text_c(food_is_meat(g_world.food[near].kind) ? "X : EAT (MEAT, GROWS FAST)" : "X : EAT", 600, 30, 1, 1, 0.7f, 0.9f);
     if (g_msg_t > 0) text_c(g_msg, 640, 28, 1, 1, 1, clampf(g_msg_t, 0, 1));
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); text_c("DRAGONS BEYOND", 250, 72, 0.6f, 1, 0.5f, a); text_c("EVERLEAF WILDS", 330, 40, 0.9f, 1, 0.9f, a); }
-    static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON'S EYES"}; batch_text(&g_b, cams[g_cam_mode], 1000, 36, 20, 1, 1, 1, 0.6f);
+    static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     batch_text(&g_b, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : ROAR", 300, 690, 18, 1, 1, 1, 0.5f);
-    if (!g_b.n) return; gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dyn, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dyn, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL); (void)drc; }
+    if (!g_b.n) return; gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL); (void)drc; }
 
 
 #ifdef DB_TOUR
@@ -303,6 +351,42 @@ static void tour_input(Pad *p, float t) {
     if (fmodf(t, 30.0f) < 0.05f && t > 25 && d->mode != DM_AIR) p->y = 1;   /* a roar now and then */
 }
 #endif
+
+
+/* ---------- the GamePad: a map of Everleaf Wilds ---------- */
+static void map_tri2d(float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a) {
+    if (g_b.n + 3 > g_b.cap) return; Vec3 p0 = scr(x0, y0), p1 = scr(x1, y1), p2 = scr(x2, y2);
+    Vertex q0 = {p0.x, p0.y, 0, 0, 0, 1, WHITE_U, WHITE_V, r, g, b, a}, q1 = {p1.x, p1.y, 0, 0, 0, 1, WHITE_U, WHITE_V, r, g, b, a}, q2 = {p2.x, p2.y, 0, 0, 0, 1, WHITE_U, WHITE_V, r, g, b, a};
+    g_b.v[g_b.n++] = q0; g_b.v[g_b.n++] = q1; g_b.v[g_b.n++] = q2; }
+static void map_disc(float cx, float cy, float rad, int seg, float r, float g, float b, float a) { for (int i = 0; i < seg; i++) { float a0 = i * 6.2831853f / seg, a1 = (i + 1) * 6.2831853f / seg; map_tri2d(cx, cy, cx + cosf(a1) * rad, cy + sinf(a1) * rad, cx + cosf(a0) * rad, cy + sinf(a0) * rad, r, g, b, a); } }
+static void draw_map(void) {
+    const Dragon *d = &g_dragon; const float S = 2.6f, CX = 640, CY = 360;   /* pixels per metre; world x -> right, world z -> up the screen */
+#define MX(x) (CX + (x) * S)
+#define MY(z) (CY - (z) * S)
+    batch_clear(&g_b);
+    batch_rect(&g_b, 0, 0, 1280, 720, 0.08f, 0.14f, 0.08f, 1);
+    batch_rect(&g_b, MX(-W_SIZE / 2), MY(W_SIZE / 2), W_SIZE * S, W_SIZE * S, 0.3f, 0.55f, 0.25f, 1);
+    /* hills: darker where the ground is high */
+    for (int j = 0; j < W_GRID - 1; j += 2) for (int i = 0; i < W_GRID - 1; i += 2) { float h = g_world.h[j][i]; if (h < 6) continue; float t = clampf((h - 6) / 20.0f, 0, 1); float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1); batch_rect(&g_b, MX(x), MY(z) - 2 * S, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 0.3f + 0.3f * t, 0.45f + 0.1f * t, 0.2f + 0.1f * t, 0.9f); }
+    map_disc(MX(g_world.pond_x), MY(g_world.pond_z), g_world.pond_r * 1.25f * S, 24, 0.25f, 0.55f, 0.85f, 1);
+    for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float r = p->kind == P_TREE || p->kind == P_PALM ? 4.5f : 2.5f; float cr = p->kind == P_ROCK ? 0.5f : 0.12f, cg = p->kind == P_ROCK ? 0.5f : 0.35f, cb = p->kind == P_ROCK ? 0.48f : 0.1f; map_disc(MX(p->x), MY(p->z), r, 6, cr, cg, cb, 1); }
+    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue; float cr = 1, cg = 1, cb = 1;
+        if (f->kind == F_BERRY) { cr = 0.95f; cg = 0.15f; cb = 0.25f; } else if (f->kind == F_MUSHROOM) { cr = 1; cg = 0.95f; cb = 0.8f; } else if (f->kind == F_GRUB) { cr = 1; cg = 0.85f; cb = 0.3f; } else { cr = 0.5f; cg = 0.8f; cb = 1; }
+        map_disc(MX(f->x), MY(f->z), 3, 6, cr, cg, cb, 1); }
+    /* the dragon: a bright arrow pointing where it faces, with a pulse ring */
+    float ax = MX(d->x), ay = MY(d->z), sy = sinf(d->yaw), cy = cosf(d->yaw); float pulse = 10 + 4 * sinf(g_time * 4);
+    map_disc(ax, ay, pulse, 16, 0.7f, 1, 0.5f, 0.35f);
+    map_tri2d(ax + sy * 14, ay - cy * 14, ax - cy * 8 - sy * 8, ay - sy * 8 + cy * 8, ax + cy * 8 - sy * 8, ay + sy * 8 + cy * 8, 0.85f, 1, 0.6f, 1);
+    /* words */
+    batch_text(&g_b, "EVERLEAF WILDS", 40, 30, 34, 0.9f, 1, 0.8f, 1);
+    char line[64]; snprintf(line, sizeof line, "%s", dragon_stage_name(d->stage)); batch_text(&g_b, line, 40, 80, 26, 1, 1, 1, 0.9f);
+    float need = dragon_need(d->stage); if (need < 1e8f) { snprintf(line, sizeof line, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, line, 40, 112, 22, 0.8f, 1, 0.7f, 0.9f); }
+    batch_text(&g_b, "RED: BERRIES  WHITE: MUSHROOMS", 40, 640, 18, 1, 1, 1, 0.7f); batch_text(&g_b, "YELLOW: GRUBS  BLUE: FISH (MEAT GROWS FAST)", 40, 668, 18, 1, 1, 1, 0.7f);
+    batch_text(&g_b, "D-PAD UP: CHANGE VIEW", 900, 668, 18, 1, 1, 1, 0.7f);
+    gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL);
+#undef MX
+#undef MY
+}
 
 /* ---------- the frame ---------- */
 void game_frame(const Pad *pads, int npads, float dt) {
@@ -328,9 +412,6 @@ void game_frame(const Pad *pads, int npads, float dt) {
     music_update(2);
     gfx_frame_begin();
     shadow_pass();
-    for (int drc = 0; drc < 2; drc++) {
-        gfx_view_begin(drc, 0.55f, 0.75f, 0.95f);
-        draw_scene(drc);
-        draw_hud(drc);
-        gfx_view_end(drc); }
+    gfx_view_begin(0, 0.55f, 0.75f, 0.95f); draw_scene(0); draw_hud(0); gfx_view_end(0);   /* the TV: the game */
+    gfx_view_begin(1, 0.08f, 0.14f, 0.08f); draw_map(); gfx_view_end(1);                   /* the GamePad: the map */
     gfx_frame_end(); }
