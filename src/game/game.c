@@ -724,7 +724,8 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (g_gfx_status != GFX_OK) { gfx_frame_begin(); gfx_view_begin(0, g_gfx_status == GFX_NO_COMPILER ? 1 : 1, g_gfx_status == GFX_NO_COMPILER ? 0.5f : 0, 0); gfx_view_end(0); gfx_view_begin(1, 1, 0.5f, 0); gfx_view_end(1); gfx_frame_end(); return; }
     /* player 1: the GamePad, or the first Wii controller if the GamePad stick is idle */
 #ifdef DB_TOUR
-    static Pad tourpad; static int tour_once; if (!tour_once) { tour_once = 1; g_dragon.growth = 40; }   /* one meal from growing up, so the clip reaches the flying */
+    static Pad tourpad; static int tour_once; if (!tour_once) { tour_once = 1; g_dragon.stage = ST_DRAGON; g_dragon.max_hearts = g_dragon.hearts = 5; g_dragon.growth = 0;   /* the emulator is slow: start grown, near the boss clearing */
+        g_dragon.x = g_world.arena_x + 34; g_dragon.z = g_world.arena_z - 10; g_dragon.y = world_height(&g_world, g_dragon.x, g_dragon.z); g_dragon.yaw = -1.6f; g_cam_yaw = g_dragon.yaw; }
     g_tour_real_dt = g_tour_real_dt * 0.9f + dt * 0.1f;
     if (dt < 0.08f) dt = 0.08f;   /* the cloud emulator is slow: let game time run ahead so the clip covers more */
     tour_input(&tourpad, g_time); pads = &tourpad; npads = 1;
