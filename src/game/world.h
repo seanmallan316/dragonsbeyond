@@ -50,6 +50,8 @@ int   world_nearest_food(const World *w, float x, float z, float reach);   /* in
 /* drones: returns a bitmask: 1 a drone hit the dragon (take damage), 2 a drone was knocked down. whip = tail whip landing this frame, roar = roaring */
 int   world_drones(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar);
 int   world_hounds(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar, int in_air);   /* same bitmask as the drones */
+/* a dragon's power hits Kaine's helpers: everything within range (and inside the cone ahead, cos_cone = -1 for all round) is knocked out. Returns how many. */
+int   world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone);
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */
 float world_fbm(float x, float y, unsigned seed);   /* layered noise 0..1, for scenery builders */

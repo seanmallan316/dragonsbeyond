@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 int main(void) {
+    remove("coop_test_save1.txt"); remove("coop_test_save2.txt"); remove("coop_test_save3.txt");   /* no leftovers from an earlier run */
     FILE *f = fopen("coop_test_save.txt", "w"); fprintf(f, "DB1 0 1 10.0 -40.00 60.00 0.000 5.0 0 1 0 0.0 3.0 0\n"); fclose(f);
     game_set_save_path("coop_test_save.txt");
     if (!game_init(0)) { printf("FAIL: init\n"); return 1; }
@@ -23,5 +24,5 @@ int main(void) {
         if (fr == 60 * 25) { float x1, z1; sscanf(strstr(w, "p2 1 at ") + 8, "%f,%f", &x1, &z1); float d = (x1 - x0) * (x1 - x0) + (z1 - z0) * (z1 - z0);
             printf("player 2 moved %.1f m\n", d > 0 ? __builtin_sqrtf(d) : 0); if (d < 25) { printf("FAIL: player 2 did not move\n"); return 1; } }
         if (fr == 60 * 31) { const char *q = strstr(w, "p2 "); if (!q || atoi(q + 3) != -1) { printf("FAIL: player 2 did not leave: %s\n", w); return 1; } } }
-    remove("coop_test_save.txt");
+    remove("coop_test_save.txt"); remove("coop_test_save1.txt");
     printf("coop test OK\n"); return 0; }

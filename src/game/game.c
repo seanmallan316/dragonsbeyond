@@ -84,6 +84,8 @@ static Texture *tx_grass, *tx_dirt, *tx_bark, *tx_leaves, *tx_fern, *tx_bush, *t
 static Mesh *m_ground, *m_ground_dirt, *m_ground_rock, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains, *m_apron, *m_sun, *m_cloudsea;
 static int g_wk = WK_FOREST;   /* which world we are in */
 static float g_safe_x, g_safe_z;   /* the last solid ground the player stood on (sky world) */
+/* dragon powers (Y, once grown): forest Leafnado whirls round, sky breathes fire, snow breathes frost */
+static float g_power_t, g_power_cd; static int g_power_kind;
 /* the wind column between worlds: in the forest it rises from the boss clearing once its captive is free; in the sky it waits on the first island */
 static float g_travel_t = -1; static int g_travel_to; static float g_travel_cd;
 static int column_at(float *cx, float *cz) {
@@ -314,7 +316,7 @@ int game_init(int gfx_status) {
     for (int i = 0; i < PM_N; i++) propmodel_load(&g_pm[i], PM_NAMES[i]);
     build_ground(); build_props();
     scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f); scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f);   /* the packed models are already life-size; the prop's own scale varies them */
-    batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(2000); m_dynhud = gfx_mesh_dynamic(36000);
+    batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(6000); m_dynhud = gfx_mesh_dynamic(36000);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
     { static const char *kn[K_N] = {"forest", "sky", "snow"}, *sn[ST_N] = {"dragonet", "dragon", "beyonder"};
@@ -530,7 +532,7 @@ static void draw_dragon(const Dragon *d) {
 
 static void draw_sparkles(const Dragon *d, Vec3 eye) {
     float ccx, ccz; int col = column_at(&ccx, &ccz) && (ccx - eye.x) * (ccx - eye.x) + (ccz - eye.z) * (ccz - eye.z) < 170 * 170;
-    if (d->evolve_t <= 0 && !col) return; batch_clear(&g_b); unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
+    if (d->evolve_t <= 0 && !col && g_power_t <= 0) return; batch_clear(&g_b); unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
     Vec3 right = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(d->x < eye.x ? v3(d->x, d->y, d->z) : v3(d->x, d->y, d->z), eye))); Vec3 up = v3(0, 1, 0);
     for (int i = 0; i < 60; i++) { float a = frand01(&s) * 6.28f, r = frand01(&s) * L * 0.9f, h = frand01(&s) * L * 0.8f, ph = frand01(&s) * 6.28f;
         float rise = fmodf(t * (0.8f + frand01(&s)) + ph, 2.0f); float sz = 0.08f * L * (1 - rise / 2) + 0.05f;
@@ -541,6 +543,15 @@ static void draw_sparkles(const Dragon *d, Vec3 eye) {
             float h = u * 34; float sz = 0.35f + 0.25f * sinf(i * 0.7f + g_time * 3); float al = (1 - u) * fminf(1, u * 8);
             Vec3 c = v3(ccx + cosf(a) * r, gy + h, ccz + sinf(a) * r); float bl = g_wk == WK_FOREST ? 1.0f : 0.85f;
             batch_quad(&g_b, c, v3(rt.x * sz, 0, rt.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, 0.75f, 0.9f * bl, 1.0f, al); } }
+    if (g_power_t > 0) { float L2 = dragon_length(d->stage); float fx = sinf(d->yaw), fz = cosf(d->yaw); float age = 1.4f - g_power_t; Vec3 hd = v3(d->x + fx * 0.55f * L2, d->y + 0.55f * L2, d->z + fz * 0.55f * L2);
+        Vec3 rt2 = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(hd, eye)));
+        for (int i = 0; i < 150; i++) { float u = fmodf(i * 0.618034f + age * 1.7f, 1.0f); float a = i * 2.39996f; Vec3 c; float r, g, b, sz;
+            if (g_power_kind == 0) { float rad = 1.0f + u * (6 + 2 * L2); float ang = a + age * 9 * (1.2f - u); c = v3(d->x + cosf(ang) * rad, d->y + u * 5 + 0.4f * sinf(a * 3), d->z + sinf(ang) * rad); r = 0.35f + 0.3f * (i % 3 == 0); g = 0.9f; b = 0.25f; sz = 0.35f; }
+            else { float dist = u * (10 + 3 * L2); float spread = 0.08f + u * 0.45f; float sx = cosf(a) * spread * dist, sy = sinf(a) * spread * dist * 0.6f;
+                c = v3(hd.x + fx * dist + fz * sx, hd.y + sy - u * u * 1.5f, hd.z + fz * dist - fx * sx);
+                if (g_power_kind == 1) { r = 1.0f; g = 0.75f - 0.45f * u; b = 0.2f - 0.15f * u; } else { r = 0.75f + 0.2f * u; g = 0.9f + 0.1f * u; b = 1.0f; } sz = 0.25f + u * 0.9f; }
+            float al = clampf(g_power_t / 0.4f, 0, 1) * (1 - u * 0.6f);
+            batch_quad(&g_b, c, v3(rt2.x * sz, 0, rt2.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, r, g, b, al); } }
     gfx_mesh_update(m_dynspark, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_spark); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_draw_ex(m_dynspark, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
 
 static void draw_ironhorn(Vec3 eye) {
@@ -649,7 +660,8 @@ static void draw_hud(int drc) {
     if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) text_wrap_c(g_msg, 630, 28, 1180, 1, 1, 1, clampf(g_msg_t, 0, 1));
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); text_c("DRAGONS BEYOND", 250, 72, 0.6f, 1, 0.5f, a); text_c("EVERLEAF WILDS", 330, 40, 0.9f, 1, 0.9f, a); }
     static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
-    batch_text(&g_b, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : ROAR", 300, 690, 18, 1, 1, 1, 0.5f);
+    { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST"}; char cl[120]; snprintf(cl, sizeof cl, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : %s   + : SWAP", d->stage >= ST_DRAGON ? PW[g_kind] : "ROAR");
+      batch_text(&g_b, cl, 640 - text_width(cl, 16) / 2, 692, 16, 1, 1, 1, 0.5f); }
     if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, 0, 0, 1280, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }
     if (g_tale_i >= 0) { char line[200]; snprintf(line, sizeof line, TALE[g_tale_w][g_tale_i], kind_name(CAPTIVE[g_tale_w])); float fade = clampf(g_tale_t * 2, 0, 1);
         batch_rect(&g_b, 0, 0, 1280, 720, 0.02f, 0.01f, 0, 0.6f * fade); text_wrap_c(line, 250, 34, 1040, 1, 0.95f, 0.8f, fade);
@@ -679,7 +691,12 @@ static void draw_hud(int drc) {
 #ifdef DB_TOUR
 /* the tour build plays itself (for the emulator screenshots in CI): walks to food and eats until it grows, then flies, changing views as it goes */
 static float g_tour_rescue_t = 1e9f;
-static void tour_input(Pad *p, float t) {
+static void tour_input_base(Pad *p, float t);
+static void tour_input(Pad *p, float t) {   /* the base script, plus the dragon's power on diving drones and now and then to show it off */
+    tour_input_base(p, t); const Dragon *d = &g_dragon; if (g_state != G_PLAY || g_tale_i >= 0 || g_swap_open) return;
+    int diving = 0; for (int i = 0; i < g_world.ndrone; i++) if (g_world.drone[i].state == 1) { float dx = g_world.drone[i].x - d->x, dz = g_world.drone[i].z - d->z; if (dx * dx + dz * dz < 14 * 14) diving = 1; }
+    static float last; if ((diving || t - last > 12) && d->stage >= ST_DRAGON && g_power_cd <= 0 && !p->b) { p->y = 1; last = t; } }
+static void tour_input_base(Pad *p, float t) {
     static float last_eat = -9, last_whip = -9; static int prev_up = 0; if (g_rescued && g_tale_i < 0 && g_tour_rescue_t > 1e8f) g_tour_rescue_t = t;
     memset(p, 0, sizeof *p); p->source = 1;
     const Dragon *d = &g_dragon;
@@ -887,7 +904,7 @@ static void hurt_dragon(float amount, const char *msg) {
     if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
 static void boss_frame(float dt) {
     const Dragon *d = &g_dragon; float L = dragon_length(d->stage);
-    int whip = d->anim == DA_TAILWHIP && d->act_t > 0.35f && d->act_t < 0.6f; int roar = d->anim == DA_ROAR && d->act_t > 1.0f;
+    int whip = d->anim == DA_TAILWHIP && d->act_t > 0.35f && d->act_t < 0.6f; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
     int bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar);
     if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_GUARD[g_wk]); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
@@ -1027,6 +1044,13 @@ void game_frame(const Pad *pads, int npads, float dt) {
     float yaw_before = g_dragon.yaw;
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt);
     kind_quirks(&g_dragon, g_kind, &in, dt, &ev);
+    if (g_power_cd > 0) g_power_cd -= dt; if (g_power_t > 0) g_power_t -= dt;
+    if (in.y_press && g_dragon.stage >= ST_DRAGON && g_power_cd <= 0) { g_power_t = 1.4f; g_power_cd = 3.0f; g_power_kind = g_kind; sfx_play(g_kind == 1 ? SFX_FIRE : SFX_ROAR, 0.9f, 0); platform_rumble(0.7f, 0.6f);
+        if (g_dragon.mode == DM_AIR) { g_dragon.act_t = 0; } }
+    if (g_power_t > 0) { float L = dragon_length(g_dragon.stage); float fx = sinf(g_dragon.yaw), fz = cosf(g_dragon.yaw);
+        int hit = g_power_kind == 0 ? world_blast(&g_world, g_dragon.x, g_dragon.y + 0.5f * L, g_dragon.z, fx, fz, 7 + 2 * L, -1)
+                                    : world_blast(&g_world, g_dragon.x + fx * L, g_dragon.y + 0.5f * L, g_dragon.z + fz * L, fx, fz, 10 + 3 * L, 0.75f);
+        if (hit) { g_dragon.growth += 5 * hit; sfx_play(SFX_BLOCK, 0.6f, 0); snprintf(g_msg, sizeof g_msg, g_power_kind == 2 ? "FROZEN SOLID!" : (g_power_kind == 1 ? "TOASTED!" : "BLOWN AWAY!")); g_msg_t = 2; } }
     if (sky_fall(&g_dragon, &g_safe_x, &g_safe_z)) { g_dragon.hearts -= 0.5f * DMG[g_diff]; if (g_dragon.hearts < 1) g_dragon.hearts = 1; snprintf(g_msg, sizeof g_msg, "LOST IN THE CLOUDS! BACK TO SOLID GROUND"); g_msg_t = 3; sfx_play(SFX_SPLASH, 0.6f, 0); platform_rumble(0.6f, 0.3f); }
     { float ccx, ccz; if (g_travel_cd > 0) g_travel_cd -= dt;
       if (g_travel_t < 0 && g_travel_cd <= 0 && column_at(&ccx, &ccz)) { float dx = g_dragon.x - ccx, dz = g_dragon.z - ccz; float gy = world_height(&g_world, ccx, ccz);

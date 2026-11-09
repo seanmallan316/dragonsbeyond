@@ -222,3 +222,12 @@ static void make_sky(World *w) {
 void world_make_kind(World *w, unsigned seed, int kind) {
     if (kind != WK_SKY) { world_make(w, seed); return; }
     memset(w, 0, sizeof *w); w->seed = seed; w->kind = WK_SKY; g_rs = seed * 7919u + 23; make_sky(w); }
+int world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone) {
+    int n = 0; float dl = sqrtf(dx * dx + dz * dz); if (dl > 1e-4f) { dx /= dl; dz /= dl; }
+    for (int pass = 0; pass < 2; pass++) { Drone *arr = pass ? w->hound : w->drone; int cnt = pass ? w->nhound : w->ndrone;
+        for (int i = 0; i < cnt; i++) { Drone *d = &arr[i]; if (d->state == 3) continue;
+            float ex = d->x - x, ey = d->y - y, ez = d->z - z; float dist = sqrtf(ex * ex + ey * ey + ez * ez); if (dist > range) continue;
+            if (cos_cone > -1 && dist > 1.0f && (ex * dx + ez * dz) / sqrtf(ex * ex + ez * ez + 1e-6f) < cos_cone) continue;
+            d->state = 3; d->t = 0; n++; } }
+    return n; }
+
