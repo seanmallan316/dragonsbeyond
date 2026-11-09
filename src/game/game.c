@@ -279,7 +279,21 @@ static void build_props(void) {
             Vec3 nn = v3(0, 1, 0);
             tv_push(q[0], nn, WHITE_U, WHITE_V, col[0], col[0], col[0] * 1.02f, 1); tv_push(q[2], nn, WHITE_U, WHITE_V, col[2], col[2], col[2] * 1.02f, 1); tv_push(q[1], nn, WHITE_U, WHITE_V, col[1], col[1], col[1] * 1.02f, 1);
             tv_push(q[1], nn, WHITE_U, WHITE_V, col[1], col[1], col[1] * 1.02f, 1); tv_push(q[2], nn, WHITE_U, WHITE_V, col[2], col[2], col[2] * 1.02f, 1); tv_push(q[3], nn, WHITE_U, WHITE_V, col[3], col[3], col[3] * 1.02f, 1); }
-        m_cloudsea = tv_mesh(); }
+        m_cloudsea = tv_mesh();
+        /* far floating islands all round: rocky undersides hanging into the cloud (rock), grassy caps (grass) */
+        unsigned fs = 5150; float FI[16][5]; int nf = 0;
+        for (int i = 0; i < 16; i++) { float a = i * 6.2831853f / 16 + (frand01(&fs) - 0.5f) * 0.3f, r = 270 + frand01(&fs) * 230;
+            FI[nf][0] = sinf(a) * r; FI[nf][1] = cosf(a) * r; FI[nf][2] = 15 + frand01(&fs) * 50; FI[nf][3] = 18 + frand01(&fs) * 34; FI[nf][4] = FI[nf][3] * (1.3f + frand01(&fs) * 1.2f); nf++; }
+        tv_begin(16 * 3 * 12 * 6 * 2);
+        for (int i = 0; i < nf; i++) { float x = FI[i][0], z = FI[i][1], y = FI[i][2], R = FI[i][3], D = FI[i][4];
+            tv_cone(v3(x, y, z), v3(x, y - D * 0.45f, z), R, R * 0.65f, 14, 6, 0.1f); tv_cone(v3(x, y - D * 0.45f, z), v3(x + R * 0.1f, y - D, z), R * 0.65f, R * 0.08f, 14, 6, 0.1f); }
+        m_mountains = tv_mesh();
+        tv_begin(16 * 14 * 3 * 2);
+        for (int i = 0; i < nf; i++) { float x = FI[i][0], z = FI[i][1], y = FI[i][2], R = FI[i][3]; Vec3 up = v3(0, 1, 0);
+            for (int k = 0; k < 14; k++) { float a0 = k * 6.2831853f / 14, a1 = (k + 1) * 6.2831853f / 14; float bump = 1.5f + R * 0.06f;
+                Vec3 c = v3(x, y + bump, z), p0 = v3(x + sinf(a0) * R, y, z + cosf(a0) * R), p1 = v3(x + sinf(a1) * R, y, z + cosf(a1) * R);
+                tv_tri(c, p0, p1, up, up, up, x * 0.05f, z * 0.05f, p0.x * 0.05f, p0.z * 0.05f, p1.x * 0.05f, p1.z * 0.05f, 0.85f, 0.95f, 0.8f); } }
+        m_apron = tv_mesh(); }
     /* sky dome: unlit, coloured by height */
     tv_begin(16 * 24 * 6);
     for (int i = 0; i < 8; i++) for (int j = 0; j < 24; j++) {
@@ -586,7 +600,7 @@ static void draw_scene(int drc) {
     Mat4 id = m4_identity();
     /* sky, around the camera, no depth */
     Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); }
-    if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); }
+    gfx_state(ST_DEPTH | ST_DEPTH_WRITE); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); }
     if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
     gfx_clear_depth(drc);
     gfx_state(ST_SOLID);
@@ -1010,7 +1024,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         gfx_frame_begin(); gfx_shadow_none();
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
             gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, 0.74f, 0.82f, 0.92f, 140, 620);
-            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); } if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } gfx_clear_depth(0);
+            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); } gfx_state(ST_DEPTH | ST_DEPTH_WRITE); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, 1, 1, 1, 1, 0, 1, 0, 0); } gfx_clear_depth(0);
             gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); scenelayer_draw(&g_lay_tree, g_eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_palm, g_eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_fern, g_eye, LD_HI * 0.6f, 150); scenelayer_draw(&g_lay_bush, g_eye, LD_HI * 0.7f, 170);
             gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
             draw_title_dragons();
