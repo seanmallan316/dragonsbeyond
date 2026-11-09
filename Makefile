@@ -42,7 +42,8 @@ test:
 	gcc $(TESTFLAGS) tests/dragon_test.c src/game/world.c src/game/dragon.c -lm -o dragon_test && ./dragon_test
 	gcc $(TESTFLAGS) tests/boss_test.c src/game/boss.c src/game/world.c -lm -o boss_test && ./boss_test
 	gcc $(TESTFLAGS) tests/game_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/game/props.c src/game/boss.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o game_test && ASAN_OPTIONS=detect_leaks=0 ./game_test
+	gcc $(TESTFLAGS) tests/coop_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/game/props.c src/game/boss.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o coop_test && ASAN_OPTIONS=detect_leaks=0 ./coop_test
 
 clean:
-	rm -f $(TARGET).elf $(TARGET).rpx $(TARGET).wuhb $(TARGET)-tour.elf $(TARGET)-tour.rpx dragon_test game_test boss_test
+	rm -f $(TARGET).elf $(TARGET).rpx $(TARGET).wuhb $(TARGET)-tour.elf $(TARGET)-tour.rpx dragon_test game_test boss_test coop_test
 .PHONY: all clean test tour

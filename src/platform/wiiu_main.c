@@ -73,13 +73,13 @@ static void read_pads(Pad *pads) {
             w->plus = !!(ks.trigger & WPAD_BUTTON_PLUS);
             w->source = 16;
         } else if (ks.extensionType == WPAD_EXT_CORE || ks.extensionType == WPAD_EXT_MPLUS) {
-            /* a Wii Remote held sideways: the d-pad's up/down become left/right, 2 is gas, 1 is brake, A uses the blessing, B (the trigger) drifts */
+            /* a Wii Remote held sideways: the d-pad steers, 2 jumps/flies, 1 tail whip, A eats, B (the trigger) runs, minus roars */
             if (ks.hold & WPAD_BUTTON_UP) w->sx = -1;
             if (ks.hold & WPAD_BUTTON_DOWN) w->sx = 1;
             if (ks.hold & WPAD_BUTTON_RIGHT) w->sy = 1;
             if (ks.hold & WPAD_BUTTON_LEFT) w->sy = -1;
             w->a = !!(ks.hold & WPAD_BUTTON_2); w->b = !!(ks.hold & WPAD_BUTTON_1);
-            w->zl = !!(ks.hold & WPAD_BUTTON_A); w->zr = !!(ks.hold & WPAD_BUTTON_B);
+            w->x = !!(ks.hold & WPAD_BUTTON_A); w->zr = !!(ks.hold & WPAD_BUTTON_B); w->y = !!(ks.hold & WPAD_BUTTON_MINUS);   /* sideways Remote: 2 jump/fly, 1 tail, A eat, B run, minus roar */
             w->plus = !!(ks.trigger & WPAD_BUTTON_PLUS);
             w->source = 4;
         } else continue;
