@@ -30,11 +30,22 @@ void world_make(World *w, unsigned seed) {
     for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
         float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1);
         w->h[j][i] = raw_height(w, x, z); }
+    /* the boss clearing: flatten the ground there, ring it with big trees, hang the cage from the biggest */
+    w->arena_x = -62; w->arena_z = 60; w->arena_r = 22; w->arena_y = raw_height(w, w->arena_x, w->arena_z);
+    for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
+        float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1);
+        float d = sqrtf((x - w->arena_x) * (x - w->arena_x) + (z - w->arena_z) * (z - w->arena_z)); float k = clampf((d - w->arena_r) / 10.0f, 0, 1); k = k * k * (3 - 2 * k);
+        w->h[j][i] = w->arena_y + (w->h[j][i] - w->arena_y) * k; }
+    for (int i = 0; i < 7; i++) { float a = i * 6.2831853f / 7 + 0.3f; Prop *p = &w->prop[w->nprop]; p->kind = P_TREE; p->x = w->arena_x + cosf(a) * (w->arena_r - 2); p->z = w->arena_z + sinf(a) * (w->arena_r - 2);
+        p->yaw = a * 2.3f; p->scale = i == 0 ? 1.55f : 1.2f + 0.1f * (i % 3); w->arena_tree[w->narena_tree++] = w->nprop++; }
+    { const Prop *ct = &w->prop[w->arena_tree[0]]; float dx = w->arena_x - ct->x, dz = w->arena_z - ct->z, l = sqrtf(dx * dx + dz * dz);
+      w->cage_x = ct->x + dx / l * 3.2f; w->cage_z = ct->z + dz / l * 3.2f; w->cage_y = w->arena_y + 6.5f; }
     /* trees and rocks: scattered, denser toward the edges, none in the start meadow or the pond */
     for (int tries = 0; tries < 4000 && w->nprop < W_MAXPROPS; tries++) {
         float x = (frand() - 0.5f) * (W_SIZE - 16), z = (frand() - 0.5f) * (W_SIZE - 16); float d = sqrtf(x * x + z * z);
         if (d < 14) continue;
         if (world_in_pond(w, x, z)) continue;
+        { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 4) * (w->arena_r + 4)) continue; }
         float density = 0.25f + 0.75f * clampf((d - 14) / 90.0f, 0, 1) * fbm(x * 0.03f, z * 0.03f, seed + 5);
         if (frand() > density) continue;
         int ok = 1; for (int k = 0; k < w->nprop; k++) { float dx = w->prop[k].x - x, dz = w->prop[k].z - z; if (dx * dx + dz * dz < 5.5f * 5.5f) { ok = 0; break; } }
@@ -45,6 +56,7 @@ void world_make(World *w, unsigned seed) {
     /* food: berry bushes and mushrooms near the meadow and paths, grubs on the open ground, fish in the pond */
     for (int tries = 0; tries < 3000 && w->nfood < W_MAXFOOD; tries++) {
         float x = (frand() - 0.5f) * (W_SIZE - 30), z = (frand() - 0.5f) * (W_SIZE - 30); float d = sqrtf(x * x + z * z);
+        { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 2) * (w->arena_r + 2)) continue; }
         int inpond = world_in_pond(w, x, z); int kind;
         if (inpond) { if (frand() < 0.5f) continue; kind = F_FISH; }
         else { float r = frand(); kind = r < 0.45f ? F_BERRY : (r < 0.72f ? F_MUSHROOM : F_GRUB); if (d > 95 && frand() < 0.6f) continue; }

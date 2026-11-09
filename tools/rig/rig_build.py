@@ -158,7 +158,9 @@ if has_wings:
     # chain skinning for the wings: the weight follows the position from the shoulder to the tip, so the whole wing
     # swings at the shoulder (wing_1) and the outer bones only bend it further - a real wingbeat, not a flutter at the tip
     def sstep(a, b, x): u = np.clip((x - a) / max(b - a, 1e-9), 0, 1); return u * u * (3 - 2 * u)
-    ax = np.abs(P[:, 0]); wingzone = (ax > 0.88 * wing_root[0]) & (P[:, 2] > body_bot + 0.3 * (body_top - body_bot))
+    wing_ids = [i for i, nm in enumerate(names) if nm.startswith('wing')]
+    wing_share = Wt[:, wing_ids].sum(1) / np.maximum(Wt.sum(1), 1e-9)   # how much of each vertex the plain distance weights already gave the wings
+    ax = np.abs(P[:, 0]); wingzone = (ax > 0.88 * wing_root[0]) & (P[:, 2] > body_bot + 0.3 * (body_top - body_bot)) & (wing_share > 0.3)
     u = (ax - wing_root[0]) / max(wing_tip[0] - wing_root[0], 1e-6)
     w1 = 1 - sstep(0.28, 0.5, u); w3 = sstep(0.62, 0.86, u); w2 = np.clip(1 - w1 - w3, 0, 1)
     rootmix = sstep(0.88 * wing_root[0], 0.98 * wing_root[0], ax)   # the wing is all shoulder bone from where it leaves the body: it pivots at the body, not out on the wing

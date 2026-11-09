@@ -28,7 +28,10 @@ typedef struct {
     unsigned seed;
     float crystal_x, crystal_y, crystal_z; int crystal_found;   /* the hidden egg crystal (one per world) */
     Drone drone[W_MAXDRONES]; int ndrone;
-    Drone hound[W_MAXHOUNDS]; int nhound;   /* Shock Hounds: same record, on the ground. state 0 patrol, 1 chase, 2 retreat, 3 knocked out */
+    Drone hound[W_MAXHOUNDS]; int nhound;
+    float arena_x, arena_z, arena_r, arena_y;   /* the boss clearing: flat ground ringed by big trees */
+    int arena_tree[8]; int narena_tree;         /* prop indices of the ring trees (the boss rams these) */
+    float cage_x, cage_y, cage_z;               /* where the captured dragonet's cage hangs */   /* Shock Hounds: same record, on the ground. state 0 patrol, 1 chase, 2 retreat, 3 knocked out */
 } World;
 
 void  world_make(World *w, unsigned seed);
