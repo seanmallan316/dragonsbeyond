@@ -18,4 +18,5 @@ typedef struct { float x, y, z, yaw, s; } SceneInst;
 typedef struct { PropModel *model; int n; SceneInst inst[SC_MAX]; } SceneLayer;
 void scenelayer_build(SceneLayer *L, PropModel *model, const World *w, int kind, float height_scale, float sink);
 void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist, float skip_dist);
+void scenelayer_view(float fx, float fz);   /* camera's flat forward direction: instances behind it are skipped; (0, 0) turns that off */
 #endif

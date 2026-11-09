@@ -594,7 +594,7 @@ static void draw_scene(int drc) {
     gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_bump(3); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_bump(4); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID);
     gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1);
     gfx_bind(tx_rock); if (m_rock) gfx_draw(m_rock, &id, 1, 1, 1, 1);
-    scenelayer_draw(&g_lay_tree, eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_palm, eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_fern, eye, LD_HI * 0.6f, 150); scenelayer_draw(&g_lay_bush, eye, LD_HI * 0.7f, 170);
+    scenelayer_view(at.x - eye.x, at.z - eye.z); scenelayer_draw(&g_lay_tree, eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_palm, eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_fern, eye, LD_HI * 0.6f, 150); scenelayer_draw(&g_lay_bush, eye, LD_HI * 0.7f, 170); scenelayer_view(0, 0);
     gfx_state(ST_CUTOUT);
     gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1);
     gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1);
