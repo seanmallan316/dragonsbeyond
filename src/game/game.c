@@ -8,6 +8,7 @@
 #include "../render/gfx.h"
 #include "../render/batch.h"
 #include "../render/assets.h"
+#include "../render/ui_atlas.h"
 #include "../audio/sfx.h"
 #include "../audio/music.h"
 #include <stdio.h>
@@ -101,6 +102,8 @@ static int column_at(float *cx, float *cz) {
 static Mesh *m_dynfood, *m_dynspark, *m_dynhud;   /* refilled per view (each at most twice a frame) */
 #define DYN_CAP 48000
 static Vertex g_dynv[DYN_CAP]; static Batch g_b;
+#define UI_CAP 12000
+static Texture *tx_ui; static Mesh *m_dynui, *m_dynuia; static Vertex g_uiv[UI_CAP], g_uav[UI_CAP]; static Batch g_ub, g_ua;
 static uint32_t n_sky;
 
 static Vec3 sun_dir(void) { return v3_norm(v3(0.55f, 0.62f, 0.4f)); }   /* late-afternoon sun: long shadows, shapes read as solid */
@@ -339,6 +342,7 @@ int game_init(int gfx_status) {
     build_ground(); build_props();
     scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f); scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f);   /* the packed models are already life-size; the prop's own scale varies them */
     batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(6000); m_dynhud = gfx_mesh_dynamic(36000);
+    tx_ui = asset_texture("ui", 0, NULL, NULL); batch_init(&g_ub, g_uiv, UI_CAP); batch_init(&g_ua, g_uav, UI_CAP); m_dynui = gfx_mesh_dynamic(UI_CAP); m_dynuia = gfx_mesh_dynamic(UI_CAP);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
     /* the other dragons load when they are needed (their world, their rescue, a save that has them): a quicker start */
@@ -669,67 +673,126 @@ static void shadow_pass(void) {
 
 static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a);
 static void text_c(const char *s, float y, float size, float r, float g, float b, float a) { batch_text(&g_b, s, 640 - text_width(s, size) / 2, y, size, r, g, b, a); }
+static void text_cg(const char *s, float y, float size, float a) { batch_text_g(&g_b, s, 640 - text_width(s, size) / 2, y, size, 1, 1, 1, a, 1); }
+
+/* ---------- the menu art: carved stone, old gold and jewels (content/img/ui.png, made by tools/make_ui.py) ----------
+   three layers each frame: g_ub (panels, under the words), the words (g_b), then g_ua (light: glints, embers, shine) added on top */
+static void ui_part(Batch *b, int id, float fx0, float fy0, float fx1, float fy1, float x, float y, float w, float h, float r, float g, float bl, float a) {
+    const UiPic *p = &UI_PICS[id]; float u0 = (p->x + fx0 * p->w) / 1024.0f, v0 = (p->y + fy0 * p->h) / 1024.0f, u1 = (p->x + fx1 * p->w) / 1024.0f, v1 = (p->y + fy1 * p->h) / 1024.0f;
+    batch_rect_uv(b, x, y, w, h, u0, v0, u1, v1, r, g, bl, a); }
+static void ui_pic(Batch *b, int id, float x, float y, float w, float h, float r, float g, float bl, float a) { ui_part(b, id, 0, 0, 1, 1, x, y, w, h, r, g, bl, a); }
+static void ui_pic_c(Batch *b, int id, float cx, float cy, float w, float h, float r, float g, float bl, float a) { ui_pic(b, id, cx - w / 2, cy - h / 2, w, h, r, g, bl, a); }
+static void ui_pic_rot(Batch *b, int id, float cx, float cy, float w, float h, float ang, float r, float g, float bl, float a) {
+    const UiPic *p = &UI_PICS[id]; float c = cosf(ang), s = sinf(ang), hx = w / 2, hy = h / 2; Vec3 q[4]; static const float K[4][2] = {{-1, 1}, {1, 1}, {1, -1}, {-1, -1}};   /* screen y grows down: bottom-left first */
+    for (int i = 0; i < 4; i++) { float x = K[i][0] * hx, y = K[i][1] * hy; q[i] = scr(cx + x * c - y * s, cy + x * s + y * c); }
+    batch_quad4(b, q[0], q[1], q[2], q[3], v3(0, 0, 1), p->x / 1024.0f, p->y / 1024.0f, (p->x + p->w) / 1024.0f, (p->y + p->h) / 1024.0f, r, g, bl, a); }
+static void ui_rect(Batch *b, float x, float y, float w, float h, float r, float g, float bl, float a) { ui_pic(b, UI_WHITE, x, y, w, h, r, g, bl, a); }
+/* a light running round the edge of a box */
+static void ui_glint(float x, float y, float w, float h, float t, float size, float a) {
+    float per = 2 * (w + h), d = fmodf(t, 1.0f) * per, px, py;
+    if (d < w) { px = x + d; py = y; } else if (d < w + h) { px = x + w; py = y + d - w; } else if (d < 2 * w + h) { px = x + w - (d - w - h); py = y + h; } else { px = x; py = y + h - (d - 2 * w - h); }
+    ui_pic_c(&g_ua, UI_GLOW, px, py, size, size, 1, 0.85f, 0.5f, a); ui_pic_c(&g_ua, UI_GLOW, px, py, size * 0.35f, size * 0.35f, 1, 1, 0.9f, a); }
+/* the stone slab with its gold rim, cut in nine so it stretches to any size without bending the corners */
+static void ui_panel(float x, float y, float w, float h, float a, int sel) {
+    const float F = 104.0f / 512.0f; float c = fminf(fminf(76, w / 2), h / 2); float xs[4] = {x, x + c, x + w - c, x + w}, ys[4] = {y, y + c, y + h - c, y + h}, fs[4] = {0, F, 1 - F, 1};
+    float k = sel ? 1.0f : 0.78f;
+    for (int j = 0; j < 3; j++) for (int i = 0; i < 3; i++) ui_part(&g_ub, UI_PANEL, fs[i], fs[j], fs[i + 1], fs[j + 1], xs[i], ys[j], xs[i + 1] - xs[i], ys[j + 1] - ys[j], k, k, k * (sel ? 0.95f : 1), a);
+    if (sel) { float pulse = 0.5f + 0.5f * sinf(g_time * 4);
+        ui_glint(x + c * 0.25f, y + c * 0.25f, w - c * 0.5f, h - c * 0.5f, g_time * 0.25f, 70, 0.8f * a); ui_glint(x + c * 0.25f, y + c * 0.25f, w - c * 0.5f, h - c * 0.5f, g_time * 0.25f + 0.5f, 70, 0.8f * a);
+        ui_pic_c(&g_ub, UI_GEM, x - 8, y + h / 2, 56, 56, 1, 1, 1, a); ui_pic_c(&g_ua, UI_GLOW, x - 8, y + h / 2, 110, 110, 0.2f, 1, 0.5f, (0.35f + 0.35f * pulse) * a); } }
+/* a gold bar in a little gold frame, filled with a jewel colour that shimmers */
+static void ui_bar(float x, float y, float w, float h, float f, float r, float g, float bl) {
+    ui_rect(&g_ub, x - 4, y - 4, w + 8, h + 8, 0.45f, 0.3f, 0.1f, 0.95f); ui_rect(&g_ub, x - 2, y - 2, w + 4, h + 4, 1, 0.78f, 0.35f, 1); ui_rect(&g_ub, x, y, w, h, 0.03f, 0.03f, 0.03f, 0.9f);
+    if (f <= 0) return; ui_rect(&g_ub, x, y, w * f, h, r, g, bl, 1); ui_rect(&g_ub, x, y, w * f, h * 0.4f, fminf(r + 0.35f, 1), fminf(g + 0.35f, 1), fminf(bl + 0.35f, 1), 0.6f);
+    float sx = x + fmodf(g_time * 160, w * f + 60) - 30; if (sx > x && sx < x + w * f) ui_pic_c(&g_ua, UI_GLOW, sx, y + h / 2, h * 3, h * 1.6f, r, g, bl, 0.6f); }
+/* hearts are rubies: dark when lost, filling from the bottom */
+static void ui_heart(float cx, float cy, float s, float full) {
+    ui_pic_c(&g_ub, UI_RUBY, cx, cy, s, s, 0.3f, 0.25f, 0.25f, 0.85f);
+    if (full > 0) { ui_part(&g_ub, UI_RUBY, 0, 1 - full, 1, 1, cx - s / 2, cy - s / 2 + s * (1 - full), s, s * full, 1, 1, 1, 1);
+        if (full >= 1) ui_pic_c(&g_ua, UI_GLOW, cx, cy, s * 1.5f, s * 1.5f, 1, 0.15f, 0.2f, 0.18f + 0.1f * sinf(g_time * 2.5f + cx)); } }
+static float ui_hash(int i) { unsigned h = (unsigned)i * 2654435761u; h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15; return (h & 0xFFFF) / 65535.0f; }
+/* embers drifting up out of the dark */
+static void ui_embers(int n, float a) {
+    for (int i = 0; i < n; i++) { float sp = 30 + 50 * ui_hash(i * 3 + 1), life = 900 / sp, t = fmodf(g_time + ui_hash(i * 3 + 2) * life, life), y = 760 - t * sp;
+        float x = ui_hash(i * 3) * 1280 + 30 * sinf(g_time * (0.6f + ui_hash(i + 77)) + i), s = 10 + 18 * ui_hash(i + 33), fade = sinf(3.14159f * t / life) * (0.6f + 0.4f * sinf(g_time * 7 + i));
+        ui_pic_c(&g_ua, UI_EMBER, x, y, s, s, 1, 0.55f + 0.3f * ui_hash(i + 5), 0.2f, a * fade); } }
+/* darken the picture, darkest at the edges */
+static void ui_shade(float a) { ui_rect(&g_ub, 0, 0, 1280, 720, 0.02f, 0.015f, 0.01f, 0.45f * a); ui_pic(&g_ub, UI_VIGNETTE, -80, -60, 1440, 840, 1, 1, 1, a); }
+static void ui_divider(float cx, float y, float w, float a) { ui_pic_c(&g_ub, UI_DIVIDER, cx, y, w, w / 8, 1, 1, 1, a); ui_pic_c(&g_ua, UI_GLOW, cx + sinf(g_time * 0.9f) * w * 0.4f, y, 60, 18, 1, 0.8f, 0.4f, 0.5f * a); }
+/* the gold title, with a band of light sweeping across the letters every few seconds */
+static void ui_logo(float cx, float y, float w, float a) {
+    const UiPic *p = &UI_PICS[UI_LOGO]; float h = w * p->h / p->w, x = cx - w / 2; ui_pic(&g_ub, UI_LOGO, x + 6, y + 8, w, h, 0, 0, 0, 0.5f * a); ui_pic(&g_ub, UI_LOGO, x, y, w, h, 1, 1, 1, a);
+    float sweep = fmodf(g_time * 0.45f, 1.6f) * 1.4f - 0.2f; const int N = 48;
+    for (int i = 0; i < N; i++) { float f0 = (float)i / N, f1 = (float)(i + 1) / N, d = (f0 + f1) / 2 - sweep, k = expf(-d * d * 120);
+        if (k > 0.02f) ui_part(&g_ua, UI_LOGO, f0, 0, f1, 1, x + f0 * w, y, (f1 - f0) * w, h, 1, 0.9f, 0.7f, 0.9f * k * a); } }
+static void ui_begin(void) { batch_clear(&g_ub); batch_clear(&g_ua); }
+/* draw the three layers (call once per view, after the words are in g_b) */
+static void ui_flush(void) {
+    Mat4 id = m4_identity(); gfx_camera_2d();
+    if (tx_ui && g_ub.n) { gfx_state(ST_HUD); gfx_bind(tx_ui); gfx_mesh_update(m_dynui, g_ub.v, g_ub.n); gfx_draw_ex(m_dynui, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
+    if (g_b.n) { gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
+    if (tx_ui && g_ua.n) { gfx_state(ST_BLEND | ST_ADD); gfx_bind(tx_ui); gfx_mesh_update(m_dynuia, g_ua.v, g_ua.n); gfx_draw_ex(m_dynuia, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
+    gfx_bind(NULL); }
 #ifdef DB_TOUR
 static float g_tour_real_dt = 0.1f; static int g_tour_presses, g_tour_takeoffs, g_tour_a;
 #endif
 static void draw_hud(int drc) {
-    const Dragon *d = &g_dragon; batch_clear(&g_b);
+    const Dragon *d = &g_dragon; batch_clear(&g_b); ui_begin();
 #ifdef DB_TOUR
     { char tb[200]; snprintf(tb, sizeof tb, "T %.0f FPS %.1f %s ANIM %d ACT %.1f EVO %.1f STAM %.2f VY %.1f A %d PRESSES %d TAKEOFFS %d", g_time, 1.0f / fmaxf(g_tour_real_dt, 0.001f), d->mode == DM_AIR ? "AIR" : d->mode == DM_SWIM ? "SWIM" : "GROUND", d->anim, d->act_t, d->evolve_t, d->stamina, d->vy, g_tour_a, g_tour_presses, g_tour_takeoffs); batch_text(&g_b, tb, 40, 690, 14, 1, 1, 0.6f, 0.9f); }
 #endif
     /* hearts */
-    for (int i = 0; i < (int)d->max_hearts; i++) { float full = clampf(d->hearts - i, 0, 1); batch_rect(&g_b, 40 + i * 44, 36, 34, 30, 0.25f, 0.05f, 0.08f, 0.8f); if (full > 0) batch_rect(&g_b, 43 + i * 44, 39 + 24 * (1 - full), 28, 24 * full, 0.95f, 0.2f, 0.3f, 1); }
+    for (int i = 0; i < (int)d->max_hearts; i++) ui_heart(58 + i * 42, 50, 44, clampf(d->hearts - i, 0, 1));
     if (g_p2 >= 0) {   /* player 2's dragon, top right */
         const Dragon *o = &g_other; const char *nm = kind_name(g_fk); char lab[48]; snprintf(lab, sizeof lab, "P2  %s", nm);
         batch_text(&g_b, lab, 1240 - text_width(lab, 22), 78, 22, 1, 0.8f, 0.8f, 1);
-        for (int i = 0; i < (int)o->max_hearts; i++) { float full = clampf(o->hearts - i, 0, 1); float hx = 1240 - (o->max_hearts - i) * 30; batch_rect(&g_b, hx, 112, 24, 20, 0.25f, 0.05f, 0.08f, 0.8f); if (full > 0) batch_rect(&g_b, hx + 2, 114, 20 * full, 16, 0.95f, 0.2f, 0.3f, 1); }
-        if (o->stage < ST_BEYONDER) { float k = clampf(o->growth / dragon_need(o->stage), 0, 1); batch_rect(&g_b, 1040, 140, 200, 10, 0.1f, 0.15f, 0.1f, 0.8f); batch_rect(&g_b, 1040, 140, 200 * k, 10, 0.4f, 0.95f, 0.4f, 1); } }
+        for (int i = 0; i < (int)o->max_hearts; i++) { float full = clampf(o->hearts - i, 0, 1); float hx = 1240 - (o->max_hearts - i) * 30; ui_heart(hx + 12, 122, 30, full); }
+        if (o->stage < ST_BEYONDER) { float k = clampf(o->growth / dragon_need(o->stage), 0, 1); ui_bar(1040, 144, 200, 10, k, 0.2f, 0.85f, 0.35f); } }
     else if (team_size() > 1 && g_friend.on && g_time - g_gp_last < 20 && fmodf(g_time, 30.0f) < 4) {   /* invite a second player now and then */
         const char *inv = "PLAYER 2: PRESS A ON A WII REMOTE TO JOIN"; batch_text(&g_b, inv, 1240 - text_width(inv, 12), 64, 12, 1, 1, 1, 0.75f); }
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
-        if (dx * dx + dz * dz < 60 * 60) { text_c(BOSS_NAME[g_wk], 150, 26, 1, 0.75f, 0.45f, 1);
-            for (int i = 0; i < BOSS_HITS[g_diff]; i++) { float x = 640 - BOSS_HITS[g_diff] * 34 + i * 68; batch_rect(&g_b, x + 4, 186, 60, 14, 0.15f, 0.05f, 0.03f, 0.85f); if (i < g_boss.hp) batch_rect(&g_b, x + 6, 188, 56, 10, 1.0f, 0.45f, 0.1f, 1); } } }
+        if (dx * dx + dz * dz < 60 * 60) { ui_panel(440, 132, 400, 90, 0.9f, 0); text_cg(BOSS_NAME[g_wk], 150, 26, 1);
+            for (int i = 0; i < BOSS_HITS[g_diff]; i++) { float x = 640 - BOSS_HITS[g_diff] * 34 + i * 68; ui_bar(x + 8, 188, 52, 10, i < g_boss.hp, 1.0f, 0.4f, 0.08f); } } }
     /* growth bar */
     float need = dragon_need(d->stage); float gf = need > 1e8f ? 1 : clampf(d->growth / need, 0, 1);
-    batch_rect(&g_b, 40, 80, 360, 22, 0.05f, 0.1f, 0.05f, 0.8f); batch_rect(&g_b, 43, 83, 354 * gf, 16, 0.45f, 0.9f, 0.3f, 1);
-    { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", active_name(), dragon_stage_name(d->stage)); batch_text(&g_b, nm, 40, 108, 26, 0.9f, 1, 0.8f, 1); }
+    ui_bar(42, 82, 356, 16, gf, 0.25f, 0.8f, 0.2f);
+    { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", active_name(), dragon_stage_name(d->stage)); batch_text_g(&g_b, nm, 40, 112, 26, 1, 1, 1, 1, 1); }
     if (need < 1e8f) { char s[32]; snprintf(s, sizeof s, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, s, 410, 80, 22, 0.9f, 1, 0.8f, 0.9f); }
     /* stamina while flying */
-    if (d->mode == DM_AIR && d->stage >= ST_DRAGON) { batch_rect(&g_b, 40, 140, 200, 12, 0.05f, 0.08f, 0.15f, 0.8f); batch_rect(&g_b, 42, 142, 196 * d->stamina, 8, 0.5f, 0.8f, 1, 1); }
+    if (d->mode == DM_AIR && d->stage >= ST_DRAGON) { ui_bar(42, 150, 196, 9, d->stamina, 0.35f, 0.65f, 1.0f); }
     /* prompts */
     float L = dragon_length(d->stage);
     int near = world_nearest_food(&g_world, d->x + sinf(d->yaw) * 0.45f * L, d->z + cosf(d->yaw) * 0.45f * L, 0.5f * L + 1.2f);
     if (near >= 0 && d->mode != DM_AIR && d->act_t <= 0) text_c(food_is_meat(g_world.food[near].kind) ? "X : EAT (MEAT, GROWS FAST)" : "X : EAT", 555, 30, 1, 1, 0.7f, 0.9f);
-    if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) text_wrap_c(g_msg, 630, 28, 1180, 1, 1, 1, clampf(g_msg_t, 0, 1));
-    if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); text_c("DRAGONS BEYOND", 250, 72, 0.6f, 1, 0.5f, a); text_c("EVERLEAF WILDS", 330, 40, 0.9f, 1, 0.9f, a); }
+    if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) { float ma = clampf(g_msg_t, 0, 1), mw = fminf(text_width(g_msg, 28), 1180); float mh = mw >= 1180 ? 112 : 76; ui_panel(640 - mw / 2 - 50, 606, mw + 100, mh, 0.88f * ma, 0); text_wrap_c(g_msg, 630, 28, 1180, 1, 0.96f, 0.86f, ma); }
+    if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(g_wk == WK_SKY ? "SKY KINGDOM" : "EVERLEAF WILDS", 352, 34, a); }
     static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST"}; char cl[120]; snprintf(cl, sizeof cl, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : %s   + : SWAP", d->stage >= ST_DRAGON ? PW[g_kind] : "ROAR");
       batch_text(&g_b, cl, 640 - text_width(cl, 16) / 2, 692, 16, 1, 1, 1, 0.5f); }
     if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, 0, 0, 1280, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }
     if (g_tale_i >= 0) { char line[200]; snprintf(line, sizeof line, TALE[g_tale_w][g_tale_i], kind_name(CAPTIVE[g_tale_w])); float fade = clampf(g_tale_t * 2, 0, 1);
-        batch_rect(&g_b, 0, 0, 1280, 720, 0.02f, 0.01f, 0, 0.6f * fade); text_wrap_c(line, 250, 34, 1040, 1, 0.95f, 0.8f, fade);
+        ui_shade(fade); ui_embers(40, fade); ui_panel(90, 150, 1100, 440, 0.95f * fade, 0); ui_divider(640, 200, 520, fade); text_wrap_c(line, 250, 34, 1000, 1, 0.95f, 0.82f, fade);
         char pg[16]; snprintf(pg, sizeof pg, "%d / 3", g_tale_i + 1); text_c(pg, 560, 20, 1, 1, 1, 0.5f); text_c("A : NEXT", 620, 24, 1, 1, 1, 0.6f + 0.4f * sinf(g_time * 3)); }
     else if (g_swap_open) {   /* Dragon Swap menu */
-        batch_rect(&g_b, 0, 0, 1280, 720, 0, 0.02f, 0, 0.55f);
-        text_c("DRAGON SWAP", 120, 52, 1, 0.92f, 0.6f, 1); text_c("THE GAME IS PAUSED", 182, 20, 1, 1, 1, 0.7f);
+        ui_shade(1); ui_embers(40, 0.8f);
+        text_cg("DRAGON SWAP", 110, 52, 1); ui_divider(640, 172, 560, 1); text_c("THE GAME IS PAUSED", 182, 20, 1, 1, 1, 0.7f);
         { int n = team_size(), slot = 0; float cw = n >= 3 ? 330 : 352, gap = 24, x0 = 640 - (n * cw + (n - 1) * gap) / 2;
           static const char *QUIRK[K_N] = {"STRONG TAIL, FLIES WHEN GROWN", "LIGHT AS AIR: LONG GLIDES", "ICE CLAWS: RUNS FASTER"};
           static const float CARD[K_N][3] = {{0.08f, 0.22f, 0.1f}, {0.25f, 0.06f, 0.06f}, {0.12f, 0.18f, 0.28f}};
           for (int k = 0; k < K_N; k++) { if (!g_has[k]) continue; const Dragon *dd = k == g_kind ? &g_dragon : &g_team[k]; float x = x0 + slot++ * (cw + gap), cx = x + cw / 2 - 6; int sel = k == g_swap_sel;
-            batch_rect(&g_b, x - 6, 236, cw, 272, sel ? 1 : 0.3f, sel ? 0.85f : 0.3f, sel ? 0.4f : 0.3f, sel ? 0.95f : 0.5f);
-            batch_rect(&g_b, x, 242, cw - 12, 260, CARD[k][0], CARD[k][1], CARD[k][2], 0.92f);
+            ui_panel(x - 6, 228, cw, 290, 1, sel); ui_rect(&g_ub, x + 14, 248, cw - 52, 250, CARD[k][0], CARD[k][1], CARD[k][2], 0.35f);
             const char *nm = kind_name(k); float ns = 34; while (ns > 18 && text_width(nm, ns) > cw - 30) ns -= 2; batch_text(&g_b, nm, cx - text_width(nm, ns) / 2, 262, ns, 1, 1, 1, 1);
             batch_text(&g_b, KIND_TITLE[k], cx - text_width(KIND_TITLE[k], 18) / 2, 310, 18, 0.8f, 0.9f, 1, 0.9f);
             const char *st = dragon_stage_name(dd->stage); batch_text(&g_b, st, cx - text_width(st, 24) / 2, 346, 24, 1, 0.9f, 0.6f, 1);
-            for (int i = 0; i < (int)dd->max_hearts; i++) { float full = clampf(dd->hearts - i, 0, 1); float hx = cx - dd->max_hearts * 15 + i * 30; batch_rect(&g_b, hx, 392, 24, 22, 0.25f, 0.05f, 0.08f, 0.8f); if (full > 0) batch_rect(&g_b, hx + 2, 394, 20 * full, 18, 0.95f, 0.2f, 0.3f, 1); }
+            for (int i = 0; i < (int)dd->max_hearts; i++) { float full = clampf(dd->hearts - i, 0, 1); float hx = cx - dd->max_hearts * 15 + i * 30; ui_heart(hx + 12, 402, 28, full); }
             char gb[64]; snprintf(gb, sizeof gb, "FOOD %.0f / %.0f", dd->growth, dragon_need(dd->stage)); if (dd->stage < ST_BEYONDER) batch_text(&g_b, gb, cx - text_width(gb, 16) / 2, 422, 16, 0.7f, 1, 0.7f, 0.9f);
             float qs = 16; while (qs > 11 && text_width(QUIRK[k], qs) > cw - 30) qs -= 1; batch_text(&g_b, QUIRK[k], cx - text_width(QUIRK[k], qs) / 2, 448, qs, 1, 1, 1, 0.75f);
             if (k == g_kind) batch_text(&g_b, "PLAYING NOW", cx - text_width("PLAYING NOW", 16) / 2, 476, 16, 0.6f, 1, 0.6f, 1);
             else if (k == g_fk) batch_text(&g_b, "FOLLOWING YOU", cx - text_width("FOLLOWING YOU", 16) / 2, 476, 16, 0.8f, 0.8f, 1, 1); } }
         text_c("LEFT / RIGHT: CHOOSE    A: SWAP    X: SHARE FOOD    B OR +: BACK", 560, 22, 1, 1, 1, 0.9f);
         if (g_msg_t > 0) text_c(g_msg, 610, 22, 1, 0.95f, 0.5f, 1); }
-    if (!g_b.n) return; gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL); (void)drc; }
+    ui_flush(); (void)drc; }
 
 
 #ifdef DB_TOUR
@@ -861,46 +924,48 @@ static void draw_title_dragons(void) {
 static void title_camera(void) {
     float a = g_time * 0.07f; g_eye = v3(cosf(a) * 9, world_height(&g_world, cosf(a) * 9, sinf(a) * 9) + 3.0f, sinf(a) * 9); g_at = v3(-cosf(a) * 10, 15, -sinf(a) * 10); }   /* inside the 14 m clearing, clear of the trees */
 static void draw_title_hud(void) {
-    batch_clear(&g_b);
-    float pulse = 0.75f + 0.25f * sinf(g_time * 3);
+    batch_clear(&g_b); ui_begin();
+    float pulse = 0.75f + 0.25f * sinf(g_time * 3), in = clampf(g_state_t * 1.2f, 0, 1);
     if (g_state == G_TITLE) {
-        batch_rect(&g_b, 0, 150, 1280, 190, 0, 0.08f, 0, 0.35f);
-        text_c("DRAGONS BEYOND", 174, 74, 0.35f, 0.7f, 0.3f, 1); text_c("DRAGONS BEYOND", 170, 74, 0.9f, 1, 0.8f, 1);
-        text_c("EVERLEAF WILDS", 272, 34, 0.9f, 1, 0.9f, 0.9f);
-        text_c("PRESS A", 600, 40, 1, 1, 1, pulse);
-        text_c("A GAME DESIGNED BY A 10 YEAR OLD DRAGON EXPERT", 690, 18, 1, 1, 1, 0.6f);
+        ui_shade(0.55f); ui_embers(60, 1);
+        ui_pic_rot(&g_ub, UI_RING, 640, 215, 560, 560, g_time * 0.08f, 1, 1, 1, 0.28f * in); ui_pic_rot(&g_ua, UI_RING, 640, 215, 470, 470, -g_time * 0.13f, 1, 0.7f, 0.3f, 0.16f * in);
+        ui_pic_c(&g_ua, UI_GLOW, 640, 205, 1300, 300, 1, 0.6f, 0.25f, 0.18f * in);
+        { float sc = 1.15f - 0.15f * in; ui_logo(640, 205 - 60 * sc, 1120 * sc, in); }
+        ui_divider(640, 300, 640, in);
+        text_cg("EVERLEAF WILDS", 322, 34, in);
+        ui_panel(470, 560, 340, 92, in, 1); text_cg("PRESS A", 588, 38, (0.6f + 0.4f * pulse) * in);
+        text_c("A GAME DESIGNED BY A 10 YEAR OLD DRAGON EXPERT", 684, 18, 1, 0.92f, 0.78f, 0.75f * in);
     } else if (g_state == G_NAME) {
-        batch_rect(&g_b, 140, 120, 1000, 480, 0, 0.06f, 0, 0.6f);
-        text_c("WHO IS YOUR FOREST DRAGON?", 150, 44, 0.9f, 1, 0.8f, 1);
-        for (int i = 0; i < 2; i++) { float x = 240 + i * 440, y = 260; int sel = g_name == i;
-            batch_rect(&g_b, x, y, 360, 230, sel ? 0.25f : 0.1f, sel ? 0.5f : 0.2f, sel ? 0.2f : 0.1f, 0.9f);
-            if (sel) { batch_rect(&g_b, x - 6, y - 6, 372, 6, 1, 1, 0.6f, pulse); batch_rect(&g_b, x - 6, y + 230, 372, 6, 1, 1, 0.6f, pulse); batch_rect(&g_b, x - 6, y, 6, 230, 1, 1, 0.6f, pulse); batch_rect(&g_b, x + 360, y, 6, 230, 1, 1, 0.6f, pulse); }
-            { float ns = 40; while (ns > 20 && text_width(NAMES[i], ns) > 330) ns -= 2; batch_text(&g_b, NAMES[i], x + 180 - text_width(NAMES[i], ns) / 2, y + 40, ns, 1, 1, 1, 1); }
-            batch_text(&g_b, i == 0 ? "GIRL" : "BOY", x + 180 - text_width(i == 0 ? "GIRL" : "BOY", 26) / 2, y + 110, 26, 0.9f, 1, 0.8f, 0.9f);
-            batch_text(&g_b, "LEAFNADO + LEAF TAIL", x + 180 - text_width("LEAFNADO + LEAF TAIL", 18) / 2, y + 170, 18, 1, 1, 1, 0.7f); }
-        text_c("LEFT / RIGHT : CHOOSE     A : START", 540, 24, 1, 1, 1, 0.8f); }
+        ui_shade(1); ui_embers(30, 0.8f); ui_panel(120, 90, 1040, 540, 0.97f, 0);
+        text_cg("WHO IS YOUR FOREST DRAGON?", 140, 44, 1); ui_divider(640, 210, 560, 1);
+        for (int i = 0; i < 2; i++) { float x = 240 + i * 440, y = 250; int sel = g_name == i;
+            ui_panel(x, y, 360, 240, 1, sel);
+            { float ns = 40; while (ns > 20 && text_width(NAMES[i], ns) > 300) ns -= 2; batch_text_g(&g_b, NAMES[i], x + 180 - text_width(NAMES[i], ns) / 2, y + 48, ns, 1, 1, 1, sel ? 1 : 0.75f, 1); }
+            batch_text(&g_b, i == 0 ? "GIRL" : "BOY", x + 180 - text_width(i == 0 ? "GIRL" : "BOY", 26) / 2, y + 116, 26, 0.85f, 1, 0.8f, 0.9f);
+            batch_text(&g_b, "LEAFNADO + LEAF TAIL", x + 180 - text_width("LEAFNADO + LEAF TAIL", 18) / 2, y + 172, 18, 1, 0.95f, 0.85f, 0.75f); }
+        text_c("LEFT / RIGHT : CHOOSE     A : START", 560, 22, 1, 0.95f, 0.85f, 0.85f); }
     if (g_state == G_SLOT) {
-        batch_rect(&g_b, 240, 90, 800, 560, 0, 0.06f, 0, 0.65f); text_c("CHOOSE A SAVE", 110, 44, 0.9f, 1, 0.8f, 1);
-        for (int k = 0; k < 3; k++) { const SlotInfo *si = &g_slots[k]; float y = 190 + k * 130; int sel = k == g_slot_sel;
-            batch_rect(&g_b, 300, y, 680, 110, sel ? 0.25f : 0.1f, sel ? 0.5f : 0.2f, sel ? 0.2f : 0.1f, 0.9f);
-            if (sel) { batch_rect(&g_b, 294, y - 6, 692, 6, 1, 1, 0.6f, pulse); batch_rect(&g_b, 294, y + 110, 692, 6, 1, 1, 0.6f, pulse); }
-            char a[64], b[96]; snprintf(a, sizeof a, "SAVE %d", k + 1); batch_text(&g_b, a, 330, y + 18, 28, 1, 0.9f, 0.6f, 1);
+        ui_shade(1); ui_embers(30, 0.8f); ui_panel(220, 60, 840, 610, 0.97f, 0); text_cg("CHOOSE A SAVE", 106, 44, 1); ui_divider(640, 172, 520, 1);
+        for (int k = 0; k < 3; k++) { const SlotInfo *si = &g_slots[k]; float y = 200 + k * 128; int sel = k == g_slot_sel;
+            ui_panel(300, y, 680, 112, 1, sel);
+            char a[64], b[96]; snprintf(a, sizeof a, "SAVE %d", k + 1); batch_text_g(&g_b, a, 340, y + 22, 28, 1, 1, 1, sel ? 1 : 0.75f, 1);
             if (!si->used) snprintf(b, sizeof b, "EMPTY - START A NEW ADVENTURE");
             else { static const char *WN[WK_N] = {"EVERLEAF WILDS", "SKY KINGDOM"}; snprintf(b, sizeof b, "%s THE %s  -  %s  -  %s  -  %d FRIEND%s", NAMES[si->name], dragon_stage_name(si->stage), DIFF_NAMES[si->diff], WN[si->wk], si->rescued, si->rescued == 1 ? "" : "S"); }
-            batch_text(&g_b, b, 330, y + 62, 20, 1, 1, 1, 0.9f);
-            if (g_slot_erase == k) batch_text(&g_b, "PRESS X AGAIN TO ERASE", 960 - text_width("PRESS X AGAIN TO ERASE", 18), y + 22, 18, 1, 0.4f, 0.3f, 1); }
-        text_c("UP / DOWN : CHOOSE    A : PLAY    X : ERASE    B : BACK", 600, 22, 1, 1, 1, 0.8f); }
+            { float bs = 19; while (bs > 12 && text_width(b, bs) > 610) bs -= 1; batch_text(&g_b, b, 340, y + 66, bs, 1, 0.95f, 0.85f, 0.9f); }
+            if (g_slot_erase == k) batch_text(&g_b, "PRESS X AGAIN TO ERASE", 950 - text_width("PRESS X AGAIN TO ERASE", 18), y + 26, 18, 1, 0.4f, 0.3f, 1); }
+        text_c("UP / DOWN : CHOOSE    A : PLAY    X : ERASE    B : BACK", 610, 20, 1, 0.95f, 0.85f, 0.85f); }
     if (g_state == G_DIFF) {
-        batch_rect(&g_b, 340, 120, 600, 470, 0, 0.06f, 0, 0.65f); text_c("HOW HARD?", 140, 44, 0.9f, 1, 0.8f, 1);
+        ui_shade(1); ui_embers(30, 0.8f); ui_panel(320, 90, 640, 530, 0.97f, 0); text_cg("HOW HARD?", 136, 44, 1); ui_divider(640, 200, 440, 1);
         static const char *desc[3] = {"FEWER OUCHES, IRONHORN NEEDS 2 HITS", "THE WAY IT WAS DESIGNED", "BIGGER OUCHES, IRONHORN NEEDS 4 HITS"};
-        for (int k = 0; k < 3; k++) { float y = 220 + k * 110; int sel = k == g_diff;
-            batch_rect(&g_b, 400, y, 480, 90, sel ? 0.25f : 0.1f, sel ? 0.5f : 0.2f, sel ? 0.2f : 0.1f, 0.9f);
-            batch_text(&g_b, DIFF_NAMES[k], 640 - text_width(DIFF_NAMES[k], 32) / 2, y + 12, 32, 1, sel ? 1 : 0.8f, sel ? 0.6f : 0.8f, 1);
-            batch_text(&g_b, desc[k], 640 - text_width(desc[k], 16) / 2, y + 58, 16, 1, 1, 1, 0.8f); }
-        text_c("UP / DOWN : CHOOSE    A : OK    B : BACK", 560, 22, 1, 1, 1, 0.8f); }
-    if (g_state == G_STORY) { batch_rect(&g_b, 0, 0, 1280, 720, 0, 0, 0, 0.55f); float fade = clampf(g_state_t * 2, 0, 1);
-        text_wrap_c(STORY[g_story_i], 250, 34, 1040, 1, 1, 0.9f, fade); char pg[16]; snprintf(pg, sizeof pg, "%d / %d", g_story_i + 1, STORY_N); text_c(pg, 560, 20, 1, 1, 1, 0.5f); text_c("A : NEXT", 620, 24, 1, 1, 1, pulse); }
-    if (!g_b.n) return; gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL); }
+        for (int k = 0; k < 3; k++) { float y = 226 + k * 112; int sel = k == g_diff;
+            ui_panel(400, y, 480, 96, 1, sel);
+            batch_text_g(&g_b, DIFF_NAMES[k], 640 - text_width(DIFF_NAMES[k], 32) / 2, y + 16, 32, 1, 1, 1, sel ? 1 : 0.7f, 1);
+            batch_text(&g_b, desc[k], 640 - text_width(desc[k], 16) / 2, y + 62, 16, 1, 0.95f, 0.85f, 0.85f); }
+        text_c("UP / DOWN : CHOOSE    A : OK    B : BACK", 574, 20, 1, 0.95f, 0.85f, 0.85f); }
+    if (g_state == G_STORY) { float fade = clampf(g_state_t * 2, 0, 1);
+        ui_shade(1); ui_embers(50, 1); ui_panel(90, 150, 1100, 440, 0.95f * fade, 0); ui_divider(640, 200, 520, fade);
+        text_wrap_c(STORY[g_story_i], 250, 34, 1000, 1, 0.95f, 0.82f, fade); char pg[16]; snprintf(pg, sizeof pg, "%d / %d", g_story_i + 1, STORY_N); text_cg(pg, 520, 20, 0.7f * fade); text_cg("A : NEXT", 620, 26, pulse); }
+    ui_flush(); }
 
 /* ---------- the frame ---------- */
 
