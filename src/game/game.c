@@ -512,8 +512,8 @@ static void draw_hud(int drc) {
     for (int i = 0; i < (int)d->max_hearts; i++) { float full = clampf(d->hearts - i, 0, 1); batch_rect(&g_b, 40 + i * 44, 36, 34, 30, 0.25f, 0.05f, 0.08f, 0.8f); if (full > 0) batch_rect(&g_b, 43 + i * 44, 39 + 24 * (1 - full), 28, 24 * full, 0.95f, 0.2f, 0.3f, 1); }
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
-        if (dx * dx + dz * dz < 60 * 60) { text_c("IRONHORN", 34, 26, 1, 0.75f, 0.45f, 1);
-            for (int i = 0; i < BOSS_HP; i++) { float x = 640 - BOSS_HP * 34 + i * 68; batch_rect(&g_b, x + 4, 72, 60, 14, 0.15f, 0.05f, 0.03f, 0.85f); if (i < g_boss.hp) batch_rect(&g_b, x + 6, 74, 56, 10, 1.0f, 0.45f, 0.1f, 1); } } }
+        if (dx * dx + dz * dz < 60 * 60) { text_c("IRONHORN", 150, 26, 1, 0.75f, 0.45f, 1);
+            for (int i = 0; i < BOSS_HP; i++) { float x = 640 - BOSS_HP * 34 + i * 68; batch_rect(&g_b, x + 4, 186, 60, 14, 0.15f, 0.05f, 0.03f, 0.85f); if (i < g_boss.hp) batch_rect(&g_b, x + 6, 188, 56, 10, 1.0f, 0.45f, 0.1f, 1); } } }
     /* growth bar */
     float need = dragon_need(d->stage); float gf = need > 1e8f ? 1 : clampf(d->growth / need, 0, 1);
     batch_rect(&g_b, 40, 80, 360, 22, 0.05f, 0.1f, 0.05f, 0.8f); batch_rect(&g_b, 43, 83, 354 * gf, 16, 0.45f, 0.9f, 0.3f, 1);
