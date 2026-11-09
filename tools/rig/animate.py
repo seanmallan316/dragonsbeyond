@@ -73,10 +73,12 @@ def idle(t):
     rots.update(tail(t, 8)); rots.update(wings_folded())
     if has_wings:
         rots['wingL_1'] = (-35 + 2 * S(t), 0, -25); rots['wingR_1'] = (-35 + 2 * S(t), 0, 25)
+    if CH < 1:   # chibi idle: a curious head tilt and a little weight shift
+        rots['head'] = (2 * S(t, 2.0), 12 * S(0.5 * t, 0.7), 6 * S(0.5 * t, 1.0)); rots['hips'] = (0, 0, 3 * S(0.5 * t))
     return rots, {'hips': (0, 0, 0.004 * H * S(t))}
 def walk(t):
     rots = legs_walk(t)
-    bob = 0.01 * H * S(2 * t, 0.3)
+    bob = 0.01 * H * S(2 * t, 0.3) + (0.03 * H * max(0.0, S(2 * t, 0.3)) if CH < 1 else 0)   # chibi: a springy hop in every step
     rots.update({'spine1': (0, 0, 4 * S(t)), 'spine2': (0, 0, 3 * S(t)), 'chest': (2 * S(2 * t), 0, -3 * S(t)),
                  'neck1': (-3 * S(2 * t), 0, 0), 'head': (3 * S(2 * t, 1.0), 0, 0)})
     rots.update(tail(t, 14, 0.5)); rots.update(wings_folded())
@@ -86,7 +88,7 @@ def run(t):
     rots.update({'spine1': (6 * S(2 * t), 0, 0), 'spine2': (6 * S(2 * t, 0.5), 0, 0), 'chest': (-5 * S(2 * t), 0, 0),
                  'neck1': (-8 - 4 * S(2 * t), 0, 0), 'neck2': (-4, 0, 0), 'head': (12 + 3 * S(2 * t, 1.0), 0, 0)})
     rots.update(tail(t, 18, 0.5, nod=-5)); rots.update(wings_folded())
-    return rots, {'hips': (0, 0, 0.025 * H * max(0, S(2 * t, 0.3)))}
+    return rots, {'hips': (0, 0, (0.055 if CH < 1 else 0.025) * H * max(0, S(2 * t, 0.3)))}
 def fly(t):
     rots = wings_flap(t, 50, 5)
     tuck = {f'leg{tag}_upper': (35 if tag[0] == 'F' else 40, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')}

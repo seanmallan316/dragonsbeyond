@@ -21,6 +21,8 @@ static float g_time, g_cam_yaw; static int g_cam_mode;   /* 0 rider, 1 overhead,
 static Vec3 g_eye, g_at;
 static Pad g_prev[KK_PADS];
 static char g_msg[64]; static float g_msg_t; static float g_title_t = 4.0f;
+enum { G_TITLE = 0, G_NAME, G_STORY, G_PLAY }; static int g_state = G_TITLE; static int g_name = 0; static float g_state_t;   /* g_name: 0 Flo-Rida, 1 Leaf Blower */
+static const char *NAMES[2] = {"FLO-RIDA", "LEAF BLOWER"};
 
 /* textures and meshes */
 static Texture *tx_grass, *tx_dirt, *tx_bark, *tx_leaves, *tx_fern, *tx_bush, *tx_rock, *tx_water, *tx_spark, *tx_font, *tx_tuft, *tx_flower, *tx_cloud;
@@ -47,11 +49,11 @@ static void build_ground(void) {
             p[k] = v3(x, g_world.h[jj][ii], z); n[k] = world_normal(&g_world, x, z);
             float slope = 1 - n[k].y; float hgt = clampf((p[k].y + 4) / 30.0f, 0, 1);
             /* vertex colours: lush green low, drier yellow-green up the hills, grey on steep rock */
-            float r = 0.78f + 0.3f * hgt, g = 1.0f - 0.12f * hgt, b = 0.7f + 0.2f * hgt;
+            float r = 0.62f + 0.3f * hgt, g = 0.84f - 0.1f * hgt, b = 0.55f + 0.2f * hgt;
             float rk = clampf((slope - 0.35f) * 4, 0, 1); r = r * (1 - rk) + 0.75f * rk; g = g * (1 - rk) + 0.72f * rk; b = b * (1 - rk) + 0.7f * rk;
             if (world_in_pond(&g_world, x, z)) { r *= 0.8f; g *= 0.85f; b *= 0.8f; }
             c[k][0] = r; c[k][1] = g; c[k][2] = b; }
-        float s = 0.6f; float u0 = i * s, v0 = j * s, u1 = u0 + s, v1 = v0 + s;
+        float s = 1.25f; float u0 = i * s, v0 = j * s, u1 = u0 + s, v1 = v0 + s;
         tv_tri(p[0], p[2], p[1], n[0], n[2], n[1], u0, v0, u0, v1, u1, v0, (c[0][0] + c[2][0] + c[1][0]) / 3, (c[0][1] + c[2][1] + c[1][1]) / 3, (c[0][2] + c[2][2] + c[1][2]) / 3);
         tv_tri(p[1], p[2], p[3], n[1], n[2], n[3], u1, v0, u0, v1, u1, v1, (c[1][0] + c[2][0] + c[3][0]) / 3, (c[1][1] + c[2][1] + c[3][1]) / 3, (c[1][2] + c[2][2] + c[3][2]) / 3); }
     m_ground = tv_mesh();
@@ -188,7 +190,7 @@ int game_init(int gfx_status) {
     snprintf(g_msg, sizeof g_msg, "WALK TO THE BERRIES. PRESS X TO EAT"); g_msg_t = 8;
     return 1; }
 void game_shutdown(void) {}
-const char *game_where(void) { static char s[96]; snprintf(s, sizeof s, "Everleaf Wilds, %s, growth %.0f, cam %d", dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode); return s; }
+const char *game_where(void) { static char s[96]; static const char *st[] = {"title", "name pick", "story", "playing"}; snprintf(s, sizeof s, "%s: Everleaf Wilds, %s, growth %.0f, cam %d", st[g_state], dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode); return s; }
 
 /* ---------- camera ---------- */
 static Mat4 dragon_matrix(const Dragon *d, float scale) {
@@ -274,7 +276,7 @@ static void draw_scene(int drc) {
     float aspect = gfx_aspect(drc); Vec3 eye = g_eye, at = g_at;
     Mat4 proj = m4_perspective(g_cam_mode == 2 ? 1.25f : 1.05f, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir();
-    gfx_light(v3(1.0f, 0.96f, 0.85f), v3(0.55f, 0.65f, 0.8f), v3(0.35f, 0.4f, 0.2f), eye);
+    gfx_grade(0.8f, 0.45f, 0.6f, 0.95f); gfx_light(v3(1.0f, 0.96f, 0.85f), v3(0.6f, 0.7f, 0.85f), v3(0.38f, 0.42f, 0.25f), eye);
     gfx_shadow_use(1); gfx_camera(&vp, L, 0.45f, 0.74f, 0.82f, 0.92f, 120, 480); gfx_shadow_use(0);
     Mat4 id = m4_identity();
     /* sky, around the camera, no depth */
@@ -300,14 +302,13 @@ static void draw_scene(int drc) {
 
 static void shadow_pass(void) {
     const Dragon *d = &g_dragon; Vec3 L = sun_dir();
-    Vec3 c = v3(d->x + sinf(g_cam_yaw) * 25, d->y, d->z + cosf(g_cam_yaw) * 25); const float half = 85.0f, dep = 300.0f;
+    Vec3 c = v3(d->x + sinf(g_cam_yaw) * 25, d->y, d->z + cosf(g_cam_yaw) * 25); const float half = 60.0f, dep = 300.0f;
     c.x = floorf(c.x / (2 * half / 1024)) * (2 * half / 1024); c.z = floorf(c.z / (2 * half / 1024)) * (2 * half / 1024);
     Mat4 view = m4_look_at(v3(c.x + L.x * dep * 0.5f, c.y + L.y * dep * 0.5f, c.z + L.z * dep * 0.5f), c, v3(0, 1, 0));
     Mat4 proj = m4_identity(); proj.m[0] = 1.0f / half; proj.m[5] = 1.0f / half; proj.m[10] = -2.0f / dep; proj.m[14] = -1.0f;
     Mat4 lvp = m4_mul(proj, view), id = m4_identity();
     if (!gfx_shadow_begin(&lvp)) return;
     gfx_state(ST_SOLID); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); if (m_rock) gfx_draw(m_rock, &id, 1, 1, 1, 1);
-    gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1);
     draw_dragon(d);
     gfx_shadow_end(); }
 
@@ -319,7 +320,7 @@ static void draw_hud(int drc) {
     /* growth bar */
     float need = dragon_need(d->stage); float gf = need > 1e8f ? 1 : clampf(d->growth / need, 0, 1);
     batch_rect(&g_b, 40, 80, 360, 22, 0.05f, 0.1f, 0.05f, 0.8f); batch_rect(&g_b, 43, 83, 354 * gf, 16, 0.45f, 0.9f, 0.3f, 1);
-    batch_text(&g_b, dragon_stage_name(d->stage), 40, 108, 26, 0.9f, 1, 0.8f, 1);
+    { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", NAMES[g_name], dragon_stage_name(d->stage)); batch_text(&g_b, nm, 40, 108, 26, 0.9f, 1, 0.8f, 1); }
     if (need < 1e8f) { char s[32]; snprintf(s, sizeof s, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, s, 410, 80, 22, 0.9f, 1, 0.8f, 0.9f); }
     /* stamina while flying */
     if (d->mode == DM_AIR && d->stage >= ST_DRAGON) { batch_rect(&g_b, 40, 140, 200, 12, 0.05f, 0.08f, 0.15f, 0.8f); batch_rect(&g_b, 42, 142, 196 * d->stamina, 8, 0.5f, 0.8f, 1, 1); }
@@ -340,7 +341,7 @@ static void tour_input(Pad *p, float t) {
     static float last_eat = -9; static int prev_up = 0;
     memset(p, 0, sizeof *p); p->source = 1;
     const Dragon *d = &g_dragon;
-    if (t < 3) return;
+    if (t < 2) return; if (g_state != G_PLAY) { p->a = fmodf(t, 1.0f) < 0.1f; return; }
     int wantcam = t < 40 ? 0 : (t < 55 ? 1 : (t < 70 ? 2 : 0)); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
     if (d->stage == ST_DRAGONET || d->mode != DM_AIR) {
         int near = world_nearest_food(&g_world, d->x, d->z, 400);
@@ -388,6 +389,61 @@ static void draw_map(void) {
 #undef MY
 }
 
+
+
+static const char *STORY[] = {
+    "ONE NIGHT, SEVEN DRAGON EGGS HATCHED ACROSS THE WORLD. IN THE DESERT, THE CRYSTAL PALACE, THE VOLCANIC SWIRL, THE SEA, THE WINTER PALACE, THE SKY, AND THE FOREST.",
+    "THE LITTLE DRAGONETS BLINKED UP AT THE STARS AND WAITED FOR THEIR PARENTS. NO ONE CAME.",
+    "THAT SAME NIGHT, A SHADOW CREPT FROM NEST TO NEST. ONE BY ONE, THE DRAGONETS WERE SNATCHED AWAY AND LOCKED IN A CAVE.",
+    "A HUMAN TOSSED THEM MEAT AND LAUGHED. HIS NAME WAS KAINE BLACKFEATHER, AND HE HAD PLANS FOR THEM.",
+    "BUT HE MISSED ONE. DEEP IN EVERLEAF WILDS, A FOREST DRAGONET WOKE UP ALONE, SMALL, AND VERY HUNGRY.",
+    "SOMEDAY THIS LITTLE DRAGON WOULD HAVE TO SAVE THEM ALL. BUT FIRST... BREAKFAST." };
+#define STORY_N 6
+static int g_story_i;
+/* words wrapped into lines no wider than maxw, centred */
+static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a) {
+    char line[160]; int ln = 0; const char *w = txt;
+    while (*w) { const char *e = w; while (*e && *e != ' ') e++; int wl = (int)(e - w); char cand[160]; int cl = ln;
+        if (cl) cand[cl++] = ' '; memcpy(cand + cl, w, wl); cl += wl; cand[cl] = 0;
+        if (ln && text_width(cand, size) > maxw) { line[ln] = 0; text_c(line, y, size, r, g, b, a); y += size * 1.25f; ln = 0; memcpy(line, w, wl); ln = wl; }
+        else { memcpy(line, cand, cl + 1); ln = cl; }
+        w = *e ? e + 1 : e; }
+    if (ln) { line[ln] = 0; text_c(line, y, size, r, g, b, a); } }
+
+/* ---------- title and name screens: dragons flying everywhere over the meadow ---------- */
+static void draw_title_dragons(void) {
+    /* three dragons (one of each size) circling at different heights, plus the dragonet looping low */
+    for (int k = 0; k < 4; k++) { int st = k % 3; Anim3D *m = &g_model[st]; if (!m->ok) continue; float sc = dragon_scale(st) * (k == 3 ? 1 : 1.0f);
+        float R = 22 + k * 11, w = (0.55f - k * 0.08f) * (k & 1 ? -1 : 1), a = g_time * w + k * 1.7f, h = 9 + k * 7 + 2.5f * sinf(g_time * 0.8f + k);
+        Vec3 pos = v3(cosf(a) * R, h, sinf(a) * R); float yaw = atan2f(-sinf(a) * w, cosf(a) * w) ;   /* face along the circle */
+        Mat4 base = m4_mul(m4_mul(m4_translate(pos.x, pos.y, pos.z), m4_rotate_y(yaw)), m4_mul(m4_rotate_z(w > 0 ? -0.35f : 0.35f), m4_scale(sc, sc, sc)));
+        int clip = anim3d_clip(m, "fly"); gfx_state(ST_SOLID); anim3d_draw(m, clip < 0 ? 0 : clip, g_time + k * 0.3f, &base, 1.12f, 1.12f, 1.1f, 1); }
+    gfx_bind(NULL); }
+static void title_camera(void) {
+    float a = g_time * 0.07f; g_eye = v3(cosf(a) * 14, world_height(&g_world, cosf(a) * 14, sinf(a) * 14) + 3.5f, sinf(a) * 14); g_at = v3(-cosf(a) * 10, 16, -sinf(a) * 10); }
+static void draw_title_hud(void) {
+    batch_clear(&g_b);
+    float pulse = 0.75f + 0.25f * sinf(g_time * 3);
+    if (g_state == G_TITLE) {
+        batch_rect(&g_b, 0, 150, 1280, 190, 0, 0.08f, 0, 0.35f);
+        text_c("DRAGONS BEYOND", 170, 96, 0.55f, 1, 0.45f, 1); text_c("DRAGONS BEYOND", 166, 96, 0.9f, 1, 0.8f, 1);
+        text_c("EVERLEAF WILDS", 272, 34, 0.9f, 1, 0.9f, 0.9f);
+        text_c("PRESS A", 600, 40, 1, 1, 1, pulse);
+        text_c("A GAME DESIGNED BY A 10 YEAR OLD DRAGON EXPERT", 690, 18, 1, 1, 1, 0.6f);
+    } else if (g_state == G_NAME) {
+        batch_rect(&g_b, 140, 120, 1000, 480, 0, 0.06f, 0, 0.6f);
+        text_c("WHO IS YOUR FOREST DRAGON?", 150, 44, 0.9f, 1, 0.8f, 1);
+        for (int i = 0; i < 2; i++) { float x = 240 + i * 440, y = 260; int sel = g_name == i;
+            batch_rect(&g_b, x, y, 360, 230, sel ? 0.25f : 0.1f, sel ? 0.5f : 0.2f, sel ? 0.2f : 0.1f, 0.9f);
+            if (sel) { batch_rect(&g_b, x - 6, y - 6, 372, 6, 1, 1, 0.6f, pulse); batch_rect(&g_b, x - 6, y + 230, 372, 6, 1, 1, 0.6f, pulse); batch_rect(&g_b, x - 6, y, 6, 230, 1, 1, 0.6f, pulse); batch_rect(&g_b, x + 360, y, 6, 230, 1, 1, 0.6f, pulse); }
+            batch_text(&g_b, NAMES[i], x + 180 - text_width(NAMES[i], 40) / 2, y + 40, 40, 1, 1, 1, 1);
+            batch_text(&g_b, i == 0 ? "GIRL" : "BOY", x + 180 - text_width(i == 0 ? "GIRL" : "BOY", 26) / 2, y + 110, 26, 0.9f, 1, 0.8f, 0.9f);
+            batch_text(&g_b, "LEAFNADO + LEAF TAIL", x + 180 - text_width("LEAFNADO + LEAF TAIL", 18) / 2, y + 170, 18, 1, 1, 1, 0.7f); }
+        text_c("LEFT / RIGHT : CHOOSE     A : START", 540, 24, 1, 1, 1, 0.8f); }
+    if (g_state == G_STORY) { batch_rect(&g_b, 0, 0, 1280, 720, 0, 0, 0, 0.55f); float fade = clampf(g_state_t * 2, 0, 1);
+        text_wrap_c(STORY[g_story_i], 250, 34, 1040, 1, 1, 0.9f, fade); char pg[16]; snprintf(pg, sizeof pg, "%d / %d", g_story_i + 1, STORY_N); text_c(pg, 560, 20, 1, 1, 1, 0.5f); text_c("A : NEXT", 620, 24, 1, 1, 1, pulse); }
+    if (!g_b.n) return; gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL); }
+
 /* ---------- the frame ---------- */
 void game_frame(const Pad *pads, int npads, float dt) {
     g_time += dt; gfx_set_time(g_time);
@@ -399,6 +455,25 @@ void game_frame(const Pad *pads, int npads, float dt) {
     const Pad *p = &pads[0]; const Pad *q = &g_prev[0];
     for (int i = 1; i < npads && i < KK_PADS; i++) if (pads[i].source && (fabsf(pads[i].sx) > 0.2f || fabsf(pads[i].sy) > 0.2f || pads[i].a || pads[i].x) && fabsf(p->sx) < 0.2f && fabsf(p->sy) < 0.2f && !p->a && !p->x) { p = &pads[i]; q = &g_prev[i]; }
     DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl;
+    g_state_t += dt;
+    if (g_state != G_PLAY) {
+        if (g_state == G_TITLE && in.a_press && g_state_t > 0.5f) { g_state = G_NAME; g_state_t = 0; }
+        else if (g_state == G_NAME) { if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) g_name ^= 1; if (in.a_press && g_state_t > 0.3f) { g_state = G_STORY; g_state_t = 0; g_story_i = 0; } }
+        else if (g_state == G_STORY) { if ((in.a_press && g_state_t > 0.4f) || g_state_t > 12) { g_state_t = 0; if (++g_story_i >= STORY_N) { g_state = G_PLAY; g_title_t = 4.0f; snprintf(g_msg, sizeof g_msg, "%s WOKE UP ALONE AND HUNGRY. PRESS X TO EAT", NAMES[g_name]); g_msg_t = 9; } } }
+        memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));
+        g_dragon.anim_t += dt; title_camera();
+        gfx_frame_begin(); gfx_shadow_none();
+        gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
+            gfx_grade(0.8f, 0.45f, 0.6f, 0.95f); gfx_light(v3(1.0f, 0.96f, 0.85f), v3(0.6f, 0.7f, 0.85f), v3(0.38f, 0.42f, 0.25f), g_eye); gfx_camera(&vp, sun_dir(), 0.45f, 0.74f, 0.82f, 0.92f, 120, 480);
+            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_mountains) gfx_draw_ex(m_mountains, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_clear_depth(0);
+            gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(2); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_bump(0); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1);
+            gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
+            draw_title_dragons();
+            { Mat4 cm = m4_translate(fmodf(g_time * 1.5f, 900.0f) - 450.0f, 0, 0); gfx_state(ST_DEPTH | ST_BLEND); gfx_bind(tx_cloud); if (m_clouds) { gfx_draw_ex(m_clouds, &cm, 1, 1, 1, 0.9f, 0, 1, 0, 0); Mat4 cm2 = m4_translate(cm.m[12] + 900.0f, 0, 0); gfx_draw_ex(m_clouds, &cm2, 1, 1, 1, 0.9f, 0, 1, 0, 0); } }
+            draw_title_hud(); }
+        gfx_view_end(0);
+        gfx_view_begin(1, 0.08f, 0.14f, 0.08f); draw_title_hud(); gfx_view_end(1);
+        gfx_frame_end(); return; }
     if (p->up && !q->up) { g_cam_mode = (g_cam_mode + 1) % 3; }
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt);
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
