@@ -338,13 +338,13 @@ static void draw_food3d(Vec3 eye) {
             bq_push(t0, rt, 0.3f, 0.5f, 0.8f); bq_push(t1, rt, 0.3f, 0.5f, 0.8f); bq_push(t2, rt, 0.3f, 0.5f, 0.8f); bq_push(t0, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); bq_push(t2, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); bq_push(t1, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); } }
     for (int i = 0; i < g_world.ndrone; i++) { const Drone *dr = &g_world.drone[i]; float dx = dr->x - eye.x, dz = dr->z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;
         Vec3 fw = v3(sinf(dr->yaw), 0, cosf(dr->yaw)), rt = v3(fw.z, 0, -fw.x); float fl = sinf(dr->flap) * (dr->state == 3 ? 0.1f : 0.6f);
-        batch_ball(v3(dr->x, dr->y, dr->z), 0.28f, 0.22f, 0.5f, 3, 6, 0.08f, 0.08f, 0.1f, 1);                                    /* body */
-        batch_ball(v3(dr->x + fw.x * 0.55f, dr->y + 0.08f, dr->z + fw.z * 0.55f), 0.16f, 0.14f, 0.2f, 3, 5, 0.1f, 0.1f, 0.12f, 1);   /* head */
+        batch_ball(v3(dr->x, dr->y, dr->z), 0.28f, 0.22f, 0.5f, 3, 6, 0.3f, 0.32f, 0.36f, 1);                                    /* gunmetal body */
+        batch_ball(v3(dr->x + fw.x * 0.55f, dr->y + 0.08f, dr->z + fw.z * 0.55f), 0.16f, 0.14f, 0.2f, 3, 5, 0.26f, 0.28f, 0.32f, 1);   /* head */
         batch_ball(v3(dr->x + fw.x * 0.68f, dr->y + 0.12f, dr->z + fw.z * 0.68f), 0.06f, 0.06f, 0.06f, 2, 4, 1.0f, 0.1f, 0.05f, 1);  /* the red eye */
         for (int sgn = -1; sgn <= 1; sgn += 2) { Vec3 a = v3(dr->x + rt.x * sgn * 0.25f, dr->y + 0.05f, dr->z + rt.z * sgn * 0.25f), b = v3(dr->x + rt.x * sgn * 1.3f, dr->y + 0.05f + fl * 0.9f, dr->z + rt.z * sgn * 1.3f);
             Vec3 a2 = v3(a.x - fw.x * 0.35f, a.y, a.z - fw.z * 0.35f), b2 = v3(b.x - fw.x * 0.5f, b.y, b.z - fw.z * 0.5f); Vec3 n = v3(0, 1, 0);
-            bq_push(a, n, 0.12f, 0.12f, 0.14f); bq_push(b, n, 0.12f, 0.12f, 0.14f); bq_push(b2, n, 0.12f, 0.12f, 0.14f); bq_push(a, n, 0.12f, 0.12f, 0.14f); bq_push(b2, n, 0.12f, 0.12f, 0.14f); bq_push(a2, n, 0.12f, 0.12f, 0.14f);
-            n = v3(0, -1, 0); bq_push(a, n, 0.1f, 0.1f, 0.12f); bq_push(b2, n, 0.1f, 0.1f, 0.12f); bq_push(b, n, 0.1f, 0.1f, 0.12f); bq_push(a, n, 0.1f, 0.1f, 0.12f); bq_push(a2, n, 0.1f, 0.1f, 0.12f); bq_push(b2, n, 0.1f, 0.1f, 0.12f); } }
+            bq_push(a, n, 0.22f, 0.23f, 0.27f); bq_push(b, n, 0.34f, 0.36f, 0.42f); bq_push(b2, n, 0.34f, 0.36f, 0.42f); bq_push(a, n, 0.22f, 0.23f, 0.27f); bq_push(b2, n, 0.34f, 0.36f, 0.42f); bq_push(a2, n, 0.22f, 0.23f, 0.27f);
+            n = v3(0, -1, 0); bq_push(a, n, 0.2f, 0.21f, 0.25f); bq_push(b2, n, 0.3f, 0.32f, 0.38f); bq_push(b, n, 0.3f, 0.32f, 0.38f); bq_push(a, n, 0.2f, 0.21f, 0.25f); bq_push(a2, n, 0.2f, 0.21f, 0.25f); bq_push(b2, n, 0.3f, 0.32f, 0.38f); } }
     for (int i = 0; i < g_world.nhound; i++) { const Drone *h = &g_world.hound[i]; float dx = h->x - eye.x, dz = h->z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;
         Vec3 fw = v3(sinf(h->yaw), 0, cosf(h->yaw)), rt = v3(fw.z, 0, -fw.x); int ko = h->state == 3; float gait = sinf(h->flap);
         float by = h->y + (ko ? 0.25f : 0.55f); float gl = 0.6f + 0.4f * sinf(g_time * 8);
