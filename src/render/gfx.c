@@ -87,6 +87,7 @@ static const char *PS_SRC =
     "  vec3 c = t.rgb;\n"
     "  if (v_v.w < 0.5 && u_light.w < 0.999) {\n"   /* lit things (the flat screen layer has full ambient: drawn as is) */
     "    vec3 N = normalize(v_n.xyz); float vl = length(v_v.xyz); vec3 V = vl > 0.0001 ? v_v.xyz / vl : N; vec3 L = normalize(u_light.xyz); float amb = u_light.w;\n"
+    "    if (dot(N, V) < 0.0) N = -N;\n"   /* thin things seen from behind (wing membranes, leaves) light as their back side, not as black */
     /* bumps (Sean: the roads must have depth): v_n.w carries the specular strength plus 10 x a bump level. The picture's own
        brightness is read as height - stone tops light, gaps dark - and tilts the surface toward the slopes, so the sun catches
        every stone; the picture is also shifted a little by its height as you look across it (parallax), so stones stand up */
