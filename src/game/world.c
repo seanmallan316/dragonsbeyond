@@ -56,6 +56,8 @@ void world_make(World *w, unsigned seed) {
     { float best = -1e9f; for (int tries = 0; tries < 400; tries++) { float a = frand() * 6.2831853f, r = 80 + frand() * 22; float x = cosf(a) * r, z = sinf(a) * r; float h = world_height(w, x, z); if (h > best && !world_in_pond(w, x, z)) { best = h; w->crystal_x = x; w->crystal_z = z; } } w->crystal_y = world_height(w, w->crystal_x, w->crystal_z); }
     /* Kaine's drones patrol the middle distance, never the start meadow */
     w->ndrone = 5; for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; float a = i * 1.26f + 0.5f, r = 45 + (i % 2) * 25; d->hx = cosf(a) * r; d->hz = sinf(a) * r; d->x = d->hx; d->z = d->hz; d->y = world_height(w, d->x, d->z) + 9; d->yaw = a; d->t = frand() * 6; }
+    /* Shock Hounds guard the outer woods */
+    w->nhound = 3; for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; float a = i * 2.1f + 1.2f, r = 62 + i * 8; h->hx = cosf(a) * r; h->hz = sinf(a) * r; h->x = h->hx; h->z = h->hz; h->y = world_height(w, h->x, h->z); h->yaw = a; h->t = frand() * 5; }
     /* a few berry bushes right by the start so the first minute teaches eating */
     for (int i = 0; i < 6 && w->nfood < W_MAXFOOD; i++) { float a = i * 1.047f + 0.3f, r = 6 + (i % 2) * 3; Food *f = &w->food[w->nfood++]; f->kind = i % 3 == 2 ? F_MUSHROOM : F_BERRY; f->alive = 1; f->x = cosf(a) * r; f->z = sinf(a) * r; f->y = world_height(w, f->x, f->z); f->yaw = a; }
 }
@@ -114,4 +116,20 @@ int world_drones(World *w, float dt, float px, float py, float pz, float reach, 
         else {   /* flee: climb and head home, then patrol again */
             float ddx = d->hx - d->x, ddz = d->hz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 11 * dt; d->z += cosf(d->yaw) * 11 * dt; d->y += (gy + 14 - d->y) * dt * 1.5f;
             if (d->t > 8) { d->state = 0; d->t = 0; } } }
+    return ev; }
+
+int world_hounds(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar, int in_air) {
+    int ev = 0; (void)py;
+    for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; h->t += dt;
+        float dx = px - h->x, dz = pz - h->z, dist = sqrtf(dx * dx + dz * dz);
+        if (h->state == 3) { h->flap += dt * 3; if (h->t > 22) { h->state = 0; h->t = 0; } continue; }
+        if (roar && dist < 12) { h->state = 2; h->t = 0; }
+        if (whip && dist < reach) { h->state = 3; h->t = 0; ev |= 2; continue; }
+        float sp = 0;
+        if (h->state == 0) { float ang = h->t * 0.35f; float tx = h->hx + cosf(ang) * 10, tz = h->hz + sinf(ang) * 10; h->yaw = atan2f(tx - h->x, tz - h->z); sp = 2.2f; if (dist < 15 && !in_air) { h->state = 1; h->t = 0; } }
+        else if (h->state == 1) { h->yaw = atan2f(dx, dz); sp = 5.6f; if (dist < reach * 0.6f && !in_air) { ev |= 1; h->state = 2; h->t = 0; } if (h->t > 9 || dist > 40 || in_air) { h->state = 2; h->t = 0; } }
+        else { h->yaw = atan2f(h->hx - h->x, h->hz - h->z); sp = 4.0f; if (h->t > 6) { h->state = 0; h->t = 0; } }
+        float nx = h->x + sinf(h->yaw) * sp * dt, nz = h->z + cosf(h->yaw) * sp * dt;
+        if (!world_in_pond(w, nx, nz) && fabsf(nx) < W_SIZE / 2 - 8 && fabsf(nz) < W_SIZE / 2 - 8) { h->x = nx; h->z = nz; }
+        h->y = world_height(w, h->x, h->z); h->flap += dt * sp * 2.2f; }
     return ev; }

@@ -9,6 +9,7 @@
 #define W_MAXPROPS 700
 #define W_MAXFOOD 160
 #define W_MAXDRONES 6
+#define W_MAXHOUNDS 4
 
 enum { P_TREE = 0, P_PALM, P_BUSH, P_ROCK, P_FERN, P_N };
 enum { F_BERRY = 0, F_MUSHROOM, F_GRUB, F_FISH, F_N };   /* berries and mushrooms are plants; grubs and fish are meat */
@@ -27,6 +28,7 @@ typedef struct {
     unsigned seed;
     float crystal_x, crystal_y, crystal_z; int crystal_found;   /* the hidden egg crystal (one per world) */
     Drone drone[W_MAXDRONES]; int ndrone;
+    Drone hound[W_MAXHOUNDS]; int nhound;   /* Shock Hounds: same record, on the ground. state 0 patrol, 1 chase, 2 retreat, 3 knocked out */
 } World;
 
 void  world_make(World *w, unsigned seed);
@@ -37,6 +39,7 @@ void  world_update(World *w, float dt, float px, float pz);   /* regrowth, grubs
 int   world_nearest_food(const World *w, float x, float z, float reach);   /* index or -1 */
 /* drones: returns a bitmask: 1 a drone hit the dragon (take damage), 2 a drone was knocked down. whip = tail whip landing this frame, roar = roaring */
 int   world_drones(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar);
+int   world_hounds(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar, int in_air);   /* same bitmask as the drones */
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */
 #endif
