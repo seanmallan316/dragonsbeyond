@@ -62,7 +62,7 @@ def wings_folded():
 def wings_flap(t, amp=45, base=10):
     # the shoulder does the work (a deep, slightly quick downstroke), the outer wing lags behind and bends further
     s1 = S(t); down = s1 - 0.25 * (1 - s1 * s1)   # a little sharper at the bottom of the stroke
-    a = base + amp * down; b = 0.45 * amp * S(t, -0.8); c = 0.35 * amp * S(t, -1.5)
+    a = base + amp * down; b = 0.12 * amp * S(t, -0.6); c = 0.1 * amp * S(t, -1.0)   # outer wing follows the shoulder, only a slight lag
     sweep = 0.18 * amp * S(t, -0.5)   # the wing also sweeps a little forward on the downstroke
     return {'wingL_1': (a, 0, -sweep), 'wingR_1': (a, 0, sweep), 'wingL_2': (b, 0, 0), 'wingR_2': (b, 0, 0), 'wingL_3': (c, 0, 0), 'wingR_3': (c, 0, 0)} if has_wings else {}
 def legs_walk(t, swing=28, lift=22, ph_fl=0.0):
@@ -99,7 +99,7 @@ def run(t):
     rots.update(tail(t, 18, 0.5, nod=-5)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, (0.055 if CH < 1 else 0.025) * H * max(0, S(2 * t, 0.3)))}
 def fly(t):
-    rots = wings_flap(t, 55, -18)
+    rots = wings_flap(t, 50, -42)
     tuck = {f'leg{tag}_upper': (35 if tag[0] == 'F' else 40, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')}
     tuck.update({f'leg{tag}_lower': (-70, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')})
     rots.update(tuck)
