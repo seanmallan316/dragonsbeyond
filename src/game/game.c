@@ -672,6 +672,7 @@ static void shadow_pass(void) {
     gfx_shadow_end(); }
 
 static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a);
+static int text_wrap_n(const char *txt, float y, float size, float maxw, float r, float g, float b, float a, int draw);
 static void text_c(const char *s, float y, float size, float r, float g, float b, float a) { batch_text(&g_b, s, 640 - text_width(s, size) / 2, y, size, r, g, b, a); }
 static void text_cg(const char *s, float y, float size, float a) { batch_text_g(&g_b, s, 640 - text_width(s, size) / 2, y, size, 1, 1, 1, a, 1); }
 
@@ -725,6 +726,10 @@ static void ui_logo(float cx, float y, float w, float a) {
     float sweep = fmodf(g_time * 0.45f, 1.6f) * 1.4f - 0.2f; const int N = 48;
     for (int i = 0; i < N; i++) { float f0 = (float)i / N, f1 = (float)(i + 1) / N, d = (f0 + f1) / 2 - sweep, k = expf(-d * d * 120);
         if (k > 0.02f) ui_part(&g_ua, UI_LOGO, f0, 0, f1, 1, x + f0 * w, y, (f1 - f0) * w, h, 1, 0.9f, 0.7f, 0.9f * k * a); } }
+/* just the gold rim of a panel, nothing in the middle: a frame round a picture (the GamePad map) */
+static void ui_frame(float x, float y, float w, float h, float a) {
+    const float F = 104.0f / 512.0f; float c = fminf(fminf(76, w / 2), h / 2); float xs[4] = {x, x + c, x + w - c, x + w}, ys[4] = {y, y + c, y + h - c, y + h}, fs[4] = {0, F, 1 - F, 1};
+    for (int j = 0; j < 3; j++) for (int i = 0; i < 3; i++) if (i != 1 || j != 1) ui_part(&g_ub, UI_PANEL, fs[i], fs[j], fs[i + 1], fs[j + 1], xs[i], ys[j], xs[i + 1] - xs[i], ys[j + 1] - ys[j], 1, 1, 1, a); }
 static void ui_begin(void) { batch_clear(&g_ub); batch_clear(&g_ua); }
 /* draw the three layers (call once per view, after the words are in g_b) */
 static void ui_flush(void) {
@@ -757,23 +762,24 @@ static void draw_hud(int drc) {
     /* growth bar */
     float need = dragon_need(d->stage); float gf = need > 1e8f ? 1 : clampf(d->growth / need, 0, 1);
     ui_bar(42, 82, 356, 16, gf, 0.25f, 0.8f, 0.2f);
-    { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", active_name(), dragon_stage_name(d->stage)); batch_text_g(&g_b, nm, 40, 112, 26, 1, 1, 1, 1, 1); }
-    if (need < 1e8f) { char s[32]; snprintf(s, sizeof s, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, s, 410, 80, 22, 0.9f, 1, 0.8f, 0.9f); }
+    { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", active_name(), dragon_stage_name(d->stage)); batch_text_g(&g_b, nm, 42, 112, 24, 1, 1, 1, 1, 1); }
+    if (need < 1e8f) { char s[32]; snprintf(s, sizeof s, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, s, 414, 78, 20, 0.9f, 1, 0.8f, 0.9f); }
     /* stamina while flying */
-    if (d->mode == DM_AIR && d->stage >= ST_DRAGON) { ui_bar(42, 150, 196, 9, d->stamina, 0.35f, 0.65f, 1.0f); }
+    if (d->mode == DM_AIR && d->stage >= ST_DRAGON) { ui_bar(42, 156, 196, 9, d->stamina, 0.35f, 0.65f, 1.0f); }
     /* prompts */
     float L = dragon_length(d->stage);
     int near = world_nearest_food(&g_world, d->x + sinf(d->yaw) * 0.45f * L, d->z + cosf(d->yaw) * 0.45f * L, 0.5f * L + 1.2f);
     if (near >= 0 && d->mode != DM_AIR && d->act_t <= 0) text_c(food_is_meat(g_world.food[near].kind) ? "X : EAT (MEAT, GROWS FAST)" : "X : EAT", 555, 30, 1, 1, 0.7f, 0.9f);
-    if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) { float ma = clampf(g_msg_t, 0, 1), mw = fminf(text_width(g_msg, 28), 1180); float mh = mw >= 1180 ? 112 : 76; ui_panel(640 - mw / 2 - 50, 606, mw + 100, mh, 0.88f * ma, 0); text_wrap_c(g_msg, 630, 28, 1180, 1, 0.96f, 0.86f, ma); }
+    if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) { float ma = clampf(g_msg_t, 0, 1), mw = fminf(text_width(g_msg, 26), 1060); int nl = text_wrap_n(g_msg, 0, 26, 1060, 0, 0, 0, 0, 0); float my = 652 - (nl - 1) * 39;
+        ui_panel(640 - mw / 2 - 70, my - 34, mw + 140, 92 + (nl - 1) * 39, 0.9f * ma, 0); text_wrap_c(g_msg, my, 26, 1060, 1, 0.96f, 0.86f, ma); }
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(g_wk == WK_SKY ? "SKY KINGDOM" : "EVERLEAF WILDS", 352, 34, a); }
     static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST"}; char cl[120]; snprintf(cl, sizeof cl, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : %s   + : SWAP", d->stage >= ST_DRAGON ? PW[g_kind] : "ROAR");
       batch_text(&g_b, cl, 640 - text_width(cl, 16) / 2, 692, 16, 1, 1, 1, 0.5f); }
     if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, 0, 0, 1280, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }
     if (g_tale_i >= 0) { char line[200]; snprintf(line, sizeof line, TALE[g_tale_w][g_tale_i], kind_name(CAPTIVE[g_tale_w])); float fade = clampf(g_tale_t * 2, 0, 1);
-        ui_shade(fade); ui_embers(40, fade); ui_panel(90, 150, 1100, 440, 0.95f * fade, 0); ui_divider(640, 200, 520, fade); text_wrap_c(line, 250, 34, 1000, 1, 0.95f, 0.82f, fade);
-        char pg[16]; snprintf(pg, sizeof pg, "%d / 3", g_tale_i + 1); text_c(pg, 560, 20, 1, 1, 1, 0.5f); text_c("A : NEXT", 620, 24, 1, 1, 1, 0.6f + 0.4f * sinf(g_time * 3)); }
+        ui_shade(fade); ui_embers(40, fade); ui_panel(90, 150, 1100, 440, 0.95f * fade, 0); ui_divider(640, 200, 520, fade); text_wrap_c(line, 250, 30, 960, 1, 0.95f, 0.82f, fade);
+        char pg[16]; snprintf(pg, sizeof pg, "%d / 3", g_tale_i + 1); text_cg(pg, 556, 18, 0.7f * fade); text_c("A : NEXT", 620, 24, 1, 1, 1, 0.6f + 0.4f * sinf(g_time * 3)); }
     else if (g_swap_open) {   /* Dragon Swap menu */
         ui_shade(1); ui_embers(40, 0.8f);
         text_cg("DRAGON SWAP", 110, 52, 1); ui_divider(640, 172, 560, 1); text_c("THE GAME IS PAUSED", 182, 20, 1, 1, 1, 0.7f);
@@ -881,12 +887,13 @@ static void draw_map(void) {
     map_disc(ax, ay, pulse, 16, 0.7f, 1, 0.5f, 0.35f);
     map_tri2d(ax + sy * 14, ay - cy * 14, ax - cy * 8 - sy * 8, ay - sy * 8 + cy * 8, ax + cy * 8 - sy * 8, ay + sy * 8 + cy * 8, 0.85f, 1, 0.6f, 1);
     /* words */
-    batch_text(&g_b, "EVERLEAF WILDS", 40, 30, 34, 0.9f, 1, 0.8f, 1);
-    char line[64]; snprintf(line, sizeof line, "%s", dragon_stage_name(d->stage)); batch_text(&g_b, line, 40, 80, 26, 1, 1, 1, 0.9f);
-    float need = dragon_need(d->stage); if (need < 1e8f) { snprintf(line, sizeof line, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, line, 40, 112, 22, 0.8f, 1, 0.7f, 0.9f); }
-    batch_text(&g_b, "RED: BERRIES  WHITE: MUSHROOMS", 40, 640, 18, 1, 1, 1, 0.7f); batch_text(&g_b, "YELLOW: GRUBS  BLUE: FISH (MEAT)  DARK RED: DRONES", 40, 668, 18, 1, 1, 1, 0.7f);
-    batch_text(&g_b, "D-PAD UP: CHANGE VIEW", 900, 668, 18, 1, 1, 1, 0.7f);
+    batch_text_g(&g_b, g_wk == WK_SKY ? "SKY KINGDOM" : "EVERLEAF WILDS", 90, 70, 34, 1, 1, 1, 1, 1);
+    char line[64]; snprintf(line, sizeof line, "%s", dragon_stage_name(d->stage)); batch_text(&g_b, line, 90, 116, 26, 1, 0.95f, 0.85f, 0.9f);
+    float need = dragon_need(d->stage); if (need < 1e8f) { snprintf(line, sizeof line, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, line, 90, 148, 22, 0.8f, 1, 0.7f, 0.9f); }
+    batch_text(&g_b, "RED: BERRIES  WHITE: MUSHROOMS", 90, 612, 18, 1, 1, 1, 0.8f); batch_text(&g_b, "YELLOW: GRUBS  BLUE: FISH (MEAT)  DARK RED: DRONES", 90, 640, 18, 1, 1, 1, 0.8f);
+    batch_text(&g_b, "D-PAD UP: CHANGE VIEW", 1190 - text_width("D-PAD UP: CHANGE VIEW", 18), 640, 18, 1, 1, 1, 0.8f);
     gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL);
+    batch_clear(&g_b); ui_begin(); ui_frame(0, 0, 1280, 720, 1); ui_glint(30, 30, 1220, 660, g_time * 0.05f, 90, 0.7f); ui_flush();   /* the gold frame on top */
 #undef MX
 #undef MY
 }
@@ -903,14 +910,16 @@ static const char *STORY[] = {
 #define STORY_N 6
 static int g_story_i;
 /* words wrapped into lines no wider than maxw, centred */
-static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a) {
-    char line[160]; int ln = 0; const char *w = txt;
+/* centred words wrapped to maxw; returns how many lines (draw = 0 only counts them) */
+static int text_wrap_n(const char *txt, float y, float size, float maxw, float r, float g, float b, float a, int draw) {
+    char line[160]; int ln = 0, n = 0; const char *w = txt;
     while (*w) { const char *e = w; while (*e && *e != ' ') e++; int wl = (int)(e - w); char cand[160]; int cl = ln; memcpy(cand, line, (size_t)ln);
         if (cl) cand[cl++] = ' '; memcpy(cand + cl, w, (size_t)wl); cl += wl; cand[cl] = 0;
-        if (ln && text_width(cand, size) > maxw) { line[ln] = 0; text_c(line, y, size, r, g, b, a); y += size * 1.25f; ln = 0; memcpy(line, w, wl); ln = wl; }
+        if (ln && text_width(cand, size) > maxw) { line[ln] = 0; if (draw) text_c(line, y, size, r, g, b, a); n++; y += size * 1.5f; ln = 0; memcpy(line, w, wl); ln = wl; }
         else { memcpy(line, cand, cl + 1); ln = cl; }
         w = *e ? e + 1 : e; }
-    if (ln) { line[ln] = 0; text_c(line, y, size, r, g, b, a); } }
+    if (ln) { line[ln] = 0; if (draw) text_c(line, y, size, r, g, b, a); n++; } return n; }
+static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a) { text_wrap_n(txt, y, size, maxw, r, g, b, a, 1); }
 
 /* ---------- title and name screens: dragons flying everywhere over the meadow ---------- */
 static void draw_title_dragons(void) {
@@ -945,26 +954,26 @@ static void draw_title_hud(void) {
             batch_text(&g_b, "LEAFNADO + LEAF TAIL", x + 180 - text_width("LEAFNADO + LEAF TAIL", 18) / 2, y + 172, 18, 1, 0.95f, 0.85f, 0.75f); }
         text_c("LEFT / RIGHT : CHOOSE     A : START", 560, 22, 1, 0.95f, 0.85f, 0.85f); }
     if (g_state == G_SLOT) {
-        ui_shade(1); ui_embers(30, 0.8f); ui_panel(220, 60, 840, 610, 0.97f, 0); text_cg("CHOOSE A SAVE", 106, 44, 1); ui_divider(640, 172, 520, 1);
-        for (int k = 0; k < 3; k++) { const SlotInfo *si = &g_slots[k]; float y = 200 + k * 128; int sel = k == g_slot_sel;
-            ui_panel(300, y, 680, 112, 1, sel);
-            char a[64], b[96]; snprintf(a, sizeof a, "SAVE %d", k + 1); batch_text_g(&g_b, a, 340, y + 22, 28, 1, 1, 1, sel ? 1 : 0.75f, 1);
+        ui_shade(1); ui_embers(30, 0.8f); ui_panel(200, 50, 880, 640, 0.97f, 0); text_cg("CHOOSE A SAVE", 100, 44, 1); ui_divider(640, 172, 520, 1);
+        for (int k = 0; k < 3; k++) { const SlotInfo *si = &g_slots[k]; float y = 196 + k * 132; int sel = k == g_slot_sel;
+            ui_panel(290, y, 700, 124, 1, sel);
+            char a[64], b[96]; snprintf(a, sizeof a, "SAVE %d", k + 1); batch_text_g(&g_b, a, 340, y + 36, 24, 1, 1, 1, sel ? 1 : 0.75f, 1);
             if (!si->used) snprintf(b, sizeof b, "EMPTY - START A NEW ADVENTURE");
             else { static const char *WN[WK_N] = {"EVERLEAF WILDS", "SKY KINGDOM"}; snprintf(b, sizeof b, "%s THE %s  -  %s  -  %s  -  %d FRIEND%s", NAMES[si->name], dragon_stage_name(si->stage), DIFF_NAMES[si->diff], WN[si->wk], si->rescued, si->rescued == 1 ? "" : "S"); }
-            { float bs = 19; while (bs > 12 && text_width(b, bs) > 610) bs -= 1; batch_text(&g_b, b, 340, y + 66, bs, 1, 0.95f, 0.85f, 0.9f); }
-            if (g_slot_erase == k) batch_text(&g_b, "PRESS X AGAIN TO ERASE", 950 - text_width("PRESS X AGAIN TO ERASE", 18), y + 26, 18, 1, 0.4f, 0.3f, 1); }
-        text_c("UP / DOWN : CHOOSE    A : PLAY    X : ERASE    B : BACK", 610, 20, 1, 0.95f, 0.85f, 0.85f); }
+            { float bs = 17; while (bs > 11 && text_width(b, bs) > 600) bs -= 1; batch_text(&g_b, b, 340, y + 74, bs, 1, 0.95f, 0.85f, 0.9f); }
+            if (g_slot_erase == k) batch_text(&g_b, "PRESS X AGAIN TO ERASE", 940 - text_width("PRESS X AGAIN TO ERASE", 18), y + 38, 18, 1, 0.4f, 0.3f, 1); }
+        text_c("UP / DOWN : CHOOSE    A : PLAY    X : ERASE    B : BACK", 606, 18, 1, 0.95f, 0.85f, 0.85f); }
     if (g_state == G_DIFF) {
         ui_shade(1); ui_embers(30, 0.8f); ui_panel(320, 90, 640, 530, 0.97f, 0); text_cg("HOW HARD?", 136, 44, 1); ui_divider(640, 200, 440, 1);
         static const char *desc[3] = {"FEWER OUCHES, IRONHORN NEEDS 2 HITS", "THE WAY IT WAS DESIGNED", "BIGGER OUCHES, IRONHORN NEEDS 4 HITS"};
-        for (int k = 0; k < 3; k++) { float y = 226 + k * 112; int sel = k == g_diff;
-            ui_panel(400, y, 480, 96, 1, sel);
-            batch_text_g(&g_b, DIFF_NAMES[k], 640 - text_width(DIFF_NAMES[k], 32) / 2, y + 16, 32, 1, 1, 1, sel ? 1 : 0.7f, 1);
-            batch_text(&g_b, desc[k], 640 - text_width(desc[k], 16) / 2, y + 62, 16, 1, 0.95f, 0.85f, 0.85f); }
+        for (int k = 0; k < 3; k++) { float y = 222 + k * 114; int sel = k == g_diff;
+            ui_panel(390, y, 500, 106, 1, sel);
+            batch_text_g(&g_b, DIFF_NAMES[k], 640 - text_width(DIFF_NAMES[k], 28) / 2, y + 28, 28, 1, 1, 1, sel ? 1 : 0.7f, 1);
+            batch_text(&g_b, desc[k], 640 - text_width(desc[k], 15) / 2, y + 66, 15, 1, 0.95f, 0.85f, 0.85f); }
         text_c("UP / DOWN : CHOOSE    A : OK    B : BACK", 574, 20, 1, 0.95f, 0.85f, 0.85f); }
     if (g_state == G_STORY) { float fade = clampf(g_state_t * 2, 0, 1);
         ui_shade(1); ui_embers(50, 1); ui_panel(90, 150, 1100, 440, 0.95f * fade, 0); ui_divider(640, 200, 520, fade);
-        text_wrap_c(STORY[g_story_i], 250, 34, 1000, 1, 0.95f, 0.82f, fade); char pg[16]; snprintf(pg, sizeof pg, "%d / %d", g_story_i + 1, STORY_N); text_cg(pg, 520, 20, 0.7f * fade); text_cg("A : NEXT", 620, 26, pulse); }
+        text_wrap_c(STORY[g_story_i], 250, 30, 960, 1, 0.95f, 0.82f, fade); char pg[16]; snprintf(pg, sizeof pg, "%d / %d", g_story_i + 1, STORY_N); text_cg(pg, 556, 18, 0.7f * fade); text_cg("A : NEXT", 620, 26, pulse); }
     ui_flush(); }
 
 /* ---------- the frame ---------- */
