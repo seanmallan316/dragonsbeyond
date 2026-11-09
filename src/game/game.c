@@ -130,6 +130,11 @@ static void build_ground(void) {
             if (layer && wsum < 0.02f) continue;
             if (p[0].y < W_CLOUDS - 6 && p[1].y < W_CLOUDS - 6 && p[2].y < W_CLOUDS - 6 && p[3].y < W_CLOUDS - 6) continue;   /* nothing to draw in the sky world's gaps */
             float s = layer == 2 ? 0.9f : 1.6f; float u0 = i * s, v0 = j * s, u1 = u0 + s, v1 = v0 + s;
+            float hmin = fminf(fminf(p[0].y, p[1].y), fminf(p[2].y, p[3].y)), hmax = fmaxf(fmaxf(p[0].y, p[1].y), fmaxf(p[2].y, p[3].y));
+            if (hmax - hmin > W_SIZE / (W_GRID - 1) * 1.5f) {   /* a cliff: texture runs along the wall and down it, not stretched from above */
+                float cs = W_SIZE / (W_GRID - 1) / s; float k = 1.0f / cs; float uu[4], vv[4]; for (int c = 0; c < 4; c++) { uu[c] = (p[c].x + p[c].z) * k; vv[c] = -p[c].y * k; }
+                tv_push(p[0], n[0], uu[0], vv[0], c[0][0], c[0][1], c[0][2], c[0][3]); tv_push(p[2], n[2], uu[2], vv[2], c[2][0], c[2][1], c[2][2], c[2][3]); tv_push(p[1], n[1], uu[1], vv[1], c[1][0], c[1][1], c[1][2], c[1][3]);
+                tv_push(p[1], n[1], uu[1], vv[1], c[1][0], c[1][1], c[1][2], c[1][3]); tv_push(p[2], n[2], uu[2], vv[2], c[2][0], c[2][1], c[2][2], c[2][3]); tv_push(p[3], n[3], uu[3], vv[3], c[3][0], c[3][1], c[3][2], c[3][3]); continue; }
             tv_push(p[0], n[0], u0, v0, c[0][0], c[0][1], c[0][2], c[0][3]); tv_push(p[2], n[2], u0, v1, c[2][0], c[2][1], c[2][2], c[2][3]); tv_push(p[1], n[1], u1, v0, c[1][0], c[1][1], c[1][2], c[1][3]);
             tv_push(p[1], n[1], u1, v0, c[1][0], c[1][1], c[1][2], c[1][3]); tv_push(p[2], n[2], u0, v1, c[2][0], c[2][1], c[2][2], c[2][3]); tv_push(p[3], n[3], u1, v1, c[3][0], c[3][1], c[3][2], c[3][3]); }
         if (layer == 0) m_ground = tv_mesh(); else if (layer == 1) m_ground_dirt = tv_mesh(); else m_ground_rock = tv_mesh(); }
@@ -625,7 +630,7 @@ static void draw_hud(int drc) {
         for (int i = 0; i < (int)o->max_hearts; i++) { float full = clampf(o->hearts - i, 0, 1); float hx = 1240 - (o->max_hearts - i) * 30; batch_rect(&g_b, hx, 112, 24, 20, 0.25f, 0.05f, 0.08f, 0.8f); if (full > 0) batch_rect(&g_b, hx + 2, 114, 20 * full, 16, 0.95f, 0.2f, 0.3f, 1); }
         if (o->stage < ST_BEYONDER) { float k = clampf(o->growth / dragon_need(o->stage), 0, 1); batch_rect(&g_b, 1040, 140, 200, 10, 0.1f, 0.15f, 0.1f, 0.8f); batch_rect(&g_b, 1040, 140, 200 * k, 10, 0.4f, 0.95f, 0.4f, 1); } }
     else if (team_size() > 1 && g_friend.on && g_time - g_gp_last < 20 && fmodf(g_time, 30.0f) < 4) {   /* invite a second player now and then */
-        const char *inv = "PLAYER 2: PRESS A ON A WII REMOTE TO JOIN"; batch_text(&g_b, inv, 1240 - text_width(inv, 16), 78, 16, 1, 1, 1, 0.7f); }
+        const char *inv = "PLAYER 2: PRESS A ON A WII REMOTE TO JOIN"; batch_text(&g_b, inv, 1240 - text_width(inv, 12), 64, 12, 1, 1, 1, 0.75f); }
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
         if (dx * dx + dz * dz < 60 * 60) { text_c(BOSS_NAME[g_wk], 150, 26, 1, 0.75f, 0.45f, 1);
@@ -641,7 +646,7 @@ static void draw_hud(int drc) {
     float L = dragon_length(d->stage);
     int near = world_nearest_food(&g_world, d->x + sinf(d->yaw) * 0.45f * L, d->z + cosf(d->yaw) * 0.45f * L, 0.5f * L + 1.2f);
     if (near >= 0 && d->mode != DM_AIR && d->act_t <= 0) text_c(food_is_meat(g_world.food[near].kind) ? "X : EAT (MEAT, GROWS FAST)" : "X : EAT", 555, 30, 1, 1, 0.7f, 0.9f);
-    if (g_msg_t > 0) text_wrap_c(g_msg, 630, 28, 1180, 1, 1, 1, clampf(g_msg_t, 0, 1));
+    if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) text_wrap_c(g_msg, 630, 28, 1180, 1, 1, 1, clampf(g_msg_t, 0, 1));
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); text_c("DRAGONS BEYOND", 250, 72, 0.6f, 1, 0.5f, a); text_c("EVERLEAF WILDS", 330, 40, 0.9f, 1, 0.9f, a); }
     static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     batch_text(&g_b, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : ROAR", 300, 690, 18, 1, 1, 1, 0.5f);
