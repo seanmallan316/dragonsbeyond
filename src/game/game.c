@@ -1072,7 +1072,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
     { int whip = g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.35f && g_dragon.act_t < 0.6f; int roar = g_dragon.anim == DA_ROAR && g_dragon.act_t > 1.0f;
       int dev = world_drones(&g_world, dt, g_dragon.x, g_dragon.y + 0.4f * dragon_length(g_dragon.stage), g_dragon.z, 0.8f * dragon_length(g_dragon.stage) + 1.0f, whip, roar);
-      if ((dev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A FEATHER DRONE! PRESS B TO SWAT IT, Y TO SCARE IT"); g_msg_t = 4;
+      if ((dev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, g_dragon.stage >= ST_DRAGON ? "A FEATHER DRONE! B TO SWAT IT, Y FOR YOUR POWER" : "A FEATHER DRONE! PRESS B TO SWAT IT, Y TO SCARE IT"); g_msg_t = 4;
           if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
       if (dev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 5; snprintf(g_msg, sizeof g_msg, "DRONE DOWN!"); g_msg_t = 2; }
       int hev = world_hounds(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * dragon_length(g_dragon.stage) + 0.9f, whip, roar, g_dragon.mode == DM_AIR);
