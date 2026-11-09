@@ -38,12 +38,13 @@ static const char *NAMES[2] = {"FLO-RIDA", "LEAF BLOWER"};
 
 /* textures and meshes */
 static Texture *tx_grass, *tx_dirt, *tx_bark, *tx_leaves, *tx_fern, *tx_bush, *tx_rock, *tx_water, *tx_spark, *tx_font, *tx_tuft, *tx_flower, *tx_cloud;
-static Mesh *m_ground, *m_ground_dirt, *m_ground_rock, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains, *m_apron;
+static Mesh *m_ground, *m_ground_dirt, *m_ground_rock, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains, *m_apron, *m_sun;
 static Mesh *m_dynfood, *m_dynspark, *m_dynhud;   /* refilled per view (each at most twice a frame) */
 #define DYN_CAP 48000
 static Vertex g_dynv[DYN_CAP]; static Batch g_b;
 static uint32_t n_sky;
 
+static Vec3 sun_dir(void) { return v3_norm(v3(0.55f, 0.62f, 0.4f)); }   /* late-afternoon sun: long shadows, shapes read as solid */
 static float frand01(unsigned *s) { *s = *s * 1664525u + 1013904223u; return (float)((*s >> 8) & 0xFFFFFF) / 16777216.0f; }
 
 /* ---------- building the world's meshes ---------- */
@@ -214,7 +215,17 @@ static void build_props(void) {
             float u = clampf(t * 1.4f, 0, 1); col[k][0] = 0.86f * (1 - u) + 0.36f * u; col[k][1] = 0.92f * (1 - u) + 0.62f * u; col[k][2] = 0.98f * (1 - u) + 0.96f * u; }
         tv_tri(q[0], q[1], q[2], v3(0, 1, 0), v3(0, 1, 0), v3(0, 1, 0), 0, 0, 0, 0, 0, 0, col[0][0], col[0][1], col[0][2]); tmpv[tmpn - 2].r = col[1][0]; tmpv[tmpn - 2].g = col[1][1]; tmpv[tmpn - 2].b = col[1][2]; tmpv[tmpn - 1].r = col[2][0]; tmpv[tmpn - 1].g = col[2][1]; tmpv[tmpn - 1].b = col[2][2];
         tv_tri(q[1], q[3], q[2], v3(0, 1, 0), v3(0, 1, 0), v3(0, 1, 0), 0, 0, 0, 0, 0, 0, col[1][0], col[1][1], col[1][2]); tmpv[tmpn - 2].r = col[3][0]; tmpv[tmpn - 2].g = col[3][1]; tmpv[tmpn - 2].b = col[3][2]; tmpv[tmpn - 1].r = col[2][0]; tmpv[tmpn - 1].g = col[2][1]; tmpv[tmpn - 1].b = col[2][2]; }
-    n_sky = tmpn; m_sky = tv_mesh(); }
+    n_sky = tmpn; m_sky = tv_mesh();
+    /* the sun: a bright disc and a wide soft glow, built as fans facing the camera's dome centre, blended over the sky */
+    { Vec3 L = sun_dir(); Vec3 C = v3(L.x * 860, L.y * 860, L.z * 860); Vec3 up = v3(0, 1, 0); Vec3 rt = v3_norm(v3(L.z, 0, -L.x)); Vec3 upv = v3_norm(v3(up.y * L.z - up.z * L.y, up.z * L.x - up.x * L.z, up.x * L.y - up.y * L.x)); upv = v3_norm(v3(rt.y * L.z - rt.z * L.y, rt.z * L.x - rt.x * L.z, rt.x * L.y - rt.y * L.x));
+        tv_begin(3 * 24 * 3 * 3); Vec3 nn = v3(-L.x, -L.y, -L.z);
+        float radii[3] = {38, 110, 320}; float alpha[3] = {1.0f, 0.55f, 0.22f}; float cr[3] = {1.0f, 1.0f, 1.0f}, cg[3] = {0.98f, 0.9f, 0.8f}, cb[3] = {0.9f, 0.7f, 0.55f};
+        for (int ring = 2; ring >= 0; ring--) for (int j = 0; j < 24; j++) { float a0 = j * 6.2831853f / 24, a1 = (j + 1) * 6.2831853f / 24; float R = radii[ring];
+            Vec3 p0 = v3(C.x + (rt.x * cosf(a0) + upv.x * sinf(a0)) * R, C.y + (rt.y * cosf(a0) + upv.y * sinf(a0)) * R, C.z + (rt.z * cosf(a0) + upv.z * sinf(a0)) * R);
+            Vec3 p1 = v3(C.x + (rt.x * cosf(a1) + upv.x * sinf(a1)) * R, C.y + (rt.y * cosf(a1) + upv.y * sinf(a1)) * R, C.z + (rt.z * cosf(a1) + upv.z * sinf(a1)) * R);
+            tv_push(C, nn, WHITE_U, WHITE_V, cr[ring], cg[ring], cb[ring], alpha[ring]); tv_push(p1, nn, WHITE_U, WHITE_V, cr[ring], cg[ring], cb[ring], 0); tv_push(p0, nn, WHITE_U, WHITE_V, cr[ring], cg[ring], cb[ring], 0); }
+        m_sun = tv_mesh(); }
+}
 
 /* ---------- init ---------- */
 int game_init(int gfx_status) {
@@ -288,7 +299,6 @@ static void camera_update(float dt) {
     else { float kk = 1 - expf(-dt * 6); g_eye = v3(g_eye.x + (want.x - g_eye.x) * kk, g_eye.y + (want.y - g_eye.y) * kk, g_eye.z + (want.z - g_eye.z) * kk); g_at = v3(g_at.x + (at.x - g_at.x) * kk, g_at.y + (at.y - g_at.y) * kk, g_at.z + (at.z - g_at.z) * kk); } }
 
 /* ---------- drawing ---------- */
-static Vec3 sun_dir(void) { return v3_norm(v3(0.55f, 0.62f, 0.4f)); }   /* late-afternoon sun: long shadows, shapes read as solid */
 /* small solid shapes for the food, lit by their normals, flat-coloured (they use the white block in the font texture) */
 static void bq_push(Vec3 p, Vec3 n, float r, float g, float b) { if (g_b.n < g_b.cap) { Vertex q = {p.x, p.y, p.z, n.x, n.y, n.z, WHITE_U, WHITE_V, r, g, b, 1}; g_b.v[g_b.n++] = q; } }
 static void batch_ball(Vec3 c, float rx, float ry, float rz, int la, int lo, float r, float g, float b, float ybias) {
@@ -376,7 +386,7 @@ static void draw_scene(int drc) {
     gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, 0.74f, 0.82f, 0.92f, 140, 620); gfx_shadow_use(0);
     Mat4 id = m4_identity();
     /* sky, around the camera, no depth */
-    Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0);
+    Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); }
     if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); }
     gfx_clear_depth(drc);
     gfx_state(ST_SOLID);
@@ -578,7 +588,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         gfx_frame_begin(); gfx_shadow_none();
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
             gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, 0.74f, 0.82f, 0.92f, 140, 620);
-            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } gfx_clear_depth(0);
+            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); } if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } gfx_clear_depth(0);
             gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); scenelayer_draw(&g_lay_tree, g_eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_palm, g_eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_fern, g_eye, LD_HI * 0.6f, 150); scenelayer_draw(&g_lay_bush, g_eye, LD_HI * 0.7f, 170);
             gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
             draw_title_dragons();
