@@ -56,8 +56,9 @@ static void build_ground(void) {
             if (world_in_pond(&g_world, x, z)) { r *= 0.8f; g *= 0.85f; b *= 0.8f; }
             c[k][0] = r; c[k][1] = g; c[k][2] = b; }
         float s = 1.25f; float u0 = i * s, v0 = j * s, u1 = u0 + s, v1 = v0 + s;
-        tv_tri(p[0], p[2], p[1], n[0], n[2], n[1], u0, v0, u0, v1, u1, v0, (c[0][0] + c[2][0] + c[1][0]) / 3, (c[0][1] + c[2][1] + c[1][1]) / 3, (c[0][2] + c[2][2] + c[1][2]) / 3);
-        tv_tri(p[1], p[2], p[3], n[1], n[2], n[3], u1, v0, u0, v1, u1, v1, (c[1][0] + c[2][0] + c[3][0]) / 3, (c[1][1] + c[2][1] + c[3][1]) / 3, (c[1][2] + c[2][2] + c[3][2]) / 3); }
+        /* each corner keeps its own colour, so the shading is smooth across the ground */
+        tv_push(p[0], n[0], u0, v0, c[0][0], c[0][1], c[0][2], 1); tv_push(p[2], n[2], u0, v1, c[2][0], c[2][1], c[2][2], 1); tv_push(p[1], n[1], u1, v0, c[1][0], c[1][1], c[1][2], 1);
+        tv_push(p[1], n[1], u1, v0, c[1][0], c[1][1], c[1][2], 1); tv_push(p[2], n[2], u0, v1, c[2][0], c[2][1], c[2][2], 1); tv_push(p[3], n[3], u1, v1, c[3][0], c[3][1], c[3][2], 1); }
     m_ground = tv_mesh();
     /* the pond: a disc at water level */
     tv_begin(64 * 3); Vec3 cc = v3(g_world.pond_x, g_world.pond_y, g_world.pond_z); float R = g_world.pond_r * 1.25f;
@@ -112,7 +113,7 @@ static void build_props(void) {
             for (int k = 0; k < 3; k++) { float a = p->yaw + k * 2.1f; Vec3 t = v3(p->x + sinf(a) * 2.2f * p->scale, y + h * 0.95f + 0.4f, p->z + cosf(a) * 2.2f * p->scale); tv_ball(t, 2.2f * p->scale, 1.7f * p->scale, 2.2f * p->scale, i * 31 + k, 0.2f, 1.1f, tint, tint, tint * 0.92f, 0.3f); } }
     }
     /* the berry bushes: round leafy balls (the berries themselves are drawn live, so they can be eaten) */
-    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (f->kind != F_BERRY) continue; tv_ball(v3(f->x, f->y + 0.45f, f->z), 0.8f, 0.6f, 0.8f, i * 13 + 1, 0.2f, 1.0f, 0.95f, 1.0f, 0.9f, 0.15f); }
+    for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (f->kind != F_BERRY) continue; tv_ball(v3(f->x, f->y + 0.35f, f->z), 0.6f, 0.45f, 0.6f, i * 13 + 1, 0.2f, 1.0f, 0.95f, 1.0f, 0.9f, 0.15f); }
     m_leaves = tv_mesh();
     /* ferns (splayed fronds) and the palm crowns share the frond texture */
     tv_begin(W_MAXPROPS * 60 + 64);
@@ -257,7 +258,7 @@ static void draw_food3d(Vec3 eye) {
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue;
         float dx = f->x - eye.x, dz = f->z - eye.z; float d2 = dx * dx + dz * dz; if (d2 > 120 * 120) continue; int lod = d2 > 35 * 35;
         if (f->kind == F_BERRY) {   /* red berries sitting on the (static) bush */
-            unsigned s = (unsigned)i * 97 + 13; for (int k = 0; k < 6; k++) { float a = frand01(&s) * 6.28f, el = 0.3f + frand01(&s) * 1.1f, rr = 0.72f; Vec3 c = v3(f->x + cosf(el) * sinf(a) * rr, f->y + 0.55f + sinf(el) * 0.6f, f->z + cosf(el) * cosf(a) * rr);
+            unsigned s = (unsigned)i * 97 + 13; for (int k = 0; k < 6; k++) { float a = frand01(&s) * 6.28f, el = 0.3f + frand01(&s) * 1.1f, rr = 0.55f; Vec3 c = v3(f->x + cosf(el) * sinf(a) * rr, f->y + 0.4f + sinf(el) * 0.45f, f->z + cosf(el) * cosf(a) * rr);
                 batch_ball(c, 0.1f, 0.1f, 0.1f, lod ? 2 : 3, lod ? 4 : 5, 0.9f, 0.12f, 0.2f, 1); } }
         else if (f->kind == F_MUSHROOM) { float h = 0.42f + 0.05f * sinf(f->phase); batch_cyl(v3(f->x, f->y - 0.05f, f->z), v3(f->x, f->y + h, f->z), 0.09f, 0.08f, 6, 0.93f, 0.88f, 0.75f);
             batch_ball(v3(f->x, f->y + h, f->z), 0.32f, 0.2f, 0.32f, 3, lod ? 6 : 8, 0.85f, 0.2f, 0.18f, 0.25f);
@@ -358,7 +359,7 @@ static void draw_hud(int drc) {
     if (d->mode == DM_AIR && d->stage >= ST_DRAGON) { batch_rect(&g_b, 40, 140, 200, 12, 0.05f, 0.08f, 0.15f, 0.8f); batch_rect(&g_b, 42, 142, 196 * d->stamina, 8, 0.5f, 0.8f, 1, 1); }
     /* prompts */
     float L = dragon_length(d->stage);
-    int near = world_nearest_food(&g_world, d->x + sinf(d->yaw) * 0.35f * L, d->z + cosf(d->yaw) * 0.35f * L, 0.45f * L + 1.0f);
+    int near = world_nearest_food(&g_world, d->x + sinf(d->yaw) * 0.45f * L, d->z + cosf(d->yaw) * 0.45f * L, 0.5f * L + 1.2f);
     if (near >= 0 && d->mode != DM_AIR && d->act_t <= 0) text_c(food_is_meat(g_world.food[near].kind) ? "X : EAT (MEAT, GROWS FAST)" : "X : EAT", 600, 30, 1, 1, 0.7f, 0.9f);
     if (g_msg_t > 0) text_wrap_c(g_msg, 630, 28, 1180, 1, 1, 1, clampf(g_msg_t, 0, 1));
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); text_c("DRAGONS BEYOND", 250, 72, 0.6f, 1, 0.5f, a); text_c("EVERLEAF WILDS", 330, 40, 0.9f, 1, 0.9f, a); }

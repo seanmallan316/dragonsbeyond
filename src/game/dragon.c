@@ -60,7 +60,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
             else { d->mode = DM_AIR; d->vy = 5.5f; d->vx = sinf(d->yaw) * d->speed; d->vz = cosf(d->yaw) * d->speed; set_anim(d, DA_GLIDE); }
             return ev; }
         /* actions */
-        int near = world_nearest_food(w, d->x + sinf(d->yaw) * 0.35f * L, d->z + cosf(d->yaw) * 0.35f * L, 0.45f * L + 1.0f);
+        int near = world_nearest_food(w, d->x + sinf(d->yaw) * 0.45f * L, d->z + cosf(d->yaw) * 0.45f * L, 0.5f * L + 1.2f);
         if (in->x_press && near >= 0) { d->eating = near; d->act_t = 1.77f; set_anim(d, DA_EAT); Food *f = &w->food[near]; d->yaw = atan2f(f->x - d->x, f->z - d->z); return ev; }
         if (in->b_press) { d->act_t = 0.97f; set_anim(d, DA_TAILWHIP); return ev; }
         if (in->y_press) { d->act_t = 1.97f; set_anim(d, DA_ROAR); ev |= 16; return ev; }
