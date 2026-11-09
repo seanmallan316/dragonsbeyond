@@ -291,9 +291,10 @@ static void build_props(void) {
         unsigned fs = 5150; float FI[16][5]; int nf = 0;
         for (int i = 0; i < 16; i++) { float a = i * 6.2831853f / 16 + (frand01(&fs) - 0.5f) * 0.3f, r = 270 + frand01(&fs) * 230;
             FI[nf][0] = sinf(a) * r; FI[nf][1] = cosf(a) * r; FI[nf][2] = 15 + frand01(&fs) * 50; FI[nf][3] = 18 + frand01(&fs) * 34; FI[nf][4] = FI[nf][3] * (1.3f + frand01(&fs) * 1.2f); nf++; }
-        tv_begin(16 * 3 * 12 * 6 * 2);
+        tv_begin(16 * 2 * 2000);
         for (int i = 0; i < nf; i++) { float x = FI[i][0], z = FI[i][1], y = FI[i][2], R = FI[i][3], D = FI[i][4];
-            tv_cone(v3(x, y, z), v3(x, y - D * 0.45f, z), R, R * 0.65f, 14, 6, 0.1f); tv_cone(v3(x, y - D * 0.45f, z), v3(x + R * 0.1f, y - D, z), R * 0.65f, R * 0.08f, 14, 6, 0.1f); }
+            tv_ball(v3(x, y - D * 0.5f, z), R, D * 0.5f, R * 0.92f, 300 + i * 7, 0.38f, 3.0f, 0.82f, 0.8f, 0.74f, 0);   /* a lumpy rock mass */
+            tv_ball(v3(x + R * 0.25f, y - D * 0.85f, z - R * 0.15f), R * 0.45f, D * 0.35f, R * 0.4f, 301 + i * 7, 0.4f, 2.0f, 0.75f, 0.73f, 0.68f, 0); }   /* and a hanging chunk under it */
         m_mountains = tv_mesh();
         tv_begin(16 * 14 * 3 * 2);
         for (int i = 0; i < nf; i++) { float x = FI[i][0], z = FI[i][1], y = FI[i][2], R = FI[i][3]; Vec3 up = v3(0, 1, 0);
