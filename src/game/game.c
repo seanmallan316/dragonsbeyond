@@ -383,8 +383,8 @@ static void tour_input(Pad *p, float t) {
     static float last_eat = -9; static int prev_up = 0;
     memset(p, 0, sizeof *p); p->source = 1;
     const Dragon *d = &g_dragon;
-    if (t < 5) return; if (g_state != G_PLAY) { p->a = fmodf(t, 1.6f) < 0.1f && (g_state != G_NAME || t > 8); return; }
-    int wantcam = t < 40 ? 0 : (t < 55 ? 1 : (t < 70 ? 2 : 0)); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
+    if (t < 4) return; if (g_state != G_PLAY) { p->a = fmodf(t, 0.9f) < 0.12f && (g_state != G_NAME || t > 6); return; }
+    int wantcam = t < 45 ? 0 : (t < 58 ? 1 : (t < 70 ? 2 : 0)); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
     if (d->stage == ST_DRAGONET || d->mode != DM_AIR) {
         int near = world_nearest_food(&g_world, d->x, d->z, 400);
         if (near >= 0 && d->stage == ST_DRAGONET) { const Food *f = &g_world.food[near]; float dx = f->x - d->x, dz = f->z - d->z, dist = sqrtf(dx * dx + dz * dz);
@@ -495,7 +495,9 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (g_gfx_status != GFX_OK) { gfx_frame_begin(); gfx_view_begin(0, g_gfx_status == GFX_NO_COMPILER ? 1 : 1, g_gfx_status == GFX_NO_COMPILER ? 0.5f : 0, 0); gfx_view_end(0); gfx_view_begin(1, 1, 0.5f, 0); gfx_view_end(1); gfx_frame_end(); return; }
     /* player 1: the GamePad, or the first Wii controller if the GamePad stick is idle */
 #ifdef DB_TOUR
-    static Pad tourpad; tour_input(&tourpad, g_time); pads = &tourpad; npads = 1;
+    static Pad tourpad; static int tour_once; if (!tour_once) { tour_once = 1; g_dragon.growth = 40; }   /* one meal from growing up, so the clip reaches the flying */
+    if (dt < 0.08f) dt = 0.08f;   /* the cloud emulator is slow: let game time run ahead so the clip covers more */
+    tour_input(&tourpad, g_time); pads = &tourpad; npads = 1;
 #endif
     const Pad *p = &pads[0]; const Pad *q = &g_prev[0];
     for (int i = 1; i < npads && i < KK_PADS; i++) if (pads[i].source && (fabsf(pads[i].sx) > 0.2f || fabsf(pads[i].sy) > 0.2f || pads[i].a || pads[i].x) && fabsf(p->sx) < 0.2f && fabsf(p->sy) < 0.2f && !p->a && !p->x) { p = &pads[i]; q = &g_prev[i]; }
