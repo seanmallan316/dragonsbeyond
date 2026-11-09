@@ -155,9 +155,21 @@ for i, nm in enumerate(names):
     if nm.startswith('wing'): Wt[core, i] = 0
 # and the wing membrane answers to wing bones only (no neck, head, leg or tail pull)
 if has_wings:
-    wingzone = (np.abs(P[:, 0]) > 1.25 * wing_root[0]) & (P[:, 2] > spine_z)
-    for i, nm in enumerate(names):
-        if not (nm.startswith('wing') or nm in ('chest', 'spine2')): Wt[wingzone, i] = 0
+    # chain skinning for the wings: the weight follows the position from the shoulder to the tip, so the whole wing
+    # swings at the shoulder (wing_1) and the outer bones only bend it further - a real wingbeat, not a flutter at the tip
+    def sstep(a, b, x): u = np.clip((x - a) / max(b - a, 1e-9), 0, 1); return u * u * (3 - 2 * u)
+    ax = np.abs(P[:, 0]); wingzone = (ax > 0.9 * wing_root[0]) & (P[:, 2] > body_bot + 0.3 * (body_top - body_bot))
+    u = (ax - wing_root[0]) / max(wing_tip[0] - wing_root[0], 1e-6)
+    w1 = 1 - sstep(0.28, 0.5, u); w3 = sstep(0.62, 0.86, u); w2 = np.clip(1 - w1 - w3, 0, 1)
+    rootmix = sstep(0.9 * wing_root[0], 1.35 * wing_root[0], ax)   # the first bit of the wing blends out of the chest
+    for side, sgn in (('L', 1), ('R', -1)):
+        zone = wingzone & ((P[:, 0] > 0) if sgn > 0 else (P[:, 0] < 0))
+        for i, nm in enumerate(names):
+            if nm == 'chest': Wt[zone, i] = 1 - rootmix[zone]
+            elif nm == f'wing{side}_1': Wt[zone, i] = rootmix[zone] * w1[zone]
+            elif nm == f'wing{side}_2': Wt[zone, i] = rootmix[zone] * w2[zone]
+            elif nm == f'wing{side}_3': Wt[zone, i] = rootmix[zone] * w3[zone]
+            else: Wt[zone, i] = 0
 Wt = Wt / np.maximum(Wt.sum(1, keepdims=True), 1e-9)
 # ---- neck + head: chain skinning. Position along the chain neck0 -> mid -> head centre -> snout decides the bone.
 ih, ij = names.index('head'), names.index('jaw'); in1, in2, ich = names.index('neck1'), names.index('neck2'), names.index('chest')

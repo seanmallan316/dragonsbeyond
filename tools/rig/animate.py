@@ -1,7 +1,7 @@
 """animate.py rig.blend out.blend : adds the game's animation clips to a dragon rig as Blender actions.
 Clips (30 fps, looping unless noted): idle, walk, run, fly, glide, eat (once), roar (once), tailwhip (once), hit (once).
 Bone axes (roll 0): spine/neck/tail X = nod, Z = turn; legs X = swing forward/back; wings X = raise tip (+ up)."""
-import bpy, sys, math
+import bpy, sys, math, mathutils
 src, out = sys.argv[1], sys.argv[2]
 bpy.ops.wm.open_mainfile(filepath=src)
 arm = bpy.data.objects['DragonRig']; mesh = bpy.data.objects['Dragon']
@@ -27,7 +27,13 @@ class Clip:
     def key(self, f, rots, locs=None):
         for b in pb: b.rotation_euler = (0, 0, 0); b.location = (0, 0, 0)
         for name, (x, y, z) in rots.items():
-            if name in pb: pb[name].rotation_euler = (r(x), r(y), r(z))
+            if name not in pb: continue
+            if name.startswith('wing'):   # wings: x = flap about the body's axis (+ = tip up), z = sweep about the vertical, whatever the bone's own axes are
+                inv = pb[name].bone.matrix_local.to_3x3().inverted()
+                sgn = 1 if name.startswith('wingL') else -1
+                q = mathutils.Quaternion(inv @ mathutils.Vector((0, 1, 0)), r(x) * -sgn) @ mathutils.Quaternion(inv @ mathutils.Vector((0, 0, 1)), r(z))
+                pb[name].rotation_euler = q.to_euler('XYZ')
+            else: pb[name].rotation_euler = (r(x), r(y), r(z))
         for name, v in (locs or {}).items():
             if name in pb: pb[name].location = v
         for b in pb:
@@ -54,8 +60,11 @@ def tail(t, amp=10, ph=0.0, nod=0.0):
 def wings_folded():
     return {'wingL_1': (-35, 0, -25), 'wingR_1': (-35, 0, 25), 'wingL_2': (0, 0, 45), 'wingR_2': (0, 0, -45), 'wingL_3': (0, 0, 30), 'wingR_3': (0, 0, -30)} if has_wings else {}
 def wings_flap(t, amp=45, base=10):
-    a = base + amp * S(t); b = 0.5 * amp * S(t, -0.9); c = 0.35 * amp * S(t, -1.6)
-    return {'wingL_1': (a, 0, 0), 'wingR_1': (a, 0, 0), 'wingL_2': (b, 0, 0), 'wingR_2': (b, 0, 0), 'wingL_3': (c, 0, 0), 'wingR_3': (c, 0, 0)} if has_wings else {}
+    # the shoulder does the work (a deep, slightly quick downstroke), the outer wing lags behind and bends further
+    s1 = S(t); down = s1 - 0.25 * (1 - s1 * s1)   # a little sharper at the bottom of the stroke
+    a = base + amp * down; b = 0.45 * amp * S(t, -0.8); c = 0.35 * amp * S(t, -1.5)
+    sweep = 0.18 * amp * S(t, -0.5)   # the wing also sweeps a little forward on the downstroke
+    return {'wingL_1': (a, 0, -sweep), 'wingR_1': (a, 0, sweep), 'wingL_2': (b, 0, 0), 'wingR_2': (b, 0, 0), 'wingL_3': (c, 0, 0), 'wingR_3': (c, 0, 0)} if has_wings else {}
 def legs_walk(t, swing=28, lift=22, ph_fl=0.0):
     out = {}
     for tag, ph in (('FL', ph_fl), ('BR', ph_fl), ('FR', ph_fl + 0.5), ('BL', ph_fl + 0.5)):
@@ -90,7 +99,7 @@ def run(t):
     rots.update(tail(t, 18, 0.5, nod=-5)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, (0.055 if CH < 1 else 0.025) * H * max(0, S(2 * t, 0.3)))}
 def fly(t):
-    rots = wings_flap(t, 50, 5)
+    rots = wings_flap(t, 55, -18)
     tuck = {f'leg{tag}_upper': (35 if tag[0] == 'F' else 40, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')}
     tuck.update({f'leg{tag}_lower': (-70, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')})
     rots.update(tuck)
@@ -99,7 +108,7 @@ def fly(t):
     rots.update(tail(t, 6, 0.0, nod=-4 * S(t, 1.5) - 4))
     return rots, {'hips': (0, 0, 0.03 * H * S(t, -1.2))}
 def glide(t):
-    rots = wings_flap(t, 4, 15)
+    rots = wings_flap(t, 4, -40)
     rots.update({k: v for k, v in fly(t)[0].items() if k.startswith('leg')})
     rots.update({'spine1': (-5, 0, 0), 'spine2': (-3, 0, 0), 'neck1': (-5, 0, 0), 'head': (10, 0, 0)})
     rots.update(tail(t, 5, 0.0, nod=-6))
