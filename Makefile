@@ -19,6 +19,13 @@ LIBS    := -lwut -lm
 
 all: $(TARGET).wuhb
 
+# `make tour` builds dragonsbeyond-tour.rpx: the game playing itself, for the emulator screenshots in CI
+tour: $(TARGET)-tour.rpx
+$(TARGET)-tour.elf: $(SRCS) $(HDRS)
+	$(CC) $(CFLAGS) -DDB_TOUR $(SRCS) $(LDFLAGS) $(LIBS) -o $@
+$(TARGET)-tour.rpx: $(TARGET)-tour.elf
+	$(DEVKITPRO)/tools/bin/elf2rpl $< $@
+
 $(TARGET).elf: $(SRCS) $(HDRS)
 	$(CC) $(CFLAGS) $(SRCS) $(LDFLAGS) $(LIBS) -o $@
 
@@ -36,5 +43,5 @@ test:
 	gcc $(TESTFLAGS) tests/game_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o game_test && ASAN_OPTIONS=detect_leaks=0 ./game_test
 
 clean:
-	rm -f $(TARGET).elf $(TARGET).rpx $(TARGET).wuhb dragon_test game_test
-.PHONY: all clean test
+	rm -f $(TARGET).elf $(TARGET).rpx $(TARGET).wuhb $(TARGET)-tour.elf $(TARGET)-tour.rpx dragon_test game_test
+.PHONY: all clean test tour

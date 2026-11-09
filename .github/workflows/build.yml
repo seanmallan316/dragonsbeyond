@@ -16,12 +16,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build the game
-        run: make
+        run: make && make tour
       - name: Save the finished game file
         uses: actions/upload-artifact@v4
         with:
           name: DragonsBeyond
           path: dragonsbeyond.wuhb
+      - name: Save the raw program too (for the emulator test)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DragonsBeyond-rpx
+          path: |
+            dragonsbeyond.rpx
+            dragonsbeyond-tour.rpx
+            content/
   sd-card:
     name: Ready-to-copy SD card folder
     needs: build
@@ -43,3 +51,148 @@ jobs:
         with:
           name: DragonsBeyond-SD-card
           path: sd/
+  emulator-screenshot:
+    # Best effort: try to run the build in the Cemu emulator with no graphics card and photograph it.
+    # If anything here fails the game build above is still fine; this job only exists so Claude can see the game.
+    name: Emulator screenshot (best effort)
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DragonsBeyond-rpx
+          path: game
+      - name: Install a software OpenGL/Vulkan driver and a virtual screen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb mesa-vulkan-drivers libgl1-mesa-dri libglu1-mesa imagemagick x11-utils
+          # libraries the Cemu AppImage expects from the system; package names differ between Ubuntu versions, so try each one
+          for p in libfuse2 libfuse2t64 libegl1 libgl1 libopengl0 libglx-mesa0 libgles2 libasound2 libasound2t64 libpulse0 \
+                   libxkbcommon0 libgtk-3-0 libgtk-3-0t64 libwayland-client0 libwayland-egl1 libxcursor1 libxi6 libxrandr2 libxss1 \
+                   libsecret-1-0 libnotify4 libzstd1 libcurl4 libcurl4t64; do
+            sudo apt-get install -y --no-install-recommends "$p" || true
+          done
+      - name: Download Cemu and the shader compiler
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p cemu
+          gh release download --repo cemu-project/Cemu --pattern '*x86_64.AppImage' --dir cemu
+          mv cemu/*.AppImage cemu/Cemu.AppImage
+          chmod +x cemu/Cemu.AppImage
+          mkdir -p "$HOME/.local/share/Cemu/cafeLibs"
+          gh release download --repo Exzap/CafeGLSL --pattern 'glslcompiler.rpl' --dir "$HOME/.local/share/Cemu/cafeLibs"
+          ls -la cemu "$HOME/.local/share/Cemu/cafeLibs"
+      - name: Prepare a title folder the emulator can load
+        run: |
+          mkdir -p title/code title/content title/meta
+          cp game/dragonsbeyond-tour.rpx title/code/dragonsbeyond.rpx
+          cp -r game/content/* title/content/
+          cat > title/code/app.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <app type="complex" access="777">
+            <version type="unsignedInt" length="4">1</version>
+            <os_version type="hexBinary" length="8">000500101000400A</os_version>
+            <title_id type="hexBinary" length="8">0005000012345678</title_id>
+            <title_version type="hexBinary" length="2">0000</title_version>
+            <sdk_version type="unsignedInt" length="4">21204</sdk_version>
+            <app_type type="hexBinary" length="4">80000000</app_type>
+            <group_id type="hexBinary" length="4">00001234</group_id>
+          </app>
+          EOF
+          cat > title/code/cos.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <app type="complex" access="777">
+            <version type="unsignedInt" length="4">1</version>
+            <cmdFlags type="unsignedInt" length="4">0</cmdFlags>
+            <argstr type="string" length="4096">dragonsbeyond.rpx</argstr>
+            <avail_size type="hexBinary" length="4">00000000</avail_size>
+            <codegen_size type="hexBinary" length="4">02000000</codegen_size>
+            <codegen_core type="hexBinary" length="4">80000001</codegen_core>
+            <max_size type="hexBinary" length="4">40000000</max_size>
+            <max_codesize type="hexBinary" length="4">02000000</max_codesize>
+            <default_stack0_size type="hexBinary" length="4">00000000</default_stack0_size>
+            <default_stack1_size type="hexBinary" length="4">00000000</default_stack1_size>
+            <default_stack2_size type="hexBinary" length="4">00000000</default_stack2_size>
+            <exception_stack0_size type="hexBinary" length="4">00001000</exception_stack0_size>
+            <exception_stack1_size type="hexBinary" length="4">00001000</exception_stack1_size>
+            <exception_stack2_size type="hexBinary" length="4">00001000</exception_stack2_size>
+          </app>
+          EOF
+          cat > title/meta/meta.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <menu type="complex" access="777">
+            <version type="unsignedInt" length="4">33</version>
+            <product_code type="string" length="32">WUP-P-DRGB</product_code>
+            <title_id type="hexBinary" length="8">0005000012345678</title_id>
+            <title_version type="unsignedShort" length="2">0</title_version>
+            <region type="hexBinary" length="4">FFFFFFFF</region>
+            <longname_en type="string" length="512">Dragons Beyond</longname_en>
+            <shortname_en type="string" length="256">Dragons Beyond</shortname_en>
+            <publisher_en type="string" length="256">Sean</publisher_en>
+          </menu>
+          EOF
+      - name: Run the game in the emulator and photograph every screen
+        run: |
+          # answer the emulator's first-run wizard ahead of time by writing its settings file
+          mkdir -p "$HOME/.config/Cemu"
+          cat > "$HOME/.config/Cemu/settings.xml" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <content>
+            <GamePaths><Entry>$PWD/title</Entry></GamePaths>
+            <check_update>false</check_update>
+            <fullscreen>true</fullscreen>
+            <Graphic><api>1</api><VSync>0</VSync></Graphic>
+            <Audio><api>0</api></Audio>
+          </content>
+          EOF
+          mkdir -p "$HOME/.local/share/Cemu/sdcard/wiiu"      # so the game can write its log and save file to the virtual SD card
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1280x720x24 &
+          sleep 2
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GALLIUM_DRIVER=llvmpipe
+          # unpack the AppImage so it does not need FUSE
+          (cd cemu && ./Cemu.AppImage --appimage-extract > /dev/null 2>&1 || true)
+          ls cemu/squashfs-root >/dev/null 2>&1 && CEMUBIN="./cemu/squashfs-root/AppRun" || CEMUBIN="./cemu/Cemu.AppImage"
+          ldd ./cemu/squashfs-root/usr/bin/Cemu 2>/dev/null | grep "not found" || true
+          "$CEMUBIN" --force-no-menubar -f -g "$PWD/title/code/dragonsbeyond.rpx" > cemu_log.txt 2>&1 &
+          CEMU=$!
+          # the tour build plays itself: walks to berries, eats, grows into a dragon, flies, changes views
+          last=0
+          for t in 6 12 18 26 34 42 50 58 66 74 82 95; do
+            sleep $((t - last)); last=$t
+            import -window root "screenshot_${t}s.png" || xwd -root -silent | convert xwd:- "screenshot_${t}s.png" || true
+          done
+          kill $CEMU || true
+          sleep 2
+          ls -la *.png || true
+          tail -n 50 cemu_log.txt || true
+          cp -r "$HOME/.local/share/Cemu/log.txt" cemu_internal_log.txt 2>/dev/null || true
+          cp "$HOME/.local/share/Cemu/sdcard/wiiu/dragonsbeyond_log.txt" game_log.txt 2>/dev/null || true
+          cp "$HOME/.local/share/Cemu/sdcard/wiiu/dragonsbeyond_save.txt" game_save.txt 2>/dev/null || true
+          echo "::group::Cemu internal log"; cat cemu_internal_log.txt 2>/dev/null | tail -n 80 || true; echo "::endgroup::"
+      - name: Store the screenshots in the repository (branch ci-screenshots)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p shots && cp screenshot_*.png cemu_log.txt cemu_internal_log.txt game_log.txt game_save.txt shots/ 2>/dev/null || true
+          cd shots
+          git init -q -b ci-screenshots
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git add -A && git commit -q -m "Emulator screenshots for ${{ github.sha }}" || true
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" ci-screenshots 2>&1 | tail -n 2 || true
+      - name: Save the screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: EmulatorScreenshots
+          path: |
+            screenshot_*.png
+            cemu_log.txt
+            cemu_internal_log.txt
+          if-no-files-found: ignore

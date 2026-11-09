@@ -285,11 +285,33 @@ static void draw_hud(int drc) {
     batch_text(&g_b, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : ROAR", 300, 690, 18, 1, 1, 1, 0.5f);
     if (!g_b.n) return; gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dyn, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dyn, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL); (void)drc; }
 
+
+#ifdef DB_TOUR
+/* the tour build plays itself (for the emulator screenshots in CI): walks to food and eats until it grows, then flies, changing views as it goes */
+static void tour_input(Pad *p, float t) {
+    static float last_eat = -9; static int prev_up = 0;
+    memset(p, 0, sizeof *p); p->source = 1;
+    const Dragon *d = &g_dragon;
+    if (t < 3) return;
+    int wantcam = t < 40 ? 0 : (t < 55 ? 1 : (t < 70 ? 2 : 0)); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
+    if (d->stage == ST_DRAGONET || d->mode != DM_AIR) {
+        int near = world_nearest_food(&g_world, d->x, d->z, 400);
+        if (near >= 0 && d->stage == ST_DRAGONET) { const Food *f = &g_world.food[near]; float dx = f->x - d->x, dz = f->z - d->z, dist = sqrtf(dx * dx + dz * dz);
+            float ang = atan2f(dx, dz) - g_cam_yaw; if (dist > 1.0f) { p->sx = sinf(ang); p->sy = cosf(ang); p->zr = dist > 6; } else if (d->act_t <= 0 && t - last_eat > 0.5f) { p->x = 1; last_eat = t; } }
+        else if (d->stage >= ST_DRAGON && d->evolve_t <= 0 && d->act_t <= 0 && t > 20) { p->a = 1; p->sy = 1; }   /* take off */
+    } else { p->a = fmodf(t, 6.0f) < 3.5f; p->sy = 0.4f; p->sx = 0.5f * sinf(t * 0.4f); }   /* flap in bursts, circle */
+    if (fmodf(t, 30.0f) < 0.05f && t > 25 && d->mode != DM_AIR) p->y = 1;   /* a roar now and then */
+}
+#endif
+
 /* ---------- the frame ---------- */
 void game_frame(const Pad *pads, int npads, float dt) {
     g_time += dt; gfx_set_time(g_time);
     if (g_gfx_status != GFX_OK) { gfx_frame_begin(); gfx_view_begin(0, g_gfx_status == GFX_NO_COMPILER ? 1 : 1, g_gfx_status == GFX_NO_COMPILER ? 0.5f : 0, 0); gfx_view_end(0); gfx_view_begin(1, 1, 0.5f, 0); gfx_view_end(1); gfx_frame_end(); return; }
     /* player 1: the GamePad, or the first Wii controller if the GamePad stick is idle */
+#ifdef DB_TOUR
+    static Pad tourpad; tour_input(&tourpad, g_time); pads = &tourpad; npads = 1;
+#endif
     const Pad *p = &pads[0]; const Pad *q = &g_prev[0];
     for (int i = 1; i < npads && i < KK_PADS; i++) if (pads[i].source && (fabsf(pads[i].sx) > 0.2f || fabsf(pads[i].sy) > 0.2f || pads[i].a || pads[i].x) && fabsf(p->sx) < 0.2f && fabsf(p->sy) < 0.2f && !p->a && !p->x) { p = &pads[i]; q = &g_prev[i]; }
     DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl;
