@@ -249,7 +249,7 @@ int game_init(int gfx_status) {
     snprintf(g_msg, sizeof g_msg, "WALK TO THE BERRIES. PRESS X TO EAT"); g_msg_t = 8;
     return 1; }
 void game_shutdown(void) {}
-const char *game_where(void) { static char s[96]; static const char *st[] = {"title", "name pick", "story", "playing"}; snprintf(s, sizeof s, "%s: Everleaf Wilds, %s, growth %.0f, cam %d", st[g_state], dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode); return s; }
+const char *game_where(void) { static char s[160]; static const char *st[] = {"title", "name pick", "story", "playing"}; static const char *md[] = {"ground", "air", "swim"}; snprintf(s, sizeof s, "%s: Everleaf Wilds, %s, growth %.0f, cam %d, %s at %.0f,%.0f,%.0f anim %d act %.1f evo %.1f", st[g_state], dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode, md[g_dragon.mode], g_dragon.x, g_dragon.y, g_dragon.z, g_dragon.anim, g_dragon.act_t, g_dragon.evolve_t); return s; }
 
 
 /* ---------- progress: one small text line on the SD card ---------- */
@@ -424,12 +424,12 @@ static void shadow_pass(void) {
 static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a);
 static void text_c(const char *s, float y, float size, float r, float g, float b, float a) { batch_text(&g_b, s, 640 - text_width(s, size) / 2, y, size, r, g, b, a); }
 #ifdef DB_TOUR
-static float g_tour_real_dt = 0.1f;
+static float g_tour_real_dt = 0.1f; static int g_tour_presses, g_tour_takeoffs, g_tour_a;
 #endif
 static void draw_hud(int drc) {
     const Dragon *d = &g_dragon; batch_clear(&g_b);
 #ifdef DB_TOUR
-    { char tb[64]; snprintf(tb, sizeof tb, "T %.0f  %.1f FPS  %s", g_time, 1.0f / fmaxf(g_tour_real_dt, 0.001f), d->mode == DM_AIR ? "AIR" : "GROUND"); batch_text(&g_b, tb, 40, 690, 16, 1, 1, 0.6f, 0.8f); }
+    { char tb[200]; snprintf(tb, sizeof tb, "T %.0f FPS %.1f %s ANIM %d ACT %.1f EVO %.1f STAM %.2f VY %.1f A %d PRESSES %d TAKEOFFS %d", g_time, 1.0f / fmaxf(g_tour_real_dt, 0.001f), d->mode == DM_AIR ? "AIR" : d->mode == DM_SWIM ? "SWIM" : "GROUND", d->anim, d->act_t, d->evolve_t, d->stamina, d->vy, g_tour_a, g_tour_presses, g_tour_takeoffs); batch_text(&g_b, tb, 40, 690, 14, 1, 1, 0.6f, 0.9f); }
 #endif
     /* hearts */
     for (int i = 0; i < (int)d->max_hearts; i++) { float full = clampf(d->hearts - i, 0, 1); batch_rect(&g_b, 40 + i * 44, 36, 34, 30, 0.25f, 0.05f, 0.08f, 0.8f); if (full > 0) batch_rect(&g_b, 43 + i * 44, 39 + 24 * (1 - full), 28, 24 * full, 0.95f, 0.2f, 0.3f, 1); }
@@ -600,6 +600,9 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (p->up && !q->up) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
     g_look_x = p->rx;
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt);
+#ifdef DB_TOUR
+    g_tour_a = in.a; g_tour_presses += in.a_press; g_tour_takeoffs += (ev & 4) != 0;
+#endif
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
     { int whip = g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.35f && g_dragon.act_t < 0.6f; int roar = g_dragon.anim == DA_ROAR && g_dragon.act_t > 1.0f;
       int dev = world_drones(&g_world, dt, g_dragon.x, g_dragon.y + 0.4f * dragon_length(g_dragon.stage), g_dragon.z, 0.8f * dragon_length(g_dragon.stage) + 1.0f, whip, roar);
