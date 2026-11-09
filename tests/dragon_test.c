@@ -35,4 +35,13 @@ int main(void) {
     /* let go: it glides down and lands */
     int landed = 0; for (int i = 0; i < 1200 && !landed; i++) { DragonInput in = {0}; in.sy = -1; landed = dragon_update(&d, &w, &in, 0, 1.0f / 60) & 8; }
     CHECK(landed);
+    /* drones: one dives when the dragon walks under it, and a tail whip knocks it down */
+    CHECK(w.ndrone >= 3);
+    Drone *dr = &w.drone[0]; d.x = dr->hx; d.z = dr->hz; d.y = world_height(&w, d.x, d.z); d.mode = DM_GROUND;
+    int hit = 0, down = 0;
+    for (int i = 0; i < 1200; i++) { int ev = world_drones(&w, 1.0f / 60, d.x, d.y + 1, d.z, 2.5f, 0, 0); if (ev & 1) hit++; }
+    printf("drone hits in 20 s standing still: %d\n", hit); CHECK(hit >= 1);
+    dr->state = 1; dr->x = d.x + 1; dr->z = d.z; dr->y = d.y + 1;
+    for (int i = 0; i < 10; i++) { int ev = world_drones(&w, 1.0f / 60, d.x, d.y + 1, d.z, 2.5f, 1, 0); if (ev & 2) down++; }
+    CHECK(down == 1 && dr->state == 3);
     printf("dragon test OK\n"); return 0; }
