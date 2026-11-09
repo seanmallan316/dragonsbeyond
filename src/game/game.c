@@ -368,7 +368,7 @@ static void draw_dragon(const Dragon *d) {
     Mat4 base = dragon_matrix(d, sc); int clip = anim3d_clip(m, dragon_anim_name(d->anim)); if (clip < 0) clip = 0;
     gfx_state(ST_SOLID);
     float glow = d->evolve_t > 0 ? 0.5f + 0.5f * sinf(g_time * 20) : 0;
-    anim3d_draw(m, clip, d->anim_t, &base, 1.12f + glow, 1.12f + glow, 1.1f + 0.6f * glow, 1); gfx_bind(NULL); }
+    gfx_bump(2); anim3d_draw(m, clip, d->anim_t, &base, 1.12f + glow, 1.12f + glow, 1.1f + 0.6f * glow, 1); gfx_bump(0); gfx_bind(NULL); }
 
 static void draw_sparkles(const Dragon *d, Vec3 eye) {
     if (d->evolve_t <= 0) return; batch_clear(&g_b); unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
