@@ -68,7 +68,7 @@ jobs:
       - name: Install a software OpenGL/Vulkan driver and a virtual screen
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb mesa-vulkan-drivers libgl1-mesa-dri libglu1-mesa imagemagick x11-utils
+          sudo apt-get install -y xvfb mesa-vulkan-drivers libgl1-mesa-dri libglu1-mesa imagemagick x11-utils ffmpeg
           # libraries the Cemu AppImage expects from the system; package names differ between Ubuntu versions, so try each one
           for p in libfuse2 libfuse2t64 libegl1 libgl1 libopengl0 libglx-mesa0 libgles2 libasound2 libasound2t64 libpulse0 \
                    libxkbcommon0 libgtk-3-0 libgtk-3-0t64 libwayland-client0 libwayland-egl1 libxcursor1 libxi6 libxrandr2 libxss1 \
@@ -161,14 +161,20 @@ jobs:
           ldd ./cemu/squashfs-root/usr/bin/Cemu 2>/dev/null | grep "not found" || true
           "$CEMUBIN" --force-no-menubar -f -g "$PWD/title/code/dragonsbeyond.rpx" > cemu_log.txt 2>&1 &
           CEMU=$!
+          # record the whole run as a video too (10 frames a second is plenty for a clip)
+          sleep 4
+          ffmpeg -loglevel error -y -f x11grab -video_size 1280x720 -framerate 10 -i :99 -t 100 -vf "scale=960:540" -c:v libx264 -preset veryfast -pix_fmt yuv420p gameplay.mp4 &
+          FFM=$!
           # the tour build plays itself: walks to berries, eats, grows into a dragon, flies, changes views
           last=0
           for t in 6 12 18 26 34 42 50 58 66 74 82 95; do
             sleep $((t - last)); last=$t
             import -window root "screenshot_${t}s.png" || xwd -root -silent | convert xwd:- "screenshot_${t}s.png" || true
           done
+          wait $FFM || true
           kill $CEMU || true
           sleep 2
+          ls -la gameplay.mp4 || true
           ls -la *.png || true
           tail -n 50 cemu_log.txt || true
           cp -r "$HOME/.local/share/Cemu/log.txt" cemu_internal_log.txt 2>/dev/null || true
@@ -193,6 +199,8 @@ jobs:
           name: EmulatorScreenshots
           path: |
             screenshot_*.png
+            gameplay.mp4
             cemu_log.txt
             cemu_internal_log.txt
+            game_log.txt
           if-no-files-found: ignore
