@@ -203,7 +203,7 @@ int game_init(int gfx_status) {
     tx_font = asset_texture("font_hd", 0, NULL, NULL); if (tx_font) g_font_hd = 1;
     for (int i = 0; i < PM_N; i++) propmodel_load(&g_pm[i], PM_NAMES[i]);
     build_ground(); build_props();
-    scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 9.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 10.0f, 0.2f); scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.3f, 0.05f);
+    scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f); scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f);   /* the packed models are already life-size; the prop's own scale varies them */
     batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(2000); m_dynhud = gfx_mesh_dynamic(36000);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
@@ -281,8 +281,8 @@ static void draw_food3d(Vec3 eye) {
     /* real models: bushes (duller when the berries are eaten) and mushrooms, one draw each */
     gfx_state(ST_SOLID);
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; float dx = f->x - eye.x, dz = f->z - eye.z; float d2 = dx * dx + dz * dz; if (d2 > 130 * 130) continue; int lod = d2 > 40 * 40;
-        if (f->kind == F_BERRY && g_pm[PM_BUSH].ok) { float t = f->alive ? 1.0f : 0.72f; propmodel_draw(&g_pm[PM_BUSH], lod, f->x, f->y - 0.05f, f->z, f->yaw, 1.1f / fmaxf(g_pm[PM_BUSH].radius, 0.1f) * 0.9f, t, t * 1.05f, t); }
-        if (f->kind == F_MUSHROOM && g_pm[PM_MUSH].ok && f->alive) propmodel_draw(&g_pm[PM_MUSH], lod, f->x, f->y - 0.02f, f->z, f->yaw, 0.5f + 0.03f * sinf(f->phase), 1, 1, 1); }
+        if (f->kind == F_BERRY && g_pm[PM_BUSH].ok) { float t = f->alive ? 1.0f : 0.72f; propmodel_draw(&g_pm[PM_BUSH], lod, f->x, f->y - 0.05f, f->z, f->yaw, 1.0f, t, t * 1.05f, t); }
+        if (f->kind == F_MUSHROOM && g_pm[PM_MUSH].ok && f->alive) propmodel_draw(&g_pm[PM_MUSH], lod, f->x, f->y - 0.02f, f->z, f->yaw, 1.0f + 0.06f * sinf(f->phase), 1, 1, 1); }
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue;
         float dx = f->x - eye.x, dz = f->z - eye.z; float d2 = dx * dx + dz * dz; if (d2 > 120 * 120) continue; int lod = d2 > 35 * 35;
         if (f->kind == F_BERRY && !g_pm[PM_BUSH].ok) {   /* red berries sitting on the (static) bush */
