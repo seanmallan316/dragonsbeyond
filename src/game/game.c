@@ -451,7 +451,10 @@ static void camera_update(float dt) {
         at = v3(want.x + sinf(d->yaw) * 10, want.y - (d->mode == DM_AIR ? d->pitch * 8 : 0.8f), want.z + cosf(d->yaw) * 10); }
     /* keep the camera above the ground and out of the trees */
     float gnd = world_height(&g_world, want.x, want.z) + 0.6f; if (want.y < gnd) want.y = gnd;
-    if (g_cam_mode != 2) for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; if (p->kind != P_TREE && p->kind != P_PALM) continue;
+    if (g_cam_mode != 2) for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i];
+        if (p->kind == P_BUSH) {   /* bushes: lift the camera over them rather than look through the leaves */
+            float bx = want.x - p->x, bz = want.z - p->z, R = 1.6f * p->scale + 0.4f; if (bx * bx + bz * bz < R * R) { float top = world_height(&g_world, p->x, p->z) + 2.0f * p->scale + 0.3f; if (want.y < top) want.y = top; } continue; }
+        if (p->kind != P_TREE && p->kind != P_PALM) continue;
         float dx = want.x - p->x, dz = want.z - p->z, d2 = dx * dx + dz * dz; if (d2 > 36) continue;
         float py = world_height(&g_world, p->x, p->z); float h = (p->kind == P_TREE ? (g_pm[PM_OAK].ok ? 9.0f : 7.5f) : 9.0f) * p->scale;
         float trunk_r = 1.0f; if (d2 < trunk_r * trunk_r && want.y < py + h) { float dd = sqrtf(d2) + 1e-4f; want.x = p->x + dx / dd * trunk_r; want.z = p->z + dz / dd * trunk_r; }
