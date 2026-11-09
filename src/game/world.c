@@ -54,6 +54,8 @@ void world_make(World *w, unsigned seed) {
         f->yaw = frand() * 6.2831853f; f->phase = frand() * 6.2831853f; }
     /* the hidden egg crystal: tucked on the high ground at the far side, behind the trees */
     { float best = -1e9f; for (int tries = 0; tries < 400; tries++) { float a = frand() * 6.2831853f, r = 80 + frand() * 22; float x = cosf(a) * r, z = sinf(a) * r; float h = world_height(w, x, z); if (h > best && !world_in_pond(w, x, z)) { best = h; w->crystal_x = x; w->crystal_z = z; } } w->crystal_y = world_height(w, w->crystal_x, w->crystal_z); }
+    /* Kaine's drones patrol the middle distance, never the start meadow */
+    w->ndrone = 5; for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; float a = i * 1.26f + 0.5f, r = 45 + (i % 2) * 25; d->hx = cosf(a) * r; d->hz = sinf(a) * r; d->x = d->hx; d->z = d->hz; d->y = world_height(w, d->x, d->z) + 9; d->yaw = a; d->t = frand() * 6; }
     /* a few berry bushes right by the start so the first minute teaches eating */
     for (int i = 0; i < 6 && w->nfood < W_MAXFOOD; i++) { float a = i * 1.047f + 0.3f, r = 6 + (i % 2) * 3; Food *f = &w->food[w->nfood++]; f->kind = i % 3 == 2 ? F_MUSHROOM : F_BERRY; f->alive = 1; f->x = cosf(a) * r; f->z = sinf(a) * r; f->y = world_height(w, f->x, f->z); f->yaw = a; }
 }
@@ -91,3 +93,25 @@ int world_nearest_food(const World *w, float x, float z, float reach) {
     int best = -1; float bd = reach * reach;
     for (int i = 0; i < w->nfood; i++) { const Food *f = &w->food[i]; if (!f->alive) continue; float dx = f->x - x, dz = f->z - z, d = dx * dx + dz * dz; if (d < bd) { bd = d; best = i; } }
     return best; }
+
+int world_drones(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar) {
+    int ev = 0;
+    for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; d->t += dt; d->flap += dt * (d->state == 1 ? 14 : 9);
+        float dx = px - d->x, dz = pz - d->z, dist = sqrtf(dx * dx + dz * dz), dy = py - d->y;
+        float gy = world_height(w, d->x, d->z);
+        if (d->state == 3) { if (d->y > gy + 0.2f) { d->y -= 6 * dt; d->yaw += 5 * dt; } if (d->t > 25) { d->state = 0; d->x = d->hx; d->z = d->hz; d->y = world_height(w, d->x, d->z) + 9; d->t = 0; } continue; }
+        if (roar && dist < 14) { d->state = 2; d->t = 0; }
+        if (whip && dist < reach && fabsf(dy) < reach) { d->state = 3; d->t = 0; ev |= 2; continue; }
+        if (d->state == 0) {   /* circle the home spot, dive when the dragon comes near */
+            float ang = d->t * 0.5f; float tx = d->hx + cosf(ang) * 12, tz = d->hz + sinf(ang) * 12; float ty = world_height(w, tx, tz) + 8 + 1.5f * sinf(d->t);
+            float ddx = tx - d->x, ddz = tz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 7 * dt; d->z += cosf(d->yaw) * 7 * dt; d->y += (ty - d->y) * dt * 2;
+            if (dist < 16 && d->t > 3) { d->state = 1; d->t = 0; } }
+        else if (d->state == 1) {   /* dive at the dragon; a hit knocks half a heart, then it climbs away */
+            d->yaw = atan2f(dx, dz); float sp = 13; d->x += sinf(d->yaw) * sp * dt; d->z += cosf(d->yaw) * sp * dt; d->y += (py + 0.6f - d->y) * dt * 3;
+            if (d->y < gy + 0.5f) d->y = gy + 0.5f;
+            if (dist < reach * 0.7f && fabsf(dy) < 1.5f) { ev |= 1; d->state = 2; d->t = 0; }
+            if (d->t > 6) { d->state = 2; d->t = 0; } }
+        else {   /* flee: climb and head home, then patrol again */
+            float ddx = d->hx - d->x, ddz = d->hz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 11 * dt; d->z += cosf(d->yaw) * 11 * dt; d->y += (gy + 14 - d->y) * dt * 1.5f;
+            if (d->t > 8) { d->state = 0; d->t = 0; } } }
+    return ev; }

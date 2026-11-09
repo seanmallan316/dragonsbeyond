@@ -8,12 +8,15 @@
 #define W_GRID 96              /* height samples per side */
 #define W_MAXPROPS 700
 #define W_MAXFOOD 160
+#define W_MAXDRONES 6
 
 enum { P_TREE = 0, P_PALM, P_BUSH, P_ROCK, P_FERN, P_N };
 enum { F_BERRY = 0, F_MUSHROOM, F_GRUB, F_FISH, F_N };   /* berries and mushrooms are plants; grubs and fish are meat */
 
 typedef struct { int kind; float x, z, yaw, scale; } Prop;
-typedef struct { int kind, alive; float x, y, z, yaw, regrow, wander, phase; } Food;   /* regrow: seconds until it is back; grubs wander */
+typedef struct { int kind, alive; float x, y, z, yaw, regrow, wander, phase; } Food;
+/* Kaine's Feather Drones: black robot birds. state 0 patrol, 1 dive at the dragon, 2 fleeing, 3 knocked down (respawn timer in t) */
+typedef struct { int state; float x, y, z, yaw, t, hx, hz, flap; } Drone;   /* regrow: seconds until it is back; grubs wander */
 
 typedef struct {
     float h[W_GRID][W_GRID];
@@ -23,6 +26,7 @@ typedef struct {
     float pond_y;
     unsigned seed;
     float crystal_x, crystal_y, crystal_z; int crystal_found;   /* the hidden egg crystal (one per world) */
+    Drone drone[W_MAXDRONES]; int ndrone;
 } World;
 
 void  world_make(World *w, unsigned seed);
@@ -31,6 +35,8 @@ Vec3  world_normal(const World *w, float x, float z);
 int   world_in_pond(const World *w, float x, float z);
 void  world_update(World *w, float dt, float px, float pz);   /* regrowth, grubs wandering away from the player */
 int   world_nearest_food(const World *w, float x, float z, float reach);   /* index or -1 */
+/* drones: returns a bitmask: 1 a drone hit the dragon (take damage), 2 a drone was knocked down. whip = tail whip landing this frame, roar = roaring */
+int   world_drones(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar);
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */
 #endif
