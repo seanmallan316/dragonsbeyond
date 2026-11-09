@@ -161,8 +161,8 @@ static void build_props(void) {
         if (p->kind == P_ROCK) tv_ball(v3(p->x, y - 0.3f * p->scale, p->z), 1.4f * p->scale, 0.9f * p->scale, 1.1f * p->scale, i * 17 + 3, 0.3f, 1.0f, 1, 1, 1, 0); }
     m_rock = tv_mesh();
     /* grass tufts and flowers: scattered everywhere the ground is not too steep, denser near the start */
-    unsigned ts = 4242; tv_begin(2600 * 12);
-    for (int i = 0; i < 2600; i++) { float x = (frand01(&ts) - 0.5f) * (W_SIZE - 20), z = (frand01(&ts) - 0.5f) * (W_SIZE - 20); if (world_in_pond(&g_world, x, z)) continue; Vec3 n = world_normal(&g_world, x, z); if (n.y < 0.8f) continue;
+    unsigned ts = 4242; tv_begin(6500 * 18);
+    for (int i = 0; i < 6500; i++) { float x = (frand01(&ts) - 0.5f) * (W_SIZE - 20), z = (frand01(&ts) - 0.5f) * (W_SIZE - 20); if (world_in_pond(&g_world, x, z)) continue; Vec3 n = world_normal(&g_world, x, z); if (n.y < 0.8f) continue;
         float y = world_height(&g_world, x, z); float sc = 0.7f + frand01(&ts) * 0.8f; float tint = 0.85f + frand01(&ts) * 0.3f; tv_cross(v3(x, y - 0.05f, z), 1.1f * sc, 0.75f * sc, frand01(&ts) * 3.14f, 0.18f, 2, tint, tint, tint); }
     m_tufts = tv_mesh();
     tv_begin(700 * 12);
