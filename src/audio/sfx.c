@@ -198,6 +198,12 @@ static void fire(int id, float g, float p) {
     case SFX_DOVE:      v = N(W_NOISE, 0, 0, 0.8f, 0.05f, 0.8f, 0.3f, 0); v->am_rate = 14; v->lp = 2000; N(W_SINE, 1800, 2600, 0.5f, 0.05f, 0.5f, 0.15f, 0); break;
     case SFX_UNLOCK:    { static const float f[4] = {1047, 1319, 1568, 2093}; for (int i = 0; i < 4; i++) N(W_SINE, f[i], f[i], i == 3 ? 1.0f : 0.25f, 0.002f, i == 3 ? 1.0f : 0.25f, 0.35f, i * 0.12f); } break;
     case SFX_WELCOME_HOME: { static const float f[4] = {523, 659, 784, 1047}; for (int i = 0; i < 4; i++) { N(W_TRI, f[i], f[i], 3.0f, 0.3f, 3.0f, 0.22f, 0); N(W_SINE, f[i] * 2, f[i] * 2, 3.0f, 0.5f, 3.0f, 0.1f, 0.3f); } } break;
+    case SFX_CHIRP:     v = N(W_SINE, 1500, 2300, 0.12f, 0.005f, 0.12f, 0.3f, 0); v->vib_rate = 30; v->vib_depth = 0.08f; N(W_SINE, 2100, 1700, 0.1f, 0.005f, 0.1f, 0.2f, 0.13f); break;
+    case SFX_ROAR:      v = N(W_SAW, 110, 70, 1.1f, 0.08f, 1.4f, 0.5f, 0); v->vib_rate = 9; v->vib_depth = 0.06f; v->lp = 1600; v = N(W_NOISE, 0, 0, 1.0f, 0.1f, 1.2f, 0.35f, 0); v->lp = 2200; v->am_rate = 17; N(W_SQUARE, 220, 150, 0.9f, 0.08f, 1.1f, 0.12f, 0.05f); break;
+    case SFX_MUNCH:     for (int i = 0; i < 3; i++) { v = N(W_NOISE, 0, 0, 0.09f, 0.003f, 0.09f, 0.35f, i * 0.22f); v->lp = 900 + i * 200; N(W_SINE, 180, 90, 0.08f, 0.002f, 0.08f, 0.3f, i * 0.22f); } break;
+    case SFX_FLAP:      v = N(W_NOISE, 0, 0, 0.28f, 0.06f, 0.28f, 0.3f, 0); v->lp = 700; v->am_rate = 4; N(W_SINE, 70, 40, 0.25f, 0.03f, 0.25f, 0.2f, 0); break;
+    case SFX_GROW:      { static const float f[6] = {523, 659, 784, 1047, 1319, 1568}; for (int i = 0; i < 6; i++) { N(W_SINE, f[i], f[i] * 1.01f, i == 5 ? 1.6f : 0.3f, 0.01f, i == 5 ? 1.6f : 0.3f, 0.3f, i * 0.16f); N(W_TRI, f[i] * 2, f[i] * 2, 0.3f, 0.01f, 0.3f, 0.12f, i * 0.16f); } v = N(W_NOISE, 0, 0, 1.2f, 0.3f, 1.2f, 0.15f, 0.5f); v->lp = 6000; } break;
+    case SFX_TAIL:      v = N(W_NOISE, 0, 0, 0.22f, 0.005f, 0.22f, 0.4f, 0); v->lp = 3500; N(W_SINE, 900, 200, 0.2f, 0.002f, 0.2f, 0.25f, 0); break;
     case SFX_COIN:      N(W_SQUARE, 1760, 1760, 0.05f, 0.002f, 0.05f, 0.25f, 0); N(W_SQUARE, 2349, 2349, 0.25f, 0.002f, 0.25f, 0.25f, 0.05f); break;
     case SFX_WRONG_WAY: N(W_SQUARE, 400, 400, 0.15f, 0.002f, 0.15f, 0.25f, 0); N(W_SQUARE, 300, 300, 0.2f, 0.002f, 0.2f, 0.25f, 0.18f); break;
     case SFX_CRUMBLE:   v = N(W_NOISE, 0, 0, 1.4f, 0.05f, 1.4f, 0.55f, 0); v->lp = 500; v->am_rate = 7;      /* stone tumbling: a long low rumble with thuds */

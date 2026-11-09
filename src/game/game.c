@@ -18,8 +18,10 @@ static World g_world;
 static Dragon g_dragon;
 static Anim3D g_model[ST_N]; static int g_model_ok[ST_N];
 static float g_time, g_cam_yaw; static int g_cam_mode;   /* 0 rider, 1 overhead, 2 dragon's eyes */
-static Vec3 g_eye, g_at;
+static Vec3 g_eye, g_at; static float g_look_x, g_look_hold;
 static Pad g_prev[KK_PADS];
+static char g_save_path[256]; static float g_save_t;
+static int load_progress(void); static void save_progress(void);
 static char g_msg[64]; static float g_msg_t; static float g_title_t = 4.0f;
 enum { G_TITLE = 0, G_NAME, G_STORY, G_PLAY }; static int g_state = G_TITLE; static int g_name = 0; static float g_state_t;   /* g_name: 0 Flo-Rida, 1 Leaf Blower */
 static const char *NAMES[2] = {"FLO-RIDA", "LEAF BLOWER"};
@@ -165,7 +167,7 @@ static void build_props(void) {
     for (int i = 0; i < 8; i++) for (int j = 0; j < 24; j++) {
         float t0 = i / 8.0f, t1 = (i + 1) / 8.0f; float a0 = j * 6.2831853f / 24, a1 = (j + 1) * 6.2831853f / 24;
         Vec3 q[4]; float col[4][3];
-        for (int k = 0; k < 4; k++) { float t = (k < 2) ? t0 : t1, a = (k & 1) ? a1 : a0; float el = -0.1f + t * 1.65f; q[k] = v3(cosf(el) * sinf(a) * 900, sinf(el) * 900, cosf(el) * cosf(a) * 900);
+        for (int k = 0; k < 4; k++) { float t = (k < 2) ? t0 : t1, a = (k & 1) ? a1 : a0; float el = -0.15f + t * 1.9f; q[k] = v3(cosf(el) * sinf(a) * 900, sinf(el) * 900, cosf(el) * cosf(a) * 900);
             float u = clampf(t * 1.4f, 0, 1); col[k][0] = 0.86f * (1 - u) + 0.36f * u; col[k][1] = 0.92f * (1 - u) + 0.62f * u; col[k][2] = 0.98f * (1 - u) + 0.96f * u; }
         tv_tri(q[0], q[1], q[2], v3(0, 1, 0), v3(0, 1, 0), v3(0, 1, 0), 0, 0, 0, 0, 0, 0, col[0][0], col[0][1], col[0][2]); tmpv[tmpn - 2].r = col[1][0]; tmpv[tmpn - 2].g = col[1][1]; tmpv[tmpn - 2].b = col[1][2]; tmpv[tmpn - 1].r = col[2][0]; tmpv[tmpn - 1].g = col[2][1]; tmpv[tmpn - 1].b = col[2][2];
         tv_tri(q[1], q[3], q[2], v3(0, 1, 0), v3(0, 1, 0), v3(0, 1, 0), 0, 0, 0, 0, 0, 0, col[1][0], col[1][1], col[1][2]); tmpv[tmpn - 2].r = col[3][0]; tmpv[tmpn - 2].g = col[3][1]; tmpv[tmpn - 2].b = col[3][2]; tmpv[tmpn - 1].r = col[2][0]; tmpv[tmpn - 1].g = col[2][1]; tmpv[tmpn - 1].b = col[2][2]; }
@@ -176,6 +178,7 @@ int game_init(int gfx_status) {
     g_gfx_status = gfx_status;
     world_make(&g_world, 2026);
     dragon_init(&g_dragon, &g_world, 0, 0);
+    if (load_progress()) g_state_t = 0;
     if (gfx_status != GFX_OK) return 0;
     tx_grass = asset_texture("grass", 1, NULL, NULL); tx_dirt = asset_texture("dirt", 1, NULL, NULL); tx_bark = asset_texture("bark", 1, NULL, NULL);
     tx_leaves = asset_texture("leaves", 1, NULL, NULL); tx_fern = asset_texture("fern", 0, NULL, NULL); tx_bush = asset_texture("bush", 0, NULL, NULL);
@@ -192,6 +195,20 @@ int game_init(int gfx_status) {
 void game_shutdown(void) {}
 const char *game_where(void) { static char s[96]; static const char *st[] = {"title", "name pick", "story", "playing"}; snprintf(s, sizeof s, "%s: Everleaf Wilds, %s, growth %.0f, cam %d", st[g_state], dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode); return s; }
 
+
+/* ---------- progress: one small text line on the SD card ---------- */
+void game_set_save_path(const char *path) { snprintf(g_save_path, sizeof g_save_path, "%s", path); }
+static void save_progress(void) {
+    if (!g_save_path[0]) return; FILE *f = fopen(g_save_path, "w"); if (!f) return;
+    fprintf(f, "DB1 %d %d %.1f %.2f %.2f %.3f %.1f %d\n", g_name, g_dragon.stage, g_dragon.growth, g_dragon.x, g_dragon.z, g_dragon.yaw, g_dragon.hearts, g_world.crystal_found); fclose(f); }
+static int load_progress(void) {
+    if (!g_save_path[0]) return 0; FILE *f = fopen(g_save_path, "r"); if (!f) return 0;
+    int name, stage, cr = 0; float growth, x, z, yaw, hearts; int n = fscanf(f, "DB1 %d %d %f %f %f %f %f %d", &name, &stage, &growth, &x, &z, &yaw, &hearts, &cr); fclose(f);
+    if (n < 7 || stage < 0 || stage >= ST_N) return 0; g_world.crystal_found = cr;
+    g_name = name & 1; g_dragon.stage = stage; g_dragon.growth = growth; g_dragon.x = clampf(x, -100, 100); g_dragon.z = clampf(z, -100, 100); g_dragon.yaw = yaw;
+    g_dragon.max_hearts = 3 + 2 * stage; g_dragon.hearts = clampf(hearts, 1, g_dragon.max_hearts); g_dragon.y = world_height(&g_world, g_dragon.x, g_dragon.z);
+    gfx_log("progress loaded: %s the %s, growth %.0f", NAMES[g_name], dragon_stage_name(stage), growth); return 1; }
+
 /* ---------- camera ---------- */
 static Mat4 dragon_matrix(const Dragon *d, float scale) {
     Mat4 m = m4_mul(m4_translate(d->x, d->y, d->z), m4_rotate_y(d->yaw));
@@ -202,7 +219,8 @@ static void camera_update(float dt) {
     float k = 1 - expf(-dt * (d->mode == DM_AIR ? 2.2f : 3.5f));
     /* the camera turns to look where the dragon goes */
     float dy = d->yaw - g_cam_yaw; while (dy > 3.14159f) dy -= 6.2831853f; while (dy < -3.14159f) dy += 6.2831853f;
-    g_cam_yaw += dy * k * (fabsf(d->speed) > 0.3f || d->mode == DM_AIR ? 1.0f : 0.35f);
+    if (fabsf(g_look_x) > 0.15f) { g_cam_yaw += g_look_x * 2.6f * dt; g_look_hold = 1.2f; }
+    else { g_look_hold -= dt; if (g_look_hold <= 0) g_cam_yaw += dy * k * (fabsf(d->speed) > 0.3f || d->mode == DM_AIR ? 1.0f : 0.35f); }
     Vec3 want, at;
     if (g_cam_mode == 0) {        /* rider: just behind and above the dragon's back */
         float back = 1.6f * L + 1.2f, up = 0.75f * L + 0.9f; if (d->mode == DM_AIR) { back *= 1.15f; up *= 1.1f; }
@@ -251,6 +269,10 @@ static void draw_food3d(Vec3 eye) {
             batch_ball(v3(f->x, f->y, f->z), 0.1f, 0.14f, 0.1f, 3, 6, 0.4f, 0.6f, 0.9f, 1); batch_ball(v3(f->x + fw.x * 0.18f, f->y, f->z + fw.z * 0.18f), 0.08f, 0.1f, 0.08f, 2, 5, 0.4f, 0.6f, 0.9f, 1); batch_ball(v3(f->x - fw.x * 0.2f + rt.x * sw, f->y, f->z - fw.z * 0.2f + rt.z * sw), 0.06f, 0.1f, 0.06f, 2, 4, 0.3f, 0.5f, 0.8f, 1);
             Vec3 t0 = v3(f->x - fw.x * 0.26f + rt.x * sw, f->y, f->z - fw.z * 0.26f + rt.z * sw), t1 = v3(f->x - fw.x * 0.42f + rt.x * sw * 2, f->y + 0.12f, f->z - fw.z * 0.42f + rt.z * sw * 2), t2 = v3(f->x - fw.x * 0.42f + rt.x * sw * 2, f->y - 0.12f, f->z - fw.z * 0.42f + rt.z * sw * 2);
             bq_push(t0, rt, 0.3f, 0.5f, 0.8f); bq_push(t1, rt, 0.3f, 0.5f, 0.8f); bq_push(t2, rt, 0.3f, 0.5f, 0.8f); bq_push(t0, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); bq_push(t2, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); bq_push(t1, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); } }
+    if (!g_world.crystal_found) { float cx = g_world.crystal_x, cz = g_world.crystal_z, cy = g_world.crystal_y + 0.9f + 0.15f * sinf(g_time * 2); float gl = 0.8f + 0.2f * sinf(g_time * 5);
+        /* an egg-shaped crystal, slowly turning, and a halo of six small shards */
+        float rot = g_time * 0.8f; batch_ball(v3(cx, cy, cz), 0.32f, 0.5f, 0.32f, 4, 6, 0.55f * gl, 0.95f * gl, 1.0f * gl, 1.0f);
+        for (int k = 0; k < 6; k++) { float a = rot + k * 1.047f; batch_ball(v3(cx + cosf(a) * 0.75f, cy + 0.25f * sinf(g_time * 3 + k), cz + sinf(a) * 0.75f), 0.07f, 0.16f, 0.07f, 3, 4, 0.8f * gl, 1.0f * gl, 1.0f, 1.0f); } }
     if (!g_b.n) return; gfx_mesh_update(m_dynfood, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_font); gfx_state(ST_SOLID); gfx_draw_ex(m_dynfood, &id, 1, 1, 1, 1, 0.3f, 0, 0, 0); }
 
 static void draw_dragon(const Dragon *d) {
@@ -341,7 +363,7 @@ static void tour_input(Pad *p, float t) {
     static float last_eat = -9; static int prev_up = 0;
     memset(p, 0, sizeof *p); p->source = 1;
     const Dragon *d = &g_dragon;
-    if (t < 2) return; if (g_state != G_PLAY) { p->a = fmodf(t, 1.0f) < 0.1f; return; }
+    if (t < 5) return; if (g_state != G_PLAY) { p->a = fmodf(t, 1.6f) < 0.1f && (g_state != G_NAME || t > 8); return; }
     int wantcam = t < 40 ? 0 : (t < 55 ? 1 : (t < 70 ? 2 : 0)); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
     if (d->stage == ST_DRAGONET || d->mode != DM_AIR) {
         int near = world_nearest_food(&g_world, d->x, d->z, 400);
@@ -374,6 +396,7 @@ static void draw_map(void) {
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue; float cr = 1, cg = 1, cb = 1;
         if (f->kind == F_BERRY) { cr = 0.95f; cg = 0.15f; cb = 0.25f; } else if (f->kind == F_MUSHROOM) { cr = 1; cg = 0.95f; cb = 0.8f; } else if (f->kind == F_GRUB) { cr = 1; cg = 0.85f; cb = 0.3f; } else { cr = 0.5f; cg = 0.8f; cb = 1; }
         map_disc(MX(f->x), MY(f->z), 3, 6, cr, cg, cb, 1); }
+    if (!g_world.crystal_found && d->stage >= ST_DRAGON) map_disc(MX(g_world.crystal_x), MY(g_world.crystal_z), 5 + 2 * sinf(g_time * 3), 8, 0.6f, 0.95f, 1, 0.8f);
     /* the dragon: a bright arrow pointing where it faces, with a pulse ring */
     float ax = MX(d->x), ay = MY(d->z), sy = sinf(d->yaw), cy = cosf(d->yaw); float pulse = 10 + 4 * sinf(g_time * 4);
     map_disc(ax, ay, pulse, 16, 0.7f, 1, 0.5f, 0.35f);
@@ -403,8 +426,8 @@ static int g_story_i;
 /* words wrapped into lines no wider than maxw, centred */
 static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a) {
     char line[160]; int ln = 0; const char *w = txt;
-    while (*w) { const char *e = w; while (*e && *e != ' ') e++; int wl = (int)(e - w); char cand[160]; int cl = ln;
-        if (cl) cand[cl++] = ' '; memcpy(cand + cl, w, wl); cl += wl; cand[cl] = 0;
+    while (*w) { const char *e = w; while (*e && *e != ' ') e++; int wl = (int)(e - w); char cand[160]; int cl = ln; memcpy(cand, line, (size_t)ln);
+        if (cl) cand[cl++] = ' '; memcpy(cand + cl, w, (size_t)wl); cl += wl; cand[cl] = 0;
         if (ln && text_width(cand, size) > maxw) { line[ln] = 0; text_c(line, y, size, r, g, b, a); y += size * 1.25f; ln = 0; memcpy(line, w, wl); ln = wl; }
         else { memcpy(line, cand, cl + 1); ln = cl; }
         w = *e ? e + 1 : e; }
@@ -428,7 +451,7 @@ static void draw_title_hud(void) {
         batch_rect(&g_b, 0, 150, 1280, 190, 0, 0.08f, 0, 0.35f);
         text_c("DRAGONS BEYOND", 170, 96, 0.55f, 1, 0.45f, 1); text_c("DRAGONS BEYOND", 166, 96, 0.9f, 1, 0.8f, 1);
         text_c("EVERLEAF WILDS", 272, 34, 0.9f, 1, 0.9f, 0.9f);
-        text_c("PRESS A", 600, 40, 1, 1, 1, pulse);
+        text_c(g_dragon.stage > 0 || g_dragon.growth > 0 ? "PRESS A TO CONTINUE" : "PRESS A", 600, 40, 1, 1, 1, pulse);
         text_c("A GAME DESIGNED BY A 10 YEAR OLD DRAGON EXPERT", 690, 18, 1, 1, 1, 0.6f);
     } else if (g_state == G_NAME) {
         batch_rect(&g_b, 140, 120, 1000, 480, 0, 0.06f, 0, 0.6f);
@@ -457,8 +480,8 @@ void game_frame(const Pad *pads, int npads, float dt) {
     DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl;
     g_state_t += dt;
     if (g_state != G_PLAY) {
-        if (g_state == G_TITLE && in.a_press && g_state_t > 0.5f) { g_state = G_NAME; g_state_t = 0; }
-        else if (g_state == G_NAME) { if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) g_name ^= 1; if (in.a_press && g_state_t > 0.3f) { g_state = G_STORY; g_state_t = 0; g_story_i = 0; } }
+        if (g_state == G_TITLE && in.a_press && g_state_t > 0.5f) { g_state = G_NAME; g_state_t = 0; sfx_play(SFX_MENU_OK, 0.5f, 0); }
+        else if (g_state == G_NAME) { if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) { g_name ^= 1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } if (in.a_press && g_state_t > 0.3f) { g_state = G_STORY; g_state_t = 0; g_story_i = 0; } }
         else if (g_state == G_STORY) { if ((in.a_press && g_state_t > 0.4f) || g_state_t > 12) { g_state_t = 0; if (++g_story_i >= STORY_N) { g_state = G_PLAY; g_title_t = 4.0f; snprintf(g_msg, sizeof g_msg, "%s WOKE UP ALONE AND HUNGRY. PRESS X TO EAT", NAMES[g_name]); g_msg_t = 9; } } }
         memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));
         g_dragon.anim_t += dt; title_camera();
@@ -474,12 +497,22 @@ void game_frame(const Pad *pads, int npads, float dt) {
         gfx_view_end(0);
         gfx_view_begin(1, 0.08f, 0.14f, 0.08f); draw_title_hud(); gfx_view_end(1);
         gfx_frame_end(); return; }
-    if (p->up && !q->up) { g_cam_mode = (g_cam_mode + 1) % 3; }
+    if (p->up && !q->up) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
+    g_look_x = p->rx;
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt);
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
-    if (ev & 1) { platform_rumble(0.3f, 0.1f); sfx_play(SFX_PICKUP, 0.5f, 0); }
+    if (ev & 1) { platform_rumble(0.3f, 0.1f); sfx_play(SFX_MUNCH, 0.6f, 0); sfx_play(SFX_PICKUP, 0.3f, 0); }
     if (ev & 2) { snprintf(g_msg, sizeof g_msg, g_dragon.stage == ST_DRAGON ? "YOU GREW INTO A DRAGON! HOLD A TO FLY" : "BEYONDER! THE SKY IS YOURS"); g_msg_t = 6; platform_rumble(1, 0.8f); }
-    if (ev & 16) platform_rumble(0.6f, 0.4f);
+    if (ev & 16) { platform_rumble(0.6f, 0.4f); sfx_play(g_dragon.stage == ST_DRAGONET ? SFX_CHIRP : SFX_ROAR, 0.8f, 0); }
+    if (ev & 2) sfx_play(SFX_GROW, 0.8f, 0);
+    if (ev & 4) sfx_play(SFX_FLAP, 0.6f, 0);
+    if (ev & 8) sfx_play(SFX_LAND, 0.5f, 0);
+    if (in.b_press && g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.9f) sfx_play(SFX_TAIL, 0.6f, 0);
+    { static float flap_t; if (g_dragon.mode == DM_AIR && g_dragon.anim == DA_FLY) { flap_t += dt; if (flap_t > 0.8f) { flap_t = 0; sfx_play(SFX_FLAP, 0.35f, 0); } } else flap_t = 0.6f; }
+    if (g_state == G_PLAY && g_dragon.stage == ST_DRAGONET && fmodf(g_time, 7.0f) < dt && g_dragon.anim == DA_IDLE) sfx_play(SFX_CHIRP, 0.3f, 0);
+    if (ev & 2) save_progress();
+    if (!g_world.crystal_found) { float dx = g_dragon.x - g_world.crystal_x, dz = g_dragon.z - g_world.crystal_z, dy = g_dragon.y - g_world.crystal_y; if (dx * dx + dz * dz + dy * dy < (1.2f + 0.5f * dragon_length(g_dragon.stage)) * (1.2f + 0.5f * dragon_length(g_dragon.stage))) { g_world.crystal_found = 1; snprintf(g_msg, sizeof g_msg, "SECRET EGG CRYSTAL FOUND! 1 OF 10"); g_msg_t = 6; sfx_play(SFX_UNLOCK, 0.8f, 0); platform_rumble(0.8f, 0.5f); save_progress(); } }
+    g_save_t += dt; if (g_save_t > 20) { g_save_t = 0; save_progress(); }
     if (g_msg_t > 0) g_msg_t -= dt;
     if (g_title_t > 0) g_title_t -= dt;
     memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));

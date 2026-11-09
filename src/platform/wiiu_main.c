@@ -27,7 +27,7 @@ static void read_pads(Pad *pads) {
     Pad *p = &pads[0];
     VPADStatus vs; VPADReadError ve = VPAD_READ_SUCCESS;
     if (VPADRead(VPAD_CHAN_0, &vs, 1, &ve) > 0 && ve == VPAD_READ_SUCCESS) {
-        p->sx = vs.leftStick.x; p->sy = vs.leftStick.y;
+        p->sx = vs.leftStick.x; p->sy = vs.leftStick.y; p->rx = vs.rightStick.x; p->ry = vs.rightStick.y;
         p->up = !!(vs.hold & VPAD_BUTTON_UP); p->down = !!(vs.hold & VPAD_BUTTON_DOWN); p->left = !!(vs.hold & VPAD_BUTTON_LEFT); p->right = !!(vs.hold & VPAD_BUTTON_RIGHT);
         p->a = !!(vs.hold & VPAD_BUTTON_A); p->b = !!(vs.hold & VPAD_BUTTON_B);
         p->x = !!(vs.hold & VPAD_BUTTON_X); p->y = !!(vs.hold & VPAD_BUTTON_Y);
@@ -49,7 +49,7 @@ static void read_pads(Pad *pads) {
             else held[ch].source = 0;
             continue; }
         if (ks.extensionType == WPAD_EXT_PRO_CONTROLLER) {
-            w->sx = ks.pro.leftStick.x; w->sy = ks.pro.leftStick.y;
+            w->sx = ks.pro.leftStick.x; w->sy = ks.pro.leftStick.y; w->rx = ks.pro.rightStick.x; w->ry = ks.pro.rightStick.y;
             w->up = !!(ks.pro.hold & WPAD_PRO_BUTTON_UP); w->down = !!(ks.pro.hold & WPAD_PRO_BUTTON_DOWN); w->left = !!(ks.pro.hold & WPAD_PRO_BUTTON_LEFT); w->right = !!(ks.pro.hold & WPAD_PRO_BUTTON_RIGHT);
             w->a = !!(ks.pro.hold & WPAD_PRO_BUTTON_A); w->b = !!(ks.pro.hold & WPAD_PRO_BUTTON_B);
             w->x = !!(ks.pro.hold & WPAD_PRO_BUTTON_X); w->y = !!(ks.pro.hold & WPAD_PRO_BUTTON_Y);
@@ -57,7 +57,7 @@ static void read_pads(Pad *pads) {
             w->plus = !!(ks.pro.trigger & WPAD_PRO_BUTTON_PLUS);
             w->source = 2;
         } else if (ks.extensionType == WPAD_EXT_CLASSIC || ks.extensionType == WPAD_EXT_MPLUS_CLASSIC) {
-            w->sx = ks.classic.leftStick.x; w->sy = ks.classic.leftStick.y;
+            w->sx = ks.classic.leftStick.x; w->sy = ks.classic.leftStick.y; w->rx = ks.classic.rightStick.x; w->ry = ks.classic.rightStick.y;
             w->up = !!(ks.classic.hold & WPAD_CLASSIC_BUTTON_UP); w->down = !!(ks.classic.hold & WPAD_CLASSIC_BUTTON_DOWN); w->left = !!(ks.classic.hold & WPAD_CLASSIC_BUTTON_LEFT); w->right = !!(ks.classic.hold & WPAD_CLASSIC_BUTTON_RIGHT);
             w->a = !!(ks.classic.hold & WPAD_CLASSIC_BUTTON_A); w->b = !!(ks.classic.hold & WPAD_CLASSIC_BUTTON_B);
             w->x = !!(ks.classic.hold & WPAD_CLASSIC_BUTTON_X); w->y = !!(ks.classic.hold & WPAD_CLASSIC_BUTTON_Y);
@@ -118,6 +118,7 @@ int main(int argc, char **argv) {
     if (WHBMountSdCard()) {
         char path[256]; snprintf(path, sizeof path, "%s/wiiu/dragonsbeyond_log.txt", WHBGetSdCardMountPath());
         logfile = fopen(path, "w"); gfx_set_logfile(logfile);
+        snprintf(path, sizeof path, "%s/wiiu/dragonsbeyond_save.txt", WHBGetSdCardMountPath()); game_set_save_path(path);
     }
     gfx_log("Dragons Beyond %s starting", KK_VERSION);
     KPADInit(); WPADEnableURCC(TRUE);

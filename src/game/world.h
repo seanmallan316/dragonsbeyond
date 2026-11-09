@@ -22,6 +22,7 @@ typedef struct {
     float pond_x, pond_z, pond_r;   /* a round pond, water at y = pond_y */
     float pond_y;
     unsigned seed;
+    float crystal_x, crystal_y, crystal_z; int crystal_found;   /* the hidden egg crystal (one per world) */
 } World;
 
 void  world_make(World *w, unsigned seed);
