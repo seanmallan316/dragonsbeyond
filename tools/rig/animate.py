@@ -71,7 +71,9 @@ def wings_flap(t, amp=45, base=10):
     a = base + amp * down * (1.0 if down > 0 else 1.45)   # the wing is swept back, so the downstroke needs more turn to bring the tips under the belly
     b = 0.12 * amp * S(t, -0.6); c = 0.1 * amp * S(t, -1.0)   # outer wing follows the shoulder, only a slight lag
     sweep = 0.18 * amp * S(t, -0.5)   # the wing also sweeps a little forward on the downstroke
-    return {'wingL_1': (a, 0, -sweep), 'wingR_1': (a, 0, sweep), 'wingL_2': (b, 0, 0), 'wingR_2': (b, 0, 0), 'wingL_3': (c, 0, 0), 'wingR_3': (c, 0, 0)} if has_wings else {}
+    # on the way up the wing half-folds at the wrist and elbow (less air to push), then opens wide for the downstroke
+    f = max(0.0, C(t, -0.2)) * 0.42 * amp; b -= 0.15 * f
+    return {'wingL_1': (a, 0, -sweep), 'wingR_1': (a, 0, sweep), 'wingL_2': (b, 0, f), 'wingR_2': (b, 0, -f), 'wingL_3': (c, 0, 0.7 * f), 'wingR_3': (c, 0, -0.7 * f)} if has_wings else {}
 def legs_walk(t, swing=28, lift=22, ph_fl=0.0):
     out = {}
     for tag, ph in (('FL', ph_fl), ('BR', ph_fl), ('FR', ph_fl + 0.5), ('BL', ph_fl + 0.5)):
@@ -120,11 +122,23 @@ def fly(t):
     rots.update({f'tail{i+1}': (-4 + 9 * S(t, 1.6 + i * 0.8), 0, 6 * S(t * 0.5, i * 0.9)) for i in range(5)})
     return rots, {'hips': (0, 0, -0.07 * H * S(t))}   # the body sinks while the wings are up, lifts on the downstroke
 def glide(t):
-    rots = wings_flap(t, 4, -40)
+    # soaring: wings spread flat with the tips a little up (a shallow V), only small trimming movements
+    rots = wings_flap(t, 3, -35)
+    if has_wings: rots.update({'wingL_3': (3 + 2 * S(t, 1.0), 0, 0), 'wingR_3': (3 + 2 * S(t, 1.0), 0, 0)})
     rots.update({k: v for k, v in fly(t)[0].items() if k.startswith('leg')})
     rots.update({'spine1': (-5, 0, 0), 'spine2': (-3, 0, 0), 'neck1': (-5, 0, 0), 'head': (10, 0, 0)})
     rots.update(tail(t, 5, 0.0, nod=-6))
     return rots, {'hips': (0, 0, 0.01 * H * S(t))}
+def dive(t):
+    # diving: wings half-folded and swept back along the body, neck stretched forward, tail straight behind
+    rots = {}
+    if has_wings:
+        q = 2 * S(t * 2)   # the wing tips shiver in the rushing air
+        rots.update({'wingL_1': (-28 + q, 0, -88), 'wingR_1': (-28 + q, 0, 88), 'wingL_2': (-4, 0, 95), 'wingR_2': (-4, 0, -95), 'wingL_3': (q, 0, 50), 'wingR_3': (q, 0, -50)})
+    rots.update({k: v for k, v in fly(t)[0].items() if k.startswith('leg')})
+    rots.update({'spine1': (-4, 0, 0), 'spine2': (-2, 0, 0), 'neck1': (-12, 0, 0), 'neck2': (-8, 0, 0), 'head': (16, 0, 0)})
+    rots.update(tail(t, 3, 0.0, nod=-3))
+    return rots, {}
 def eat(t):    # 0-0.3 lower head, 0.3-0.8 chomp x3, 0.8-1 raise
     down = min(1, t / 0.3) if t < 0.8 else max(0, 1 - (t - 0.8) / 0.2)
     chomp = max(0, S(3 * (t - 0.3) / 0.5)) if 0.3 <= t <= 0.8 else 0
@@ -187,7 +201,7 @@ def with_life(kind, fn):
         rots, locs = fn(t); return life(t, kind, dict(rots)), locs
     return g
 
-CLIPS = [('idle', 120, True, idle), ('walk', 30, True, walk), ('run', 18, True, run), ('fly', 24, True, fly), ('glide', 60, True, glide),
+CLIPS = [('idle', 120, True, idle), ('walk', 30, True, walk), ('run', 18, True, run), ('fly', 24, True, fly), ('glide', 60, True, glide), ('dive', 30, True, dive),
          ('eat', 54, False, eat), ('roar', 60, False, roar), ('tailwhip', 30, False, tailwhip), ('hit', 24, False, hit)]
 for name, frames, loop, fn in CLIPS:
     c = Clip(name, frames, loop); c.bake(with_life(name, fn)); c.act.use_fake_user = True
