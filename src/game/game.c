@@ -508,6 +508,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         else if (g_state == G_NAME) { if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) { g_name ^= 1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } if (in.a_press && g_state_t > 0.3f) { g_state = G_STORY; g_state_t = 0; g_story_i = 0; } }
         else if (g_state == G_STORY) { if ((in.a_press && g_state_t > 0.4f) || g_state_t > 12) { g_state_t = 0; if (++g_story_i >= STORY_N) { g_state = G_PLAY; g_title_t = 4.0f; snprintf(g_msg, sizeof g_msg, "%s IS HUNGRY. WALK TO A BUSH AND PRESS X", NAMES[g_name]); g_msg_t = 9; } } }
         memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));
+        music_want("title"); music_update(2);
         g_dragon.anim_t += dt; title_camera();
         gfx_frame_begin(); gfx_shadow_none();
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
@@ -550,6 +551,9 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (g_title_t > 0) g_title_t -= dt;
     memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));
     camera_update(dt);
+    { int chased = 0; for (int i = 0; i < g_world.ndrone; i++) if (g_world.drone[i].state == 1) chased = 1; for (int i = 0; i < g_world.nhound; i++) if (g_world.hound[i].state == 1) chased = 1;
+      static float danger_t; if (chased) danger_t = 4; else danger_t -= dt;
+      music_want(danger_t > 0 && music_available("danger") ? "danger" : "everleaf"); }
     music_update(2);
     gfx_frame_begin();
     shadow_pass();
