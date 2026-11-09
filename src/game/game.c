@@ -183,14 +183,15 @@ static void build_props(void) {
         for (int k = 0; k < K; k++) for (int i = 0; i <= M; i++) { int ii = i % M; float a = ii * 6.2831853f / M; float R = 300 + k * 36.0f;
             float ridge = 1.0f - fabsf((k - 3.2f) / 3.6f); ridge = ridge < 0 ? 0 : ridge; ridge = ridge * ridge * (3 - 2 * ridge);
             float n = world_fbm(cosf(a) * 4.0f + 50, sinf(a) * 4.0f + 50, 777) * 0.7f + world_fbm(cosf(a) * 11.0f + 9, sinf(a) * 11.0f + 9, 778) * 0.3f;
-            float peak = 70 + 150 * n * n; float h = -25 + (peak + 25) * ridge * (0.8f + 0.2f * world_fbm(a * 3 + k * 0.7f, k * 1.3f, 779));
+            float nn2 = world_fbm(cosf(a) * 1.6f + 20, sinf(a) * 1.6f + 20, 783); float peak = 30 + 300 * powf(n, 2.2f) * (0.35f + 0.65f * nn2 * nn2);   /* low passes between tall peaks */
+            float h = -25 + (peak + 25) * ridge * (0.75f + 0.25f * world_fbm(a * 3 + k * 0.7f, k * 1.3f, 779));
             if (k == 0 || k == K - 1) h = -25; H[k][i] = h; P[k][i] = v3(sinf(a) * (R + 25 * (world_fbm(a * 2, k * 0.9f, 780) - 0.5f)), h, cosf(a) * (R + 25 * (world_fbm(a * 2 + 5, k * 0.9f, 781) - 0.5f))); }
         tv_begin((uint32_t)((K - 1) * M * 6));
         for (int k = 0; k + 1 < K; k++) for (int i = 0; i < M; i++) {
             Vec3 q[4] = {P[k][i], P[k][i + 1], P[k + 1][i + 1], P[k + 1][i]};
             Vec3 e1 = v3(q[1].x - q[0].x, q[1].y - q[0].y, q[1].z - q[0].z), e2 = v3(q[3].x - q[0].x, q[3].y - q[0].y, q[3].z - q[0].z);
             Vec3 nn = v3_norm(v3(e1.y * e2.z - e1.z * e2.y, e1.z * e2.x - e1.x * e2.z, e1.x * e2.y - e1.y * e2.x)); if (nn.y < 0) nn = v3(-nn.x, -nn.y, -nn.z);
-            float hm = 0.25f * (q[0].y + q[1].y + q[2].y + q[3].y); float snow = clampf((hm - 95) / 40.0f, 0, 1) * clampf((nn.y - 0.35f) * 2.5f, 0, 1);
+            float hm = 0.25f * (q[0].y + q[1].y + q[2].y + q[3].y); float snow = clampf((hm - 120) / 50.0f, 0, 1) * clampf((nn.y - 0.35f) * 2.5f, 0, 1);
             float r = 0.46f + 0.5f * snow, g = 0.44f + 0.52f * snow, bl = 0.42f + 0.56f * snow; float tone = 0.85f + 0.3f * world_fbm(i * 0.15f, k * 0.6f, 782); r *= tone; g *= tone; bl *= tone;
             float u0 = i * 0.5f, u1 = (i + 1) * 0.5f, v0 = k * 0.8f, v1 = (k + 1) * 0.8f;
             tv_tri(q[0], q[1], q[2], nn, nn, nn, u0, v0, u1, v0, u1, v1, r, g, bl); tv_tri(q[0], q[2], q[3], nn, nn, nn, u0, v0, u1, v1, u0, v1, r, g, bl); } }
