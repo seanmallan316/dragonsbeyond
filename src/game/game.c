@@ -38,6 +38,12 @@ static const char *SKY_NAMES[2] = {"SCARLET", "WINDSLY"};
 static int g_kind, g_swap_open, g_swap_sel; static Dragon g_other;
 /* co-op: a second controller (Wii Remote, Nunchuk, Classic or Pro) takes over the friend dragon. g_p2 = its pad slot, -1 = nobody */
 static int g_p2 = -1; static float g_gp_last = -100, g_p2_gone;
+/* the storyteller's cards after the rescue (the game waits while they show) */
+static const char *TALE[3] = {
+    "AND SO IRONHORN FELL, AND THE IRON CAGE SWUNG OPEN. %s, DRAGONET OF THE SKY, WAS FREE AT LAST.",
+    "BUT FAR AWAY, IN HIS DARK TOWER, KAINE BLACKFEATHER CRACKED HIS WHIP. ONE DRAGON FREED, HE SNEERED. FIVE ARE STILL MINE.",
+    "THE TWO FRIENDS LOOKED UP AT THE CLOUDS. SOMEWHERE ABOVE THEM, THE SKY KINGDOM WAS WAITING..." };
+static int g_tale_i = -1; static float g_tale_t;
 static const char *active_name(void);
 static float g_time, g_cam_yaw; static int g_cam_mode;   /* 0 rider, 1 overhead, 2 dragon's eyes */
 static Vec3 g_eye, g_at; static float g_look_x, g_look_hold;
@@ -559,7 +565,10 @@ static void draw_hud(int drc) {
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); text_c("DRAGONS BEYOND", 250, 72, 0.6f, 1, 0.5f, a); text_c("EVERLEAF WILDS", 330, 40, 0.9f, 1, 0.9f, a); }
     static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     batch_text(&g_b, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : ROAR", 300, 690, 18, 1, 1, 1, 0.5f);
-    if (g_swap_open) {   /* Dragon Swap menu */
+    if (g_tale_i >= 0) { char line[200]; snprintf(line, sizeof line, TALE[g_tale_i], SKY_NAMES[g_name]); float fade = clampf(g_tale_t * 2, 0, 1);
+        batch_rect(&g_b, 0, 0, 1280, 720, 0.02f, 0.01f, 0, 0.6f * fade); text_wrap_c(line, 250, 34, 1040, 1, 0.95f, 0.8f, fade);
+        char pg[16]; snprintf(pg, sizeof pg, "%d / 3", g_tale_i + 1); text_c(pg, 560, 20, 1, 1, 1, 0.5f); text_c("A : NEXT", 620, 24, 1, 1, 1, 0.6f + 0.4f * sinf(g_time * 3)); }
+    else if (g_swap_open) {   /* Dragon Swap menu */
         batch_rect(&g_b, 0, 0, 1280, 720, 0, 0.02f, 0, 0.55f);
         text_c("DRAGON SWAP", 120, 52, 1, 0.92f, 0.6f, 1); text_c("THE GAME IS PAUSED", 182, 20, 1, 1, 1, 0.7f);
         for (int k = 0; k < 2; k++) { const Dragon *dd = k == g_kind ? &g_dragon : &g_other; float x = k == 0 ? 250 : 690; int sel = k == g_swap_sel;
@@ -581,10 +590,10 @@ static void draw_hud(int drc) {
 /* the tour build plays itself (for the emulator screenshots in CI): walks to food and eats until it grows, then flies, changing views as it goes */
 static float g_tour_rescue_t = 1e9f;
 static void tour_input(Pad *p, float t) {
-    static float last_eat = -9, last_whip = -9; static int prev_up = 0; if (g_rescued && g_tour_rescue_t > 1e8f) g_tour_rescue_t = t;
+    static float last_eat = -9, last_whip = -9; static int prev_up = 0; if (g_rescued && g_tale_i < 0 && g_tour_rescue_t > 1e8f) g_tour_rescue_t = t;
     memset(p, 0, sizeof *p); p->source = 1;
     const Dragon *d = &g_dragon;
-    if (t < 4) return; if (g_state != G_PLAY) { p->a = fmodf(t, 0.9f) < 0.12f && (g_state != G_NAME || t > 6); return; }
+    if (t < 4) return; if (g_state != G_PLAY || g_tale_i >= 0) { p->a = fmodf(t, 0.9f) < 0.12f && (g_state != G_NAME || t > 6); return; }
     int wantcam = 0; int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
     float ax = g_world.arena_x - d->x, az = g_world.arena_z - d->z, adist = sqrtf(ax * ax + az * az);
     if (d->stage == ST_DRAGONET) {   /* eat until grown */
@@ -751,7 +760,7 @@ static void boss_frame(float dt) {
     if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
         g_rescued = 1; g_friend.on = 1; g_friend.x = g_world.cage_x; g_friend.y = g_world.arena_y + 1.2f; g_friend.z = g_world.cage_z; g_friend.yaw = 0;
         dragon_init(&g_other, &g_world, g_friend.x, g_friend.z);
-        snprintf(g_msg, sizeof g_msg, "%s IS FREE AND JOINS YOUR TEAM! PRESS + TO SWAP DRAGONS", SKY_NAMES[g_name]); g_msg_t = 8; sfx_play(SFX_CHIRP, 1.0f, 0); save_progress(); }
+        snprintf(g_msg, sizeof g_msg, "%s IS FREE AND JOINS YOUR TEAM! PRESS + TO SWAP DRAGONS", SKY_NAMES[g_name]); g_msg_t = 8; g_tale_i = 0; g_tale_t = 0; sfx_play(SFX_CHIRP, 1.0f, 0); save_progress(); }
     /* the friend: keeps to the player's side, a little behind; flies when the player flies (unless player 2 is steering it) */
     if (g_friend.on && g_p2 < 0) {
         float fx = sinf(d->yaw), fz = cosf(d->yaw); float back = 2.5f + L, side = 1.8f + 0.5f * L;
@@ -853,9 +862,11 @@ void game_frame(const Pad *pads, int npads, float dt) {
         gfx_view_end(0);
         gfx_view_begin(1, 0.08f, 0.14f, 0.08f); draw_title_hud(); gfx_view_end(1);
         gfx_frame_end(); return; }
-    if (p->plus && !q->plus && g_p2 >= 0) { snprintf(g_msg, sizeof g_msg, "TWO PLAYERS: EACH OF YOU HAS A DRAGON. PLAYER 2 PRESSES + TO LEAVE"); g_msg_t = 3; }
+    if (g_tale_i >= 0) {}   /* + waits until the storyteller is done */
+    else if (p->plus && !q->plus && g_p2 >= 0) { snprintf(g_msg, sizeof g_msg, "TWO PLAYERS: EACH OF YOU HAS A DRAGON. PLAYER 2 PRESSES + TO LEAVE"); g_msg_t = 3; }
     else if (p->plus && !q->plus && g_rescued) { g_swap_open ^= 1; g_swap_sel = g_kind; sfx_play(g_swap_open ? SFX_MENU_OK : SFX_MENU_BACK, 0.6f, 0); }
     else if (p->plus && !q->plus) { snprintf(g_msg, sizeof g_msg, "RESCUE A DRAGON FRIEND FIRST TO SWAP"); g_msg_t = 3; }
+    if (g_tale_i >= 0) { g_tale_t += dt; if ((in.a_press && g_tale_t > 0.6f) || g_tale_t > 14) { g_tale_t = 0; sfx_play(SFX_MENU_MOVE, 0.5f, 0); if (++g_tale_i >= 3) { g_tale_i = -1; g_msg_t = 6; } } goto paused; }
     if (g_swap_open) {   /* Dragon Swap: the game is paused while the menu is up */
         if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) { g_swap_sel ^= 1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
         if (in.a_press) { if (g_swap_sel != g_kind) do_swap(); g_swap_open = 0; }
