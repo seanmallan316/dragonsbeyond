@@ -150,7 +150,7 @@ Wt = np.exp(-(D / radius) ** 2)
 k = 3; idx = np.argsort(-Wt, 1)[:, :k]; keep = np.zeros_like(Wt); np.put_along_axis(keep, idx, np.take_along_axis(Wt, idx, 1), 1)
 Wt = keep / np.maximum(keep.sum(1, keepdims=True), 1e-9)
 # wings must not grab the body, legs must not grab the belly: zero wing weight on vertices inside the body core
-core = (np.abs(P[:, 0]) < 0.9 * wing_root[0]) if has_wings else np.zeros(len(P), bool)
+core = (np.abs(P[:, 0]) < 0.88 * wing_root[0]) if has_wings else np.zeros(len(P), bool)
 for i, nm in enumerate(names):
     if nm.startswith('wing'): Wt[core, i] = 0
 # and the wing membrane answers to wing bones only (no neck, head, leg or tail pull)
@@ -158,10 +158,10 @@ if has_wings:
     # chain skinning for the wings: the weight follows the position from the shoulder to the tip, so the whole wing
     # swings at the shoulder (wing_1) and the outer bones only bend it further - a real wingbeat, not a flutter at the tip
     def sstep(a, b, x): u = np.clip((x - a) / max(b - a, 1e-9), 0, 1); return u * u * (3 - 2 * u)
-    ax = np.abs(P[:, 0]); wingzone = (ax > 0.9 * wing_root[0]) & (P[:, 2] > body_bot + 0.3 * (body_top - body_bot))
+    ax = np.abs(P[:, 0]); wingzone = (ax > 0.88 * wing_root[0]) & (P[:, 2] > body_bot + 0.3 * (body_top - body_bot))
     u = (ax - wing_root[0]) / max(wing_tip[0] - wing_root[0], 1e-6)
     w1 = 1 - sstep(0.28, 0.5, u); w3 = sstep(0.62, 0.86, u); w2 = np.clip(1 - w1 - w3, 0, 1)
-    rootmix = sstep(0.9 * wing_root[0], 1.35 * wing_root[0], ax)   # the first bit of the wing blends out of the chest
+    rootmix = sstep(0.88 * wing_root[0], 0.98 * wing_root[0], ax)   # the wing is all shoulder bone from where it leaves the body: it pivots at the body, not out on the wing
     for side, sgn in (('L', 1), ('R', -1)):
         zone = wingzone & ((P[:, 0] > 0) if sgn > 0 else (P[:, 0] < 0))
         for i, nm in enumerate(names):
