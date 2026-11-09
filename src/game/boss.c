@@ -5,8 +5,8 @@
 static float wrapa(float a) { while (a > 3.14159265f) a -= 6.2831853f; while (a < -3.14159265f) a += 6.2831853f; return a; }
 static int room_behind(const Boss *b, const World *w, float ux, float uz) { float cx = b->x + ux * 0.3f - w->arena_x, cz = b->z + uz * 0.3f - w->arena_z; return cx * cx + cz * cz < (w->arena_r - 3) * (w->arena_r - 3); }
 static void set(Boss *b, int s) { b->state = s; b->t = 0; }
-void boss_init(Boss *b, const World *w) { memset(b, 0, sizeof *b); b->hp = BOSS_HP; b->x = w->arena_x + 4; b->z = w->arena_z + 4; b->y = world_height(w, b->x, b->z); b->yaw = 3.9f; }
-Vec3 boss_core(const Boss *b) { return v3(b->x - sinf(b->yaw) * 0.6f, b->y + 2.6f, b->z - cosf(b->yaw) * 0.6f); }
+void boss_init(Boss *b, const World *w) { memset(b, 0, sizeof *b); b->hp = BOSS_HP; b->x = w->arena_x + 4; b->z = w->arena_z + 4; b->y = world_height(w, b->x, b->z); b->yaw = 3.9f; b->core_fwd = -0.6f; b->core_h = 2.6f; }
+Vec3 boss_core(const Boss *b) { return v3(b->x + sinf(b->yaw) * b->core_fwd, b->y + b->core_h, b->z + cosf(b->yaw) * b->core_fwd); }
 int boss_vulnerable(const Boss *b) { return b->state == B_STUCK || b->state == B_STUNNED; }
 int boss_update(Boss *b, const World *w, float dt, float px, float py, float pz, float reach, int whip, int roar) {
     int ev = 0; b->t += dt;

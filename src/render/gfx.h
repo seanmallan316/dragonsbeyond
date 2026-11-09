@@ -25,6 +25,7 @@ Mesh *gfx_mesh_static(const Vertex *v, uint32_t n);
 Mesh *gfx_mesh_dynamic(uint32_t capacity);
 void gfx_mesh_update(Mesh *m, const Vertex *v, uint32_t n);   /* at most once per frame per mesh */
 void gfx_mesh_free(Mesh *m);
+void gfx_sync(void);   /* wait until the GPU has finished all queued drawing */
 Texture *gfx_texture_rgba(const uint32_t *pixels, int w, int h, int repeat, int nearest);   /* pixels are 0xRRGGBBAA; mipmapped */
 Texture *gfx_texture_rgba_ex(const uint32_t *pixels, int w, int h, int repeat, int nearest, int mipmaps);
 void gfx_texture_free(Texture *t);

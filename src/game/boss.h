@@ -13,6 +13,7 @@ typedef struct {
     float speed;              /* current speed (m/s), for the animation */
     int woke;                 /* has seen the player (the fight has started) */
     float cage_open;          /* 0 closed .. 1 lowered and open (after the win) */
+    float core_fwd, core_h;   /* where its glowing core sits: metres forward (negative = on its back) and up */
 } Boss;
 #define BOSS_HP 3
 void boss_init(Boss *b, const World *w);

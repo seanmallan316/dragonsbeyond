@@ -11,7 +11,10 @@
 #define W_MAXDRONES 6
 #define W_MAXHOUNDS 4
 
-enum { P_TREE = 0, P_PALM, P_BUSH, P_ROCK, P_FERN, P_N };
+enum { P_TREE = 0, P_PALM, P_BUSH, P_ROCK, P_FERN, P_SPIRE, P_N };   /* spires: tall rock needles on the sky islands */
+enum { WK_FOREST = 0, WK_SKY, WK_N };   /* which world: Everleaf Wilds, the Sky Kingdom */
+#define W_VOID -60.0f        /* ground height where there is no island (the cloud sea hides it) */
+#define W_CLOUDS -22.0f      /* the top of the cloud sea: fall below it and you are lost in the clouds */
 enum { F_BERRY = 0, F_MUSHROOM, F_GRUB, F_FISH, F_N };   /* berries and mushrooms are plants; grubs and fish are meat */
 
 typedef struct { int kind; float x, z, yaw, scale; } Prop;
@@ -20,6 +23,7 @@ typedef struct { int kind, alive; float x, y, z, yaw, regrow, wander, phase; } F
 typedef struct { int state; float x, y, z, yaw, t, hx, hz, flap; } Drone;   /* regrow: seconds until it is back; grubs wander */
 
 typedef struct {
+    int kind;                       /* WK_* */
     float h[W_GRID][W_GRID];
     Prop prop[W_MAXPROPS]; int nprop;
     Food food[W_MAXFOOD]; int nfood;
@@ -34,7 +38,10 @@ typedef struct {
     float cage_x, cage_y, cage_z;               /* where the captured dragonet's cage hangs */   /* Shock Hounds: same record, on the ground. state 0 patrol, 1 chase, 2 retreat, 3 knocked out */
 } World;
 
-void  world_make(World *w, unsigned seed);
+void  world_make(World *w, unsigned seed);                    /* Everleaf Wilds */
+void  world_make_kind(World *w, unsigned seed, int kind);     /* any world */
+int   world_is_void(const World *w, float x, float z);         /* nothing to stand on here (sky world gaps) */
+void  world_safe_spot(const World *w, float x, float z, float *ox, float *oz);   /* the nearest solid ground to (x, z) */
 float world_height(const World *w, float x, float z);        /* ground height, smooth */
 Vec3  world_normal(const World *w, float x, float z);
 int   world_in_pond(const World *w, float x, float z);

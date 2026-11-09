@@ -109,16 +109,17 @@ int world_nearest_food(const World *w, float x, float z, float reach) {
     for (int i = 0; i < w->nfood; i++) { const Food *f = &w->food[i]; if (!f->alive) continue; float dx = f->x - x, dz = f->z - z, d = dx * dx + dz * dz; if (d < bd) { bd = d; best = i; } }
     return best; }
 
+static float air_floor(const World *w, float x, float z) { float h = world_height(w, x, z); return w->kind == WK_SKY ? fmaxf(h, W_CLOUDS + 8) : h; }   /* flyers keep above the cloud sea */
 int world_drones(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar) {
     int ev = 0;
     for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; d->t += dt; d->flap += dt * (d->state == 1 ? 14 : 9);
         float dx = px - d->x, dz = pz - d->z, dist = sqrtf(dx * dx + dz * dz), dy = py - d->y;
-        float gy = world_height(w, d->x, d->z);
-        if (d->state == 3) { if (d->y > gy + 0.2f) { d->y -= 6 * dt; d->yaw += 5 * dt; } if (d->t > 25) { d->state = 0; d->x = d->hx; d->z = d->hz; d->y = world_height(w, d->x, d->z) + 9; d->t = 0; } continue; }
+        float gy = air_floor(w, d->x, d->z);
+        if (d->state == 3) { if (d->y > gy + 0.2f) { d->y -= 6 * dt; d->yaw += 5 * dt; } if (d->t > 25) { d->state = 0; d->x = d->hx; d->z = d->hz; d->y = air_floor(w, d->x, d->z) + 9; d->t = 0; } continue; }
         if (roar && dist < 14) { d->state = 2; d->t = 0; }
         if (whip && dist < reach && fabsf(dy) < reach) { d->state = 3; d->t = 0; ev |= 2; continue; }
         if (d->state == 0) {   /* circle the home spot, dive when the dragon comes near */
-            float ang = d->t * 0.5f; float tx = d->hx + cosf(ang) * 12, tz = d->hz + sinf(ang) * 12; float ty = world_height(w, tx, tz) + 8 + 1.5f * sinf(d->t);
+            float ang = d->t * 0.5f; float tx = d->hx + cosf(ang) * 12, tz = d->hz + sinf(ang) * 12; float ty = air_floor(w, tx, tz) + 8 + 1.5f * sinf(d->t);
             float ddx = tx - d->x, ddz = tz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 7 * dt; d->z += cosf(d->yaw) * 7 * dt; d->y += (ty - d->y) * dt * 2;
             if (dist < 16 && d->t > 3) { d->state = 1; d->t = 0; } }
         else if (d->state == 1) {   /* dive at the dragon; a hit knocks half a heart, then it climbs away */
@@ -148,3 +149,76 @@ int world_hounds(World *w, float dt, float px, float py, float pz, float reach, 
     return ev; }
 
 float world_fbm(float x, float y, unsigned s) { return fbm(x, y, s); }
+
+/* ---------- the Sky Kingdom: floating islands over a sea of cloud, joined by narrow stone bridges ---------- */
+typedef struct { float x, z, r, top; } Isle;
+static const Isle ISLES[] = {
+    {   0,    0, 24, 4 },    /* where you arrive */
+    {  58,  -48, 30, 10 },   /* Stormtalon's island: the big one */
+    { -46,   38, 18, 14 },
+    {  -62,  -30, 15, 8 },
+    {   20,   62, 16, 18 },   /* the high island (the egg crystal) */
+    {   78,   30, 13, 6 },
+    {  -14,  -70, 14, 12 },
+    {  -84,   78, 10, 22 } };
+#define N_ISLES (int)(sizeof ISLES / sizeof ISLES[0])
+static const int BRIDGES[][2] = { {0, 1}, {0, 2}, {0, 3}, {2, 4}, {1, 5}, {3, 6} };   /* pairs of islands joined by a walkway */
+#define N_BRIDGES (int)(sizeof BRIDGES / sizeof BRIDGES[0])
+static float smooth01(float t) { t = clampf(t, 0, 1); return t * t * (3 - 2 * t); }
+static float sky_height(const World *w, float x, float z) {
+    float best = W_VOID, bestm = 0;
+    for (int i = 0; i < N_ISLES; i++) { const Isle *I = &ISLES[i];
+        float wob = 1 + 0.18f * (fbm(x * 0.05f + i * 3.1f, z * 0.05f, w->seed + 31) - 0.5f) * 2;   /* ragged edges */
+        float d = sqrtf((x - I->x) * (x - I->x) + (z - I->z) * (z - I->z)) / (I->r * wob); float m = 1 - d;
+        if (m > 0 && m > bestm - 0.05f) { float top = I->top + (fbm(x * 0.04f, z * 0.04f, w->seed + 7) - 0.5f) * 5.0f * smooth01(m * 3);
+            float h = W_VOID + (top - W_VOID) * smooth01(m / 0.08f); if (h > best) { best = h; bestm = m; } } }
+    for (int b = 0; b < N_BRIDGES; b++) { const Isle *A = &ISLES[BRIDGES[b][0]], *B = &ISLES[BRIDGES[b][1]];
+        float ex = B->x - A->x, ez = B->z - A->z, L2 = ex * ex + ez * ez; float t = clampf(((x - A->x) * ex + (z - A->z) * ez) / L2, 0, 1);
+        float px = A->x + ex * t, pz = A->z + ez * t; float d = sqrtf((x - px) * (x - px) + (z - pz) * (z - pz));
+        if (d < 4.6f) { float top = A->top + (B->top - A->top) * smooth01(t) - 0.3f; float h = W_VOID + (top - W_VOID) * smooth01((4.6f - d) / 0.5f); if (h > best) best = h; } }   /* 9 m wide walkways */
+    return best; }
+int world_is_void(const World *w, float x, float z) { return world_height(w, x, z) < W_CLOUDS + 4; }
+void world_safe_spot(const World *w, float x, float z, float *ox, float *oz) {
+    if (w->kind != WK_SKY || !world_is_void(w, x, z)) { *ox = x; *oz = z; return; }
+    float bd = 1e9f; *ox = 0; *oz = 0;
+    for (int i = 0; i < N_ISLES; i++) { const Isle *I = &ISLES[i]; float dx = x - I->x, dz = z - I->z, d = sqrtf(dx * dx + dz * dz);
+        float k = d > 1e-3f ? fminf(1, (I->r * 0.6f) / d) : 0; float sx = I->x + dx * k, sz = I->z + dz * k; float dd = (sx - x) * (sx - x) + (sz - z) * (sz - z);
+        if (dd < bd && !world_is_void(w, sx, sz)) { bd = dd; *ox = sx; *oz = sz; } } }
+static void make_sky(World *w) {
+    w->pond_r = 0; w->pond_x = 1e6f; w->pond_z = 1e6f; w->pond_y = W_VOID;
+    for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
+        float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1); w->h[j][i] = sky_height(w, x, z); }
+    /* the boss island: flat in the middle, ringed by rock spires; the cage hangs from the tallest */
+    const Isle *BI = &ISLES[1]; w->arena_x = BI->x; w->arena_z = BI->z; w->arena_r = 20; w->arena_y = sky_height(w, BI->x, BI->z);
+    for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
+        float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1);
+        float d = sqrtf((x - w->arena_x) * (x - w->arena_x) + (z - w->arena_z) * (z - w->arena_z)); if (d < w->arena_r + 6 && w->h[j][i] > W_CLOUDS) { float k = smooth01((d - w->arena_r) / 6); w->h[j][i] = w->arena_y + (w->h[j][i] - w->arena_y) * k; } }
+    for (int i = 0; i < 7; i++) { float a = i * 6.2831853f / 7 + 0.5f; Prop *p = &w->prop[w->nprop]; p->kind = P_SPIRE; p->x = w->arena_x + cosf(a) * (w->arena_r - 1); p->z = w->arena_z + sinf(a) * (w->arena_r - 1);
+        p->yaw = a * 1.7f; p->scale = i == 0 ? 1.5f : 1.0f + 0.15f * (i % 3); w->arena_tree[w->narena_tree++] = w->nprop++; }
+    { const Prop *ct = &w->prop[w->arena_tree[0]]; float dx = w->arena_x - ct->x, dz = w->arena_z - ct->z, l = sqrtf(dx * dx + dz * dz);
+      w->cage_x = ct->x + dx / l * 3.0f; w->cage_z = ct->z + dz / l * 3.0f; w->cage_y = w->arena_y + 7.0f; }
+    /* island plants and rocks: oaks, ferns, bushes, a few spires; nothing on the bridges or in the arena */
+    for (int tries = 0; tries < 3000 && w->nprop < W_MAXPROPS; tries++) {
+        float x = (frand() - 0.5f) * (W_SIZE - 16), z = (frand() - 0.5f) * (W_SIZE - 16); float h = sky_height(w, x, z);
+        if (h < W_CLOUDS + 10) continue; if (sqrtf(x * x + z * z) < 9) continue;
+        { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 3) * (w->arena_r + 3)) continue; }
+        int edge = 0; for (int k = 0; k < 6; k++) { float a = k * 1.047f; if (sky_height(w, x + cosf(a) * 4, z + sinf(a) * 4) < W_CLOUDS) { edge = 1; break; } } if (edge) continue;   /* keep off the cliff edges */
+        int ok = 1; for (int k = 0; k < w->nprop; k++) { float dx = w->prop[k].x - x, dz = w->prop[k].z - z; if (dx * dx + dz * dz < 6.0f * 6.0f) { ok = 0; break; } } if (!ok) continue;
+        if (frand() > 0.55f) continue;
+        float r = frand(); Prop *p = &w->prop[w->nprop++];
+        p->kind = r < 0.30f ? P_TREE : (r < 0.55f ? P_BUSH : (r < 0.78f ? P_FERN : (r < 0.9f ? P_ROCK : P_SPIRE)));
+        p->x = x; p->z = z; p->yaw = frand() * 6.2831853f; p->scale = p->kind == P_SPIRE ? 0.6f + frand() * 0.5f : 0.75f + frand() * 0.45f; }
+    /* food on the islands: berries and mushrooms, grubs in the open */
+    for (int tries = 0; tries < 3000 && w->nfood < 120; tries++) {
+        float x = (frand() - 0.5f) * (W_SIZE - 20), z = (frand() - 0.5f) * (W_SIZE - 20); if (sky_height(w, x, z) < W_CLOUDS + 10) continue;
+        { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 2) * (w->arena_r + 2)) continue; }
+        float r = frand(); int kind = r < 0.45f ? F_BERRY : (r < 0.75f ? F_MUSHROOM : F_GRUB);
+        Food *f = &w->food[w->nfood++]; f->kind = kind; f->alive = 1; f->x = x; f->z = z; f->y = world_height(w, x, z); f->yaw = frand() * 6.28f; f->phase = frand() * 6.28f; }
+    /* the egg crystal: on the high island */
+    w->crystal_x = ISLES[4].x + 3; w->crystal_z = ISLES[4].z - 2; w->crystal_y = world_height(w, w->crystal_x, w->crystal_z) + 1.2f;
+    /* Feather Drones circle the islands; no Shock Hounds up here */
+    w->ndrone = 6; for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; const Isle *I = &ISLES[2 + i % (N_ISLES - 2)];   /* not over Stormtalon's island */ d->hx = I->x; d->hz = I->z; d->x = d->hx; d->z = d->hz; d->y = I->top + 9; d->t = i * 1.3f; }
+    w->nhound = 0; }
+void world_make_kind(World *w, unsigned seed, int kind) {
+    if (kind != WK_SKY) { world_make(w, seed); return; }
+    memset(w, 0, sizeof *w); w->seed = seed; w->kind = WK_SKY; g_rs = seed * 7919u + 23; make_sky(w); }

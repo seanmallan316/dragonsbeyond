@@ -14,6 +14,7 @@ Mesh *gfx_mesh_static(const Vertex *v, uint32_t n) { (void)v; Mesh *m = calloc(1
 Mesh *gfx_mesh_dynamic(uint32_t c) { Mesh *m = calloc(1, sizeof *m); m->n = c; return m; }
 void gfx_mesh_update(Mesh *m, const Vertex *v, uint32_t n) { (void)v; if (n > m->n) { printf("STUB: mesh overflow %u > %u\n", n, m->n); exit(2); } }
 void gfx_mesh_free(Mesh *m) { free(m); }
+void gfx_sync(void) {}
 Texture *gfx_texture_rgba(const uint32_t *p, int w, int h, int r, int n) { (void)p; (void)r; (void)n; Texture *t = calloc(1, sizeof *t); t->w = w; t->h = h; return t; }
 Texture *gfx_texture_rgba_ex(const uint32_t *p, int w, int h, int r, int n, int mm) { (void)mm; return gfx_texture_rgba(p, w, h, r, n); }
 void gfx_texture_free(Texture *t) { free(t); }

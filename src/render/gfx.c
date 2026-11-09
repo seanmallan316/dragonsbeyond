@@ -322,6 +322,7 @@ void gfx_mesh_update(Mesh *m, const Vertex *v, uint32_t n) {
     buffer_fill(&m->buf[m->cur], v, n);
     m->count = n;
 }
+void gfx_sync(void) { GX2DrawDone(); }   /* wait for the GPU to finish everything queued (before freeing meshes it may still read) */
 void gfx_mesh_free(Mesh *m) { if (!m) return; for (int i = 0; i < m->nbuf; i++) GX2RDestroyBufferEx(&m->buf[i], GX2R_RESOURCE_BIND_NONE); free(m); }
 
 // ------------------------------------------------------------------ textures
