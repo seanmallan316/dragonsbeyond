@@ -42,4 +42,5 @@ int   world_drones(World *w, float dt, float px, float py, float pz, float reach
 int   world_hounds(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar, int in_air);   /* same bitmask as the drones */
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */
+float world_fbm(float x, float y, unsigned seed);   /* layered noise 0..1, for scenery builders */
 #endif

@@ -12,6 +12,7 @@ static float hashf(int x, int y, unsigned s) { unsigned h = (unsigned)x * 374761
 static float vnoise(float x, float y, unsigned s) {
     int xi = (int)floorf(x), yi = (int)floorf(y); float fx = x - xi, fy = y - yi; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
     return lerp(lerp(hashf(xi, yi, s), hashf(xi + 1, yi, s), fx), lerp(hashf(xi, yi + 1, s), hashf(xi + 1, yi + 1, s), fx), fy); }
+float world_fbm(float x, float y, unsigned s);
 static float fbm(float x, float y, unsigned s) { float v = 0, a = 1, f = 1, n = 0; for (int i = 0; i < 4; i++) { v += a * vnoise(x * f, y * f, s + i * 7); n += a; a *= 0.5f; f *= 2.1f; } return v / n; }
 
 static float raw_height(const World *w, float x, float z) {
@@ -133,3 +134,5 @@ int world_hounds(World *w, float dt, float px, float py, float pz, float reach, 
         if (!world_in_pond(w, nx, nz) && fabsf(nx) < W_SIZE / 2 - 8 && fabsf(nz) < W_SIZE / 2 - 8) { h->x = nx; h->z = nz; }
         h->y = world_height(w, h->x, h->z); h->flap += dt * sp * 2.2f; }
     return ev; }
+
+float world_fbm(float x, float y, unsigned s) { return fbm(x, y, s); }

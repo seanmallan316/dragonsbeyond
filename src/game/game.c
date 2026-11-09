@@ -31,7 +31,7 @@ static const char *NAMES[2] = {"FLO-RIDA", "LEAF BLOWER"};
 
 /* textures and meshes */
 static Texture *tx_grass, *tx_dirt, *tx_bark, *tx_leaves, *tx_fern, *tx_bush, *tx_rock, *tx_water, *tx_spark, *tx_font, *tx_tuft, *tx_flower, *tx_cloud;
-static Mesh *m_ground, *m_ground_dirt, *m_ground_rock, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains;
+static Mesh *m_ground, *m_ground_dirt, *m_ground_rock, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains, *m_apron;
 static Mesh *m_dynfood, *m_dynspark, *m_dynhud;   /* refilled per view (each at most twice a frame) */
 #define DYN_CAP 48000
 static Vertex g_dynv[DYN_CAP]; static Batch g_b;
@@ -170,14 +170,34 @@ static void build_props(void) {
         Vec3 q0 = v3(x - ax.x, y - h * 0.3f, z - ax.z), q1 = v3(x + ax.x, y - h * 0.3f, z + ax.z), q2 = v3(x + ax.x, y + h * 0.3f, z + ax.z), q3 = v3(x - ax.x, y + h * 0.3f, z - ax.z);
         tv_tri(q0, q1, q2, nn, nn, nn, 0, 1, 1, 1, 1, 0, 1, 1, 1); tv_tri(q0, q2, q3, nn, nn, nn, 0, 1, 1, 0, 0, 0, 1, 1, 1); tv_tri(q0, q2, q1, nn, nn, nn, 0, 1, 1, 0, 1, 1, 1, 1, 1); tv_tri(q0, q3, q2, nn, nn, nn, 0, 1, 0, 0, 1, 0, 1, 1, 1); }
     m_clouds = tv_mesh();
-    /* a ring of far mountains, in the fog's colours, so the world never shows an edge */
-    tv_begin(96 * 6); { const int M = 96; float hs[97]; unsigned ms = 99; for (int i = 0; i < M; i++) hs[i] = 60 + frand01(&ms) * 110; hs[M] = hs[0];
-        for (int i = 0; i < M; i++) { float a0 = i * 6.2831853f / M, a1 = (i + 1) * 6.2831853f / M; float R0 = 420 + 40 * sinf(i * 1.3f), R1 = 420 + 40 * sinf((i + 1) * 1.3f);
-            Vec3 b0 = v3(sinf(a0) * R0, -20, cosf(a0) * R0), b1 = v3(sinf(a1) * R1, -20, cosf(a1) * R1), t0 = v3(sinf(a0) * R0, hs[i], cosf(a0) * R0), t1 = v3(sinf(a1) * R1, hs[i + 1], cosf(a1) * R1);
-            float c0 = 0.42f + 0.1f * (hs[i] / 170), c1 = 0.42f + 0.1f * (hs[i + 1] / 170); Vec3 nn = v3(0, 1, 0);
-            tv_tri(b0, t0, b1, nn, nn, nn, 0, 0, 0, 0, 0, 0, c0, c0 + 0.1f, c0 + 0.2f); tmpv[tmpn - 3].r = 0.5f; tmpv[tmpn - 3].g = 0.62f; tmpv[tmpn - 3].b = 0.78f; tmpv[tmpn - 1].r = 0.5f; tmpv[tmpn - 1].g = 0.62f; tmpv[tmpn - 1].b = 0.78f;
-            tv_tri(b1, t0, t1, nn, nn, nn, 0, 0, 0, 0, 0, 0, c1, c1 + 0.1f, c1 + 0.2f); tmpv[tmpn - 3].r = 0.5f; tmpv[tmpn - 3].g = 0.62f; tmpv[tmpn - 3].b = 0.78f; } }
+    /* a ring of far mountains: a lit heightfield band (rock, snow on the high ground), hazed by the fog like the real thing */
+    { const int M = 160, K = 7; static Vec3 P[7][161]; static float H[7][161];
+        for (int k = 0; k < K; k++) for (int i = 0; i <= M; i++) { int ii = i % M; float a = ii * 6.2831853f / M; float R = 300 + k * 36.0f;
+            float ridge = 1.0f - fabsf((k - 3.2f) / 3.6f); ridge = ridge < 0 ? 0 : ridge; ridge = ridge * ridge * (3 - 2 * ridge);
+            float n = world_fbm(cosf(a) * 4.0f + 50, sinf(a) * 4.0f + 50, 777) * 0.7f + world_fbm(cosf(a) * 11.0f + 9, sinf(a) * 11.0f + 9, 778) * 0.3f;
+            float peak = 70 + 150 * n * n; float h = -25 + (peak + 25) * ridge * (0.8f + 0.2f * world_fbm(a * 3 + k * 0.7f, k * 1.3f, 779));
+            if (k == 0 || k == K - 1) h = -25; H[k][i] = h; P[k][i] = v3(sinf(a) * (R + 25 * (world_fbm(a * 2, k * 0.9f, 780) - 0.5f)), h, cosf(a) * (R + 25 * (world_fbm(a * 2 + 5, k * 0.9f, 781) - 0.5f))); }
+        tv_begin((uint32_t)((K - 1) * M * 6));
+        for (int k = 0; k + 1 < K; k++) for (int i = 0; i < M; i++) {
+            Vec3 q[4] = {P[k][i], P[k][i + 1], P[k + 1][i + 1], P[k + 1][i]};
+            Vec3 e1 = v3(q[1].x - q[0].x, q[1].y - q[0].y, q[1].z - q[0].z), e2 = v3(q[3].x - q[0].x, q[3].y - q[0].y, q[3].z - q[0].z);
+            Vec3 nn = v3_norm(v3(e1.y * e2.z - e1.z * e2.y, e1.z * e2.x - e1.x * e2.z, e1.x * e2.y - e1.y * e2.x)); if (nn.y < 0) nn = v3(-nn.x, -nn.y, -nn.z);
+            float hm = 0.25f * (q[0].y + q[1].y + q[2].y + q[3].y); float snow = clampf((hm - 95) / 40.0f, 0, 1) * clampf((nn.y - 0.35f) * 2.5f, 0, 1);
+            float r = 0.46f + 0.5f * snow, g = 0.44f + 0.52f * snow, bl = 0.42f + 0.56f * snow; float tone = 0.85f + 0.3f * world_fbm(i * 0.15f, k * 0.6f, 782); r *= tone; g *= tone; bl *= tone;
+            float u0 = i * 0.5f, u1 = (i + 1) * 0.5f, v0 = k * 0.8f, v1 = (k + 1) * 0.8f;
+            tv_tri(q[0], q[1], q[2], nn, nn, nn, u0, v0, u1, v0, u1, v1, r, g, bl); tv_tri(q[0], q[2], q[3], nn, nn, nn, u0, v0, u1, v1, u0, v1, r, g, bl); } }
     m_mountains = tv_mesh();
+    /* the apron: rolling grassland from the edge of the map out to the mountains' feet */
+    { const int M = 96, K = 5; float Rs[5] = {112, 150, 200, 255, 310}; tv_begin((uint32_t)((K - 1) * M * 6));
+        for (int k = 0; k + 1 < K; k++) for (int i = 0; i < M; i++) { float a0 = i * 6.2831853f / M, a1 = (i + 1) * 6.2831853f / M; Vec3 q[4]; float ang[4] = {a0, a1, a1, a0}; float rr[4] = {Rs[k], Rs[k], Rs[k + 1], Rs[k + 1]};
+            for (int c = 0; c < 4; c++) { float x = sinf(ang[c]) * rr[c], z = cosf(ang[c]) * rr[c]; float edge = clampf((rr[c] - 112) / 60.0f, 0, 1);
+                float hy = (1 - edge) * world_height(&g_world, clampf(x, -118, 118), clampf(z, -118, 118)) + edge * (-4 + 22 * (world_fbm(x * 0.01f, z * 0.01f, 790) - 0.4f)); q[c] = v3(x, hy, z); }
+            Vec3 e1 = v3(q[1].x - q[0].x, q[1].y - q[0].y, q[1].z - q[0].z), e2 = v3(q[3].x - q[0].x, q[3].y - q[0].y, q[3].z - q[0].z);
+            Vec3 nn = v3_norm(v3(e1.y * e2.z - e1.z * e2.y, e1.z * e2.x - e1.x * e2.z, e1.x * e2.y - e1.y * e2.x)); if (nn.y < 0) nn = v3(-nn.x, -nn.y, -nn.z);
+            float g = 0.88f + 0.12f * world_fbm(i * 0.2f, k * 0.5f, 791);
+            tv_tri(q[0], q[1], q[2], nn, nn, nn, q[0].x * 0.1f, q[0].z * 0.1f, q[1].x * 0.1f, q[1].z * 0.1f, q[2].x * 0.1f, q[2].z * 0.1f, g * 0.9f, g, g * 0.85f);
+            tv_tri(q[0], q[2], q[3], nn, nn, nn, q[0].x * 0.1f, q[0].z * 0.1f, q[2].x * 0.1f, q[2].z * 0.1f, q[3].x * 0.1f, q[3].z * 0.1f, g * 0.9f, g, g * 0.85f); } }
+    m_apron = tv_mesh();
     /* sky dome: unlit, coloured by height */
     tv_begin(16 * 24 * 6);
     for (int i = 0; i < 8; i++) for (int j = 0; j < 24; j++) {
@@ -346,11 +366,11 @@ static void draw_scene(int drc) {
     Mat4 proj = m4_perspective(g_cam_mode == 2 ? 1.25f : 1.05f, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir();
     gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye);
-    gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, 0.74f, 0.82f, 0.92f, 120, 480); gfx_shadow_use(0);
+    gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, 0.74f, 0.82f, 0.92f, 140, 620); gfx_shadow_use(0);
     Mat4 id = m4_identity();
     /* sky, around the camera, no depth */
     Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0);
-    if (m_mountains) gfx_draw_ex(m_mountains, &id, 1, 1, 1, 1, 0, 1, 0, 0);
+    if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); }
     gfx_clear_depth(drc);
     gfx_state(ST_SOLID);
     gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1);
@@ -543,8 +563,8 @@ void game_frame(const Pad *pads, int npads, float dt) {
         g_dragon.anim_t += dt; title_camera();
         gfx_frame_begin(); gfx_shadow_none();
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
-            gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, 0.74f, 0.82f, 0.92f, 120, 480);
-            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_mountains) gfx_draw_ex(m_mountains, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_clear_depth(0);
+            gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, 0.74f, 0.82f, 0.92f, 140, 620);
+            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } gfx_clear_depth(0);
             gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); scenelayer_draw(&g_lay_tree, g_eye, 70, 0); scenelayer_draw(&g_lay_palm, g_eye, 70, 0); scenelayer_draw(&g_lay_fern, g_eye, 40, 150); scenelayer_draw(&g_lay_bush, g_eye, 50, 170);
             gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
             draw_title_dragons();
