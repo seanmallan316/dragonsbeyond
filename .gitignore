@@ -1,0 +1,7 @@
+# regenerable render frames and local caches
+preview/*_frames/
+preview/clips/*_f*.png
+preview/pose_*.png
+tools/node/node_modules/
+tools/rig/__pycache__/
+rig/*.blend1
