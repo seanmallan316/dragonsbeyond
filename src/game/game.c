@@ -42,10 +42,14 @@ static const char *active_name(void);
 static float g_time, g_cam_yaw; static int g_cam_mode;   /* 0 rider, 1 overhead, 2 dragon's eyes */
 static Vec3 g_eye, g_at; static float g_look_x, g_look_hold;
 static Pad g_prev[KK_PADS];
-static char g_save_path[256]; static float g_save_t;
+static char g_save_path[256], g_save_base[256]; static float g_save_t;
+/* three save slots and the difficulty: Easy halves the damage and Ironhorn needs 2 hits; Hard takes 1.5x damage and 4 hits */
+static int g_slot = 0, g_diff = 1, g_slot_sel = 0, g_slot_erase = -1;
+static const float DMG[3] = {0.5f, 1.0f, 1.5f}; static const int BOSS_HITS[3] = {2, 3, 4}; static const char *DIFF_NAMES[3] = {"EASY", "NORMAL", "HARD"};
+typedef struct { int used, name, stage, rescued, diff; } SlotInfo; static SlotInfo g_slots[3];
 static int load_progress(void); static void save_progress(void);
-static char g_msg[64]; static float g_msg_t; static float g_title_t = 4.0f;
-enum { G_TITLE = 0, G_NAME, G_STORY, G_PLAY }; static int g_state = G_TITLE; static int g_name = 0; static float g_state_t;   /* g_name: 0 Flo-Rida, 1 Leaf Blower */
+static char g_msg[128]; static float g_msg_t; static float g_title_t = 4.0f;
+enum { G_TITLE = 0, G_NAME, G_STORY, G_PLAY, G_SLOT, G_DIFF }; static int g_state = G_TITLE; static int g_name = 0; static float g_state_t;   /* g_name: 0 Flo-Rida, 1 Leaf Blower */
 static const char *NAMES[2] = {"FLO-RIDA", "LEAF BLOWER"};
 
 /* textures and meshes */
@@ -191,13 +195,13 @@ static void build_props(void) {
         tv_tri(q0, q1, q2, nn, nn, nn, 0, 1, 1, 1, 1, 0, 1, 1, 1); tv_tri(q0, q2, q3, nn, nn, nn, 0, 1, 1, 0, 0, 0, 1, 1, 1); tv_tri(q0, q2, q1, nn, nn, nn, 0, 1, 1, 0, 1, 1, 1, 1, 1); tv_tri(q0, q3, q2, nn, nn, nn, 0, 1, 0, 0, 1, 0, 1, 1, 1); }
     m_clouds = tv_mesh();
     /* a ring of far mountains: a lit heightfield band (rock, snow on the high ground), hazed by the fog like the real thing */
-    { const int M = 160, K = 7; static Vec3 P[7][161]; static float H[7][161];
+    { const int M = 160, K = 7; static Vec3 P[7][161];
         for (int k = 0; k < K; k++) for (int i = 0; i <= M; i++) { int ii = i % M; float a = ii * 6.2831853f / M; float R = 300 + k * 36.0f;
             float ridge = 1.0f - fabsf((k - 3.2f) / 3.6f); ridge = ridge < 0 ? 0 : ridge; ridge = ridge * ridge * (3 - 2 * ridge);
             float n = world_fbm(cosf(a) * 4.0f + 50, sinf(a) * 4.0f + 50, 777) * 0.7f + world_fbm(cosf(a) * 11.0f + 9, sinf(a) * 11.0f + 9, 778) * 0.3f;
             float nn2 = world_fbm(cosf(a) * 1.6f + 20, sinf(a) * 1.6f + 20, 783); float peak = 30 + 300 * powf(n, 2.2f) * (0.35f + 0.65f * nn2 * nn2);   /* low passes between tall peaks */
             float h = -25 + (peak + 25) * ridge * (0.75f + 0.25f * world_fbm(a * 3 + k * 0.7f, k * 1.3f, 779));
-            if (k == 0 || k == K - 1) h = -25; H[k][i] = h; P[k][i] = v3(sinf(a) * (R + 25 * (world_fbm(a * 2, k * 0.9f, 780) - 0.5f)), h, cosf(a) * (R + 25 * (world_fbm(a * 2 + 5, k * 0.9f, 781) - 0.5f))); }
+            if (k == 0 || k == K - 1) h = -25; P[k][i] = v3(sinf(a) * (R + 25 * (world_fbm(a * 2, k * 0.9f, 780) - 0.5f)), h, cosf(a) * (R + 25 * (world_fbm(a * 2 + 5, k * 0.9f, 781) - 0.5f))); }
         tv_begin((uint32_t)((K - 1) * M * 6));
         for (int k = 0; k + 1 < K; k++) for (int i = 0; i < M; i++) {
             Vec3 q[4] = {P[k][i], P[k][i + 1], P[k + 1][i + 1], P[k + 1][i]};
@@ -245,7 +249,7 @@ int game_init(int gfx_status) {
     g_gfx_status = gfx_status;
     world_make(&g_world, 2026);
     dragon_init(&g_dragon, &g_world, 0, 0); boss_init(&g_boss, &g_world);
-    if (load_progress()) g_state_t = 0;
+    g_boss.hp = BOSS_HITS[g_diff];
     if (gfx_status != GFX_OK) return 0;
     tx_grass = asset_texture("grass", 1, NULL, NULL); tx_dirt = asset_texture("dirt", 1, NULL, NULL); tx_bark = asset_texture("bark", 1, NULL, NULL);
     tx_leaves = asset_texture("leaves", 1, NULL, NULL); tx_fern = asset_texture("fern", 0, NULL, NULL); tx_bush = asset_texture("bush", 0, NULL, NULL);
@@ -263,18 +267,33 @@ int game_init(int gfx_status) {
     snprintf(g_msg, sizeof g_msg, "WALK TO THE BERRIES. PRESS X TO EAT"); g_msg_t = 8;
     return 1; }
 void game_shutdown(void) {}
-const char *game_where(void) { static char s[300]; static const char *st[] = {"title", "name pick", "story", "playing"}; static const char *md[] = {"ground", "air", "swim"}; snprintf(s, sizeof s, "%s: Everleaf Wilds, %s, growth %.0f, cam %d, %s at %.0f,%.0f,%.0f anim %d act %.1f evo %.1f hearts %.1f | boss %d hp %d at %.0f,%.0f kind %d swap %d p2 %d at %.0f,%.0f", st[g_state], dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode, md[g_dragon.mode], g_dragon.x, g_dragon.y, g_dragon.z, g_dragon.anim, g_dragon.act_t, g_dragon.evolve_t, g_dragon.hearts, g_boss.state, g_boss.hp, g_boss.x, g_boss.z, g_kind, g_swap_open, g_p2, g_other.x, g_other.z); return s; }
+const char *game_where(void) { static char s[300]; static const char *st[] = {"title", "name pick", "story", "playing", "slots", "difficulty"}; static const char *md[] = {"ground", "air", "swim"}; snprintf(s, sizeof s, "%s: Everleaf Wilds, %s, growth %.0f, cam %d, %s at %.0f,%.0f,%.0f anim %d act %.1f evo %.1f hearts %.1f | boss %d hp %d at %.0f,%.0f kind %d swap %d p2 %d at %.0f,%.0f", st[g_state], dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode, md[g_dragon.mode], g_dragon.x, g_dragon.y, g_dragon.z, g_dragon.anim, g_dragon.act_t, g_dragon.evolve_t, g_dragon.hearts, g_boss.state, g_boss.hp, g_boss.x, g_boss.z, g_kind, g_swap_open, g_p2, g_other.x, g_other.z); return s; }
 
 
 /* ---------- progress: one small text line on the SD card ---------- */
-void game_set_save_path(const char *path) { snprintf(g_save_path, sizeof g_save_path, "%s", path); }
+static void slot_path(int k, char *out, size_t n) {   /* base ".../dragonsbeyond_save.txt" -> ".../dragonsbeyond_save1.txt" */
+    const char *dot = strrchr(g_save_base, '.'); size_t stem = dot ? (size_t)(dot - g_save_base) : strlen(g_save_base);
+    snprintf(out, n, "%.*s%d%s", (int)stem, g_save_base, k + 1, dot ? dot : ""); }
+static void scan_slots(void) {
+    for (int k = 0; k < 3; k++) { SlotInfo *si = &g_slots[k]; memset(si, 0, sizeof *si); si->diff = 1; if (!g_save_base[0]) continue;
+        char path[300]; slot_path(k, path, sizeof path); FILE *f = fopen(path, "r"); if (!f) continue;
+        int name, stage, cr, resc = 0, kind, sst, diff = 1; float gr, x, z, yaw, h, sg, sh;
+        int n = fscanf(f, "DB1 %d %d %f %f %f %f %f %d %d %d %f %f %d %d", &name, &stage, &gr, &x, &z, &yaw, &h, &cr, &resc, &kind, &sg, &sh, &sst, &diff); fclose(f);
+        if (n >= 7) { si->used = 1; si->name = name & 1; si->stage = stage; si->rescued = resc; si->diff = diff >= 0 && diff < 3 ? diff : 1; } } }
+void game_set_save_path(const char *path) {
+    snprintf(g_save_base, sizeof g_save_base, "%s", path); g_save_path[0] = 0;
+    char p1[300]; slot_path(0, p1, sizeof p1); FILE *t = fopen(p1, "r");
+    if (t) fclose(t); else { FILE *old = fopen(path, "r"); if (old) {   /* an older single save becomes slot 1 */
+        char line[256] = {0}; if (fgets(line, sizeof line, old)) { FILE *nw = fopen(p1, "w"); if (nw) { fputs(line, nw); fclose(nw); } } fclose(old); } }
+    scan_slots(); }
+static void use_slot(int k) { g_slot = k; if (g_save_base[0]) slot_path(k, g_save_path, sizeof g_save_path); }
 static void save_progress(void) {
     if (!g_save_path[0]) return; FILE *f = fopen(g_save_path, "w"); if (!f) return;
     { const Dragon *fo = g_kind ? &g_other : &g_dragon, *sk = g_kind ? &g_dragon : &g_other;   /* always saved as forest, then sky */
-      fprintf(f, "DB1 %d %d %.1f %.2f %.2f %.3f %.1f %d %d %d %.1f %.1f %d\n", g_name, fo->stage, fo->growth, g_dragon.x, g_dragon.z, g_dragon.yaw, fo->hearts, g_world.crystal_found, g_rescued, g_kind, sk->growth, sk->hearts, sk->stage); } fclose(f); }
+      fprintf(f, "DB1 %d %d %.1f %.2f %.2f %.3f %.1f %d %d %d %.1f %.1f %d %d\n", g_name, fo->stage, fo->growth, g_dragon.x, g_dragon.z, g_dragon.yaw, fo->hearts, g_world.crystal_found, g_rescued, g_kind, sk->growth, sk->hearts, sk->stage, g_diff); } fclose(f); }
 static int load_progress(void) {
     if (!g_save_path[0]) return 0; FILE *f = fopen(g_save_path, "r"); if (!f) return 0;
-    int name, stage, cr = 0, resc = 0, kind = 0; float growth, x, z, yaw, hearts, sgrowth = 0, shearts = 3; int sstage = 0; int n = fscanf(f, "DB1 %d %d %f %f %f %f %f %d %d %d %f %f %d", &name, &stage, &growth, &x, &z, &yaw, &hearts, &cr, &resc, &kind, &sgrowth, &shearts, &sstage); fclose(f);
+    int name, stage, cr = 0, resc = 0, kind = 0; float growth, x, z, yaw, hearts, sgrowth = 0, shearts = 3; int sstage = 0, diff = 1; int n = fscanf(f, "DB1 %d %d %f %f %f %f %f %d %d %d %f %f %d %d", &name, &stage, &growth, &x, &z, &yaw, &hearts, &cr, &resc, &kind, &sgrowth, &shearts, &sstage, &diff); g_diff = diff >= 0 && diff < 3 ? diff : 1; fclose(f);
     if (n < 7 || stage < 0 || stage >= ST_N) return 0; g_world.crystal_found = cr;
     if (resc) { g_rescued = 1; g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_friend.on = 1; g_friend.x = x - 3; g_friend.z = z - 3; g_friend.y = world_height(&g_world, g_friend.x, g_friend.z);
         dragon_init(&g_other, &g_world, g_friend.x, g_friend.z); g_other.stage = sstage >= 0 && sstage < ST_N ? sstage : 0; g_other.max_hearts = 3 + 2 * g_other.stage; g_other.growth = clampf(sgrowth, 0, dragon_need(g_other.stage) - 1); g_other.hearts = clampf(shearts, 1, g_other.max_hearts); }
@@ -524,7 +543,7 @@ static void draw_hud(int drc) {
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
         if (dx * dx + dz * dz < 60 * 60) { text_c("IRONHORN", 150, 26, 1, 0.75f, 0.45f, 1);
-            for (int i = 0; i < BOSS_HP; i++) { float x = 640 - BOSS_HP * 34 + i * 68; batch_rect(&g_b, x + 4, 186, 60, 14, 0.15f, 0.05f, 0.03f, 0.85f); if (i < g_boss.hp) batch_rect(&g_b, x + 6, 188, 56, 10, 1.0f, 0.45f, 0.1f, 1); } } }
+            for (int i = 0; i < BOSS_HITS[g_diff]; i++) { float x = 640 - BOSS_HITS[g_diff] * 34 + i * 68; batch_rect(&g_b, x + 4, 186, 60, 14, 0.15f, 0.05f, 0.03f, 0.85f); if (i < g_boss.hp) batch_rect(&g_b, x + 6, 188, 56, 10, 1.0f, 0.45f, 0.1f, 1); } } }
     /* growth bar */
     float need = dragon_need(d->stage); float gf = need > 1e8f ? 1 : clampf(d->growth / need, 0, 1);
     batch_rect(&g_b, 40, 80, 360, 22, 0.05f, 0.1f, 0.05f, 0.8f); batch_rect(&g_b, 43, 83, 354 * gf, 16, 0.45f, 0.9f, 0.3f, 1);
@@ -674,7 +693,7 @@ static void draw_title_hud(void) {
         batch_rect(&g_b, 0, 150, 1280, 190, 0, 0.08f, 0, 0.35f);
         text_c("DRAGONS BEYOND", 174, 74, 0.35f, 0.7f, 0.3f, 1); text_c("DRAGONS BEYOND", 170, 74, 0.9f, 1, 0.8f, 1);
         text_c("EVERLEAF WILDS", 272, 34, 0.9f, 1, 0.9f, 0.9f);
-        text_c(g_dragon.stage > 0 || g_dragon.growth > 0 ? "PRESS A TO CONTINUE" : "PRESS A", 600, 40, 1, 1, 1, pulse);
+        text_c("PRESS A", 600, 40, 1, 1, 1, pulse);
         text_c("A GAME DESIGNED BY A 10 YEAR OLD DRAGON EXPERT", 690, 18, 1, 1, 1, 0.6f);
     } else if (g_state == G_NAME) {
         batch_rect(&g_b, 140, 120, 1000, 480, 0, 0.06f, 0, 0.6f);
@@ -686,6 +705,25 @@ static void draw_title_hud(void) {
             batch_text(&g_b, i == 0 ? "GIRL" : "BOY", x + 180 - text_width(i == 0 ? "GIRL" : "BOY", 26) / 2, y + 110, 26, 0.9f, 1, 0.8f, 0.9f);
             batch_text(&g_b, "LEAFNADO + LEAF TAIL", x + 180 - text_width("LEAFNADO + LEAF TAIL", 18) / 2, y + 170, 18, 1, 1, 1, 0.7f); }
         text_c("LEFT / RIGHT : CHOOSE     A : START", 540, 24, 1, 1, 1, 0.8f); }
+    if (g_state == G_SLOT) {
+        batch_rect(&g_b, 240, 90, 800, 560, 0, 0.06f, 0, 0.65f); text_c("CHOOSE A SAVE", 110, 44, 0.9f, 1, 0.8f, 1);
+        for (int k = 0; k < 3; k++) { const SlotInfo *si = &g_slots[k]; float y = 190 + k * 130; int sel = k == g_slot_sel;
+            batch_rect(&g_b, 300, y, 680, 110, sel ? 0.25f : 0.1f, sel ? 0.5f : 0.2f, sel ? 0.2f : 0.1f, 0.9f);
+            if (sel) { batch_rect(&g_b, 294, y - 6, 692, 6, 1, 1, 0.6f, pulse); batch_rect(&g_b, 294, y + 110, 692, 6, 1, 1, 0.6f, pulse); }
+            char a[64], b[96]; snprintf(a, sizeof a, "SAVE %d", k + 1); batch_text(&g_b, a, 330, y + 18, 28, 1, 0.9f, 0.6f, 1);
+            if (!si->used) snprintf(b, sizeof b, "EMPTY - START A NEW ADVENTURE");
+            else snprintf(b, sizeof b, "%s THE %s  -  %s%s", NAMES[si->name], dragon_stage_name(si->stage), DIFF_NAMES[si->diff], si->rescued ? "  -  SCARLET SAVED" : "");
+            batch_text(&g_b, b, 330, y + 62, 20, 1, 1, 1, 0.9f);
+            if (g_slot_erase == k) batch_text(&g_b, "PRESS X AGAIN TO ERASE", 960 - text_width("PRESS X AGAIN TO ERASE", 18), y + 22, 18, 1, 0.4f, 0.3f, 1); }
+        text_c("UP / DOWN : CHOOSE    A : PLAY    X : ERASE    B : BACK", 600, 22, 1, 1, 1, 0.8f); }
+    if (g_state == G_DIFF) {
+        batch_rect(&g_b, 340, 120, 600, 470, 0, 0.06f, 0, 0.65f); text_c("HOW HARD?", 140, 44, 0.9f, 1, 0.8f, 1);
+        static const char *desc[3] = {"FEWER OUCHES, IRONHORN NEEDS 2 HITS", "THE WAY IT WAS DESIGNED", "BIGGER OUCHES, IRONHORN NEEDS 4 HITS"};
+        for (int k = 0; k < 3; k++) { float y = 220 + k * 110; int sel = k == g_diff;
+            batch_rect(&g_b, 400, y, 480, 90, sel ? 0.25f : 0.1f, sel ? 0.5f : 0.2f, sel ? 0.2f : 0.1f, 0.9f);
+            batch_text(&g_b, DIFF_NAMES[k], 640 - text_width(DIFF_NAMES[k], 32) / 2, y + 12, 32, 1, sel ? 1 : 0.8f, sel ? 0.6f : 0.8f, 1);
+            batch_text(&g_b, desc[k], 640 - text_width(desc[k], 16) / 2, y + 58, 16, 1, 1, 1, 0.8f); }
+        text_c("UP / DOWN : CHOOSE    A : OK    B : BACK", 560, 22, 1, 1, 1, 0.8f); }
     if (g_state == G_STORY) { batch_rect(&g_b, 0, 0, 1280, 720, 0, 0, 0, 0.55f); float fade = clampf(g_state_t * 2, 0, 1);
         text_wrap_c(STORY[g_story_i], 250, 34, 1040, 1, 1, 0.9f, fade); char pg[16]; snprintf(pg, sizeof pg, "%d / %d", g_story_i + 1, STORY_N); text_c(pg, 560, 20, 1, 1, 1, 0.5f); text_c("A : NEXT", 620, 24, 1, 1, 1, pulse); }
     if (!g_b.n) return; gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL); }
@@ -695,7 +733,7 @@ static void draw_title_hud(void) {
 /* ---------- Ironhorn, the cage and the rescued friend ---------- */
 static void hurt_dragon(float amount, const char *msg) {
     if (g_dragon.evolve_t > 0) return;
-    g_dragon.hearts -= amount; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.7f, 0); platform_rumble(0.9f, 0.4f);
+    g_dragon.hearts -= amount * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.7f, 0); platform_rumble(0.9f, 0.4f);
     snprintf(g_msg, sizeof g_msg, "%s", msg); g_msg_t = 3;
     if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE MEADOW. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
 static void boss_frame(float dt) {
@@ -708,7 +746,7 @@ static void boss_frame(float dt) {
         g_dragon.x += g_boss.cx * 3; g_dragon.z += g_boss.cz * 3; }
     if (bev & 16) { snprintf(g_msg, sizeof g_msg, "ITS ANTLERS ARE STUCK! WHIP THE GLOWING CORE ON ITS BACK (B)"); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
     if (bev & 32) { snprintf(g_msg, sizeof g_msg, "STUNNED! QUICK, WHIP ITS CORE (B)"); g_msg_t = 3; }
-    if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 2 ? "HIT! TWO MORE" : "HIT! ONE MORE"); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
+    if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
     if (bev & 8) { snprintf(g_msg, sizeof g_msg, "IRONHORN IS DOWN! THE CAGE IS OPENING"); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
     if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
         g_rescued = 1; g_friend.on = 1; g_friend.x = g_world.cage_x; g_friend.y = g_world.arena_y + 1.2f; g_friend.z = g_world.cage_z; g_friend.yaw = 0;
@@ -780,7 +818,24 @@ void game_frame(const Pad *pads, int npads, float dt) {
     DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl;
     g_state_t += dt;
     if (g_state != G_PLAY) {
-        if (g_state == G_TITLE && in.a_press && g_state_t > 0.5f) { g_state = G_NAME; g_state_t = 0; sfx_play(SFX_MENU_OK, 0.5f, 0); }
+        int upk = (p->up && !q->up) || (p->sy > 0.6f && q->sy <= 0.6f), downk = (p->down && !q->down) || (p->sy < -0.6f && q->sy >= -0.6f);
+        if (g_state == G_TITLE && in.a_press && g_state_t > 0.5f) { scan_slots(); g_state = G_SLOT; g_state_t = 0; g_slot_erase = -1; sfx_play(SFX_MENU_OK, 0.5f, 0); }
+        else if (g_state == G_SLOT) {
+            if (upk) { g_slot_sel = (g_slot_sel + 2) % 3; g_slot_erase = -1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
+            if (downk) { g_slot_sel = (g_slot_sel + 1) % 3; g_slot_erase = -1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
+            if (in.b_press) { g_state = G_TITLE; g_state_t = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
+            else if (in.x_press && g_slots[g_slot_sel].used) {   /* erase: X twice */
+                if (g_slot_erase == g_slot_sel) { char path[300]; slot_path(g_slot_sel, path, sizeof path); remove(path); scan_slots(); g_slot_erase = -1; sfx_play(SFX_CRUMBLE, 0.6f, 0); }
+                else { g_slot_erase = g_slot_sel; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } }
+            else if (in.a_press && g_state_t > 0.3f) { use_slot(g_slot_sel); sfx_play(SFX_MENU_OK, 0.5f, 0); g_state_t = 0;
+                if (g_slots[g_slot_sel].used && load_progress()) { g_state = G_PLAY; g_title_t = 4.0f; if (!g_rescued) g_boss.hp = BOSS_HITS[g_diff];
+                    snprintf(g_msg, sizeof g_msg, "WELCOME BACK, %s!", active_name()); g_msg_t = 4; }
+                else { g_state = G_DIFF; g_diff = 1; } } }
+        else if (g_state == G_DIFF) {
+            if (upk) { g_diff = (g_diff + 2) % 3; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
+            if (downk) { g_diff = (g_diff + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
+            if (in.b_press) { g_state = G_SLOT; g_state_t = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
+            else if (in.a_press && g_state_t > 0.3f) { g_boss.hp = BOSS_HITS[g_diff]; g_state = G_NAME; g_state_t = 0; sfx_play(SFX_MENU_OK, 0.5f, 0); } }
         else if (g_state == G_NAME) { if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) { g_name ^= 1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } if (in.a_press && g_state_t > 0.3f) { g_state = G_STORY; g_state_t = 0; g_story_i = 0; } }
         else if (g_state == G_STORY) { if ((in.a_press && g_state_t > 0.4f) || g_state_t > 12) { g_state_t = 0; if (++g_story_i >= STORY_N) { g_state = G_PLAY; g_title_t = 4.0f; snprintf(g_msg, sizeof g_msg, "%s IS HUNGRY. WALK TO A BUSH AND PRESS X", NAMES[g_name]); g_msg_t = 9; } } }
         memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));
@@ -833,11 +888,11 @@ void game_frame(const Pad *pads, int npads, float dt) {
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
     { int whip = g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.35f && g_dragon.act_t < 0.6f; int roar = g_dragon.anim == DA_ROAR && g_dragon.act_t > 1.0f;
       int dev = world_drones(&g_world, dt, g_dragon.x, g_dragon.y + 0.4f * dragon_length(g_dragon.stage), g_dragon.z, 0.8f * dragon_length(g_dragon.stage) + 1.0f, whip, roar);
-      if ((dev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A FEATHER DRONE! PRESS B TO SWAT IT, Y TO SCARE IT"); g_msg_t = 4;
+      if ((dev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A FEATHER DRONE! PRESS B TO SWAT IT, Y TO SCARE IT"); g_msg_t = 4;
           if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE MEADOW. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
       if (dev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 5; snprintf(g_msg, sizeof g_msg, "DRONE DOWN!"); g_msg_t = 2; }
       int hev = world_hounds(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * dragon_length(g_dragon.stage) + 0.9f, whip, roar, g_dragon.mode == DM_AIR);
-      if ((hev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A SHOCK HOUND! RUN (ZR), HOP (A), OR SWAT IT (B)"); g_msg_t = 4;
+      if ((hev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A SHOCK HOUND! RUN (ZR), HOP (A), OR SWAT IT (B)"); g_msg_t = 4;
           if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE MEADOW. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
       if (hev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 5; snprintf(g_msg, sizeof g_msg, "HOUND DOWN!"); g_msg_t = 2; } }
     boss_frame(dt);
