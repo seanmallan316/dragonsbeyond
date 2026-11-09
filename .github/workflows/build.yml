@@ -163,11 +163,11 @@ jobs:
           CEMU=$!
           # record the whole run as a video too (10 frames a second is plenty for a clip)
           sleep 4
-          ffmpeg -loglevel error -y -f x11grab -video_size 1280x720 -framerate 10 -i :99 -t 150 -vf "scale=960:540" -c:v libx264 -preset veryfast -pix_fmt yuv420p gameplay.mp4 &
+          ffmpeg -loglevel error -y -f x11grab -video_size 1280x720 -framerate 10 -i :99 -t 300 -vf "scale=960:540" -c:v libx264 -preset veryfast -pix_fmt yuv420p gameplay.mp4 &
           FFM=$!
           # the tour build plays itself: walks to berries, eats, grows into a dragon, flies, changes views
           last=0
-          for t in 6 12 18 26 34 42 50 58 66 74 82 95 110 125 140; do
+          for t in 6 12 18 26 34 42 50 58 66 74 82 95 110 125 140 160 180 200 220 240 260 280 295; do
             sleep $((t - last)); last=$t
             import -window root "screenshot_${t}s.png" || xwd -root -silent | convert xwd:- "screenshot_${t}s.png" || true
           done
