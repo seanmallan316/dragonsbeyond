@@ -357,7 +357,7 @@ static void draw_scene(int drc) {
     gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_bump(3); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_bump(4); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID);
     gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1);
     gfx_bind(tx_rock); if (m_rock) gfx_draw(m_rock, &id, 1, 1, 1, 1);
-    scenelayer_draw(&g_lay_tree, eye, 75); scenelayer_draw(&g_lay_palm, eye, 75); scenelayer_draw(&g_lay_fern, eye, 45);
+    scenelayer_draw(&g_lay_tree, eye, 70, 0); scenelayer_draw(&g_lay_palm, eye, 70, 0); scenelayer_draw(&g_lay_fern, eye, 40, 150);
     gfx_state(ST_CUTOUT);
     gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1);
     gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1);
@@ -380,7 +380,7 @@ static void shadow_pass(void) {
     Mat4 lvp = m4_mul(proj, view), id = m4_identity();
     if (!gfx_shadow_begin(&lvp)) return;
     gfx_state(ST_SOLID); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); if (m_rock) gfx_draw(m_rock, &id, 1, 1, 1, 1);
-    scenelayer_draw(&g_lay_tree, v3(d->x, d->y, d->z), 0); scenelayer_draw(&g_lay_palm, v3(d->x, d->y, d->z), 0);   /* the trees' shadows (low detail is plenty for a shadow) */
+    scenelayer_draw(&g_lay_tree, v3(d->x, d->y, d->z), 0, 95); scenelayer_draw(&g_lay_palm, v3(d->x, d->y, d->z), 0, 95);   /* the trees' shadows (low detail is plenty for a shadow) */
     draw_dragon(d);
     gfx_shadow_end(); }
 
@@ -545,7 +545,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
             gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, 0.74f, 0.82f, 0.92f, 120, 480);
             Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_mountains) gfx_draw_ex(m_mountains, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_clear_depth(0);
-            gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); scenelayer_draw(&g_lay_tree, g_eye, 75); scenelayer_draw(&g_lay_palm, g_eye, 75); scenelayer_draw(&g_lay_fern, g_eye, 45);
+            gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); scenelayer_draw(&g_lay_tree, g_eye, 70, 0); scenelayer_draw(&g_lay_palm, g_eye, 70, 0); scenelayer_draw(&g_lay_fern, g_eye, 40, 150);
             gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
             draw_title_dragons();
             { Mat4 cm = m4_translate(fmodf(g_time * 1.5f, 900.0f) - 450.0f, 0, 0); gfx_state(ST_DEPTH | ST_BLEND); gfx_bind(tx_cloud); if (m_clouds) { gfx_draw_ex(m_clouds, &cm, 1, 1, 1, 0.9f, 0, 1, 0, 0); Mat4 cm2 = m4_translate(cm.m[12] + 900.0f, 0, 0); gfx_draw_ex(m_clouds, &cm2, 1, 1, 1, 0.9f, 0, 1, 0, 0); } }

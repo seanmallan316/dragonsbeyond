@@ -32,18 +32,10 @@ void propmodel_draw(const PropModel *m, int lod, float x, float y, float z, floa
 
 void scenelayer_build(SceneLayer *L, PropModel *model, const World *w, int kind, float height_scale, float sink) {
     memset(L, 0, sizeof *L); L->model = model; if (!model->ok) return;
-    static Vertex *buf; static uint32_t cap; uint32_t need = 0;
-    for (int i = 0; i < w->nprop; i++) if (w->prop[i].kind == kind) need += (uint32_t)model->ntri[0] * 3;
-    if (need > cap) { cap = need; buf = realloc(buf, sizeof(Vertex) * cap); }
-    float cell = W_SIZE / SC_CELLS;
-    for (int cz = 0; cz < SC_CELLS; cz++) for (int cx = 0; cx < SC_CELLS; cx++) { SceneCell *C = &L->cell[cz][cx]; C->cx = -W_SIZE / 2 + (cx + 0.5f) * cell; C->cz = -W_SIZE / 2 + (cz + 0.5f) * cell;
-        for (int lod = 0; lod < 2; lod++) { uint32_t n = 0;
-            for (int i = 0; i < w->nprop; i++) { const Prop *p = &w->prop[i]; if (p->kind != kind) continue;
-                int px = (int)((p->x + W_SIZE / 2) / cell), pz = (int)((p->z + W_SIZE / 2) / cell); if (px < 0) px = 0; if (px >= SC_CELLS) px = SC_CELLS - 1; if (pz < 0) pz = 0; if (pz >= SC_CELLS) pz = SC_CELLS - 1;
-                if (px != cx || pz != cz) continue;
-                propmodel_place(model, lod, p->x, world_height(w, p->x, p->z) - sink * p->scale, p->z, p->yaw, p->scale * height_scale, buf, &n, cap); }
-            Mesh *m = n ? gfx_mesh_static(buf, n) : NULL; if (lod == 0) C->hi = m; else C->lo = m; } } }
-void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist) {
-    if (!L->model || !L->model->ok) return; gfx_bind(L->model->tex); Mat4 id = m4_identity();
-    for (int cz = 0; cz < SC_CELLS; cz++) for (int cx = 0; cx < SC_CELLS; cx++) { const SceneCell *C = &L->cell[cz][cx]; float dx = C->cx - eye.x, dz = C->cz - eye.z; float d = sqrtf(dx * dx + dz * dz);
-        Mesh *m = d < hi_dist ? C->hi : C->lo; if (m) gfx_draw(m, &id, 1, 1, 1, 1); } }
+    for (int i = 0; i < w->nprop && L->n < SC_MAX; i++) { const Prop *p = &w->prop[i]; if (p->kind != kind) continue;
+        SceneInst *I = &L->inst[L->n++]; I->x = p->x; I->z = p->z; I->y = world_height(w, p->x, p->z) - sink * p->scale; I->yaw = p->yaw; I->s = p->scale * height_scale; } }
+void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist, float skip_dist) {
+    if (!L->model || !L->model->ok) return; gfx_bind(L->model->tex);
+    for (int i = 0; i < L->n; i++) { const SceneInst *I = &L->inst[i]; float dx = I->x - eye.x, dz = I->z - eye.z; float d2 = dx * dx + dz * dz;
+        if (skip_dist > 0 && d2 > skip_dist * skip_dist) continue;
+        Mat4 mm = m4_mul(m4_mul(m4_translate(I->x, I->y, I->z), m4_rotate_y(I->yaw)), m4_scale(I->s, I->s, I->s)); gfx_draw(L->model->mesh[d2 < hi_dist * hi_dist ? 0 : 1], &mm, 1, 1, 1, 1); } }

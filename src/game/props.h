@@ -12,9 +12,10 @@ void propmodel_place(const PropModel *m, int lod, float x, float y, float z, flo
 /* draw one instance on its own (bushes that can be eaten, mushrooms) */
 void propmodel_draw(const PropModel *m, int lod, float x, float y, float z, float yaw, float s, float r, float g, float b);
 
-#define SC_CELLS 8
-typedef struct { Mesh *hi, *lo; float cx, cz; } SceneCell;
-typedef struct { PropModel *model; SceneCell cell[SC_CELLS][SC_CELLS]; } SceneLayer;
+/* a layer draws every instance of one kind on its own, near ones in high detail; far ones (beyond skip_dist) not at all */
+#define SC_MAX 320
+typedef struct { float x, y, z, yaw, s; } SceneInst;
+typedef struct { PropModel *model; int n; SceneInst inst[SC_MAX]; } SceneLayer;
 void scenelayer_build(SceneLayer *L, PropModel *model, const World *w, int kind, float height_scale, float sink);
-void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist);
+void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist, float skip_dist);
 #endif
