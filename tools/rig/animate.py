@@ -154,10 +154,43 @@ def hit(t):
     rots.update(tail(t, 15)); rots.update(wings_folded())
     return rots, {'hips': (0, -0.03 * H * math.exp(-4 * t), 0.01 * H * k)}
 
-CLIPS = [('idle', 60, True, idle), ('walk', 30, True, walk), ('run', 18, True, run), ('fly', 24, True, fly), ('glide', 60, True, glide),
+
+# ---- life: small motions layered on every clip so the dragon never looks frozen.
+# Integer harmonics of t keep every loop seamless. Values are added to whatever the clip already does.
+def add(rots, name, x=0, y=0, z=0):
+    if name not in pb: return
+    ox, oy, oz = rots.get(name, (0, 0, 0)); rots[name] = (ox + x, oy + y, oz + z)
+def life(t, kind, rots):
+    if kind == 'idle':        # curious: looks around, sniffs, shifts a front foot, breathes deep
+        add(rots, 'head', 6 * S(t, 0.3) + 3 * S(3 * t, 1.1), 10 * S(t, 2.0), 22 * S(t, 0.2) + 6 * S(2 * t, 1.7))
+        add(rots, 'neck2', 0, 0, 10 * S(t, 0.0)); add(rots, 'neck1', 2 * S(2 * t), 0, 5 * S(t, -0.3))
+        sniff = max(0, S(4 * t, 0.4)) ** 3; add(rots, 'jaw', 7 * sniff + 3 * max(0, S(2 * t, 2.2)))
+        tap = max(0, S(t, 1.0)) ** 6   # one front foot lifts and taps once per loop
+        add(rots, 'legFL_upper', -14 * tap); add(rots, 'legFL_lower', 26 * tap); add(rots, 'legFL_foot', -20 * tap)
+        for leg in ('FR', 'BL', 'BR'): add(rots, f'leg{leg}_foot', 6 * S(2 * t, ord(leg[0]) * 0.7))   # toes flex
+        add(rots, 'chest', 2.5 * S(2 * t)); add(rots, 'spine2', 1.5 * S(2 * t, 0.4))   # slower, deeper breaths
+    elif kind == 'walk':
+        add(rots, 'head', 0, 0, 8 * S(t, 0.5)); add(rots, 'jaw', 3 + 2 * S(2 * t))
+    elif kind == 'run':       # panting, head pushed forward, toes splay
+        add(rots, 'jaw', 10 + 6 * max(0, S(2 * t, 0.8))); add(rots, 'head', 0, 0, 5 * S(t, 0.2))
+        for leg in ('FL', 'FR', 'BL', 'BR'): add(rots, f'leg{leg}_foot', 8 * S(2 * t, 1.3))
+    elif kind in ('fly', 'glide'):   # scanning the ground, mouth a little open in the wind, claws flexing
+        add(rots, 'head', 3 * S(t, 0.9), 6 * S(t, 2.4), 12 * S(t, 0.1)); add(rots, 'jaw', 5 + 3 * S(2 * t, 0.6))
+        add(rots, 'neck2', 0, 0, 6 * S(t, -0.4))
+    elif kind == 'eat':       # chews a few more times with the head tilting
+        add(rots, 'head', 0, 6 * S(2 * t), 0); add(rots, 'jaw', 6 * max(0, S(5 * t)))
+    elif kind == 'roar':
+        add(rots, 'jaw', 6 * max(0, S(6 * t)))   # the jaw shudders with the roar
+    return rots
+def with_life(kind, fn):
+    def g(t):
+        rots, locs = fn(t); return life(t, kind, dict(rots)), locs
+    return g
+
+CLIPS = [('idle', 120, True, idle), ('walk', 30, True, walk), ('run', 18, True, run), ('fly', 24, True, fly), ('glide', 60, True, glide),
          ('eat', 54, False, eat), ('roar', 60, False, roar), ('tailwhip', 30, False, tailwhip), ('hit', 24, False, hit)]
 for name, frames, loop, fn in CLIPS:
-    c = Clip(name, frames, loop); c.bake(fn); c.act.use_fake_user = True
+    c = Clip(name, frames, loop); c.bake(with_life(name, fn)); c.act.use_fake_user = True
     print('clip', name, frames, 'loop' if loop else 'once')
 arm.animation_data.action = bpy.data.actions['idle']
 bpy.ops.wm.save_as_mainfile(filepath=out); print('saved', out)
