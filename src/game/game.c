@@ -232,8 +232,14 @@ static void camera_update(float dt) {
     else {                        /* the dragon's own eyes */
         float fwd = 0.42f * L, up = 0.55f * L; want = v3(d->x + sinf(d->yaw) * fwd, d->y + up, d->z + cosf(d->yaw) * fwd);
         at = v3(want.x + sinf(d->yaw) * 10, want.y - (d->mode == DM_AIR ? d->pitch * 8 : 0.8f), want.z + cosf(d->yaw) * 10); }
-    /* keep the camera above the ground */
+    /* keep the camera above the ground and out of the trees */
     float gnd = world_height(&g_world, want.x, want.z) + 0.6f; if (want.y < gnd) want.y = gnd;
+    if (g_cam_mode != 2) for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; if (p->kind != P_TREE && p->kind != P_PALM) continue;
+        float dx = want.x - p->x, dz = want.z - p->z, d2 = dx * dx + dz * dz; if (d2 > 36) continue;
+        float py = world_height(&g_world, p->x, p->z); float h = (p->kind == P_TREE ? 7.5f : 9.0f) * p->scale;
+        float trunk_r = 1.0f; if (d2 < trunk_r * trunk_r && want.y < py + h) { float dd = sqrtf(d2) + 1e-4f; want.x = p->x + dx / dd * trunk_r; want.z = p->z + dz / dd * trunk_r; }
+        if (p->kind == P_TREE) { Vec3 c = v3(p->x + sinf(p->yaw) * 0.6f, py + h * 0.95f, p->z + cosf(p->yaw) * 0.6f); float R = 4.3f * p->scale; Vec3 off = v3_sub(want, c); float od = sqrtf(v3_dot(off, off));
+            if (od < R) { float push = R - od; if (off.y < -R * 0.3f || od < 0.01f) want.y = c.y - R; else { want.x += off.x / od * push; want.y += off.y / od * push; want.z += off.z / od * push; } } } }
     if (g_cam_mode == 2) { g_eye = want; g_at = at; }
     else { float kk = 1 - expf(-dt * 6); g_eye = v3(g_eye.x + (want.x - g_eye.x) * kk, g_eye.y + (want.y - g_eye.y) * kk, g_eye.z + (want.z - g_eye.z) * kk); g_at = v3(g_at.x + (at.x - g_at.x) * kk, g_at.y + (at.y - g_at.y) * kk, g_at.z + (at.z - g_at.z) * kk); } }
 
