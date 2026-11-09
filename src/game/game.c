@@ -91,6 +91,8 @@ static int g_wk = WK_FOREST;   /* which world we are in */
 static float g_safe_x, g_safe_z;   /* the last solid ground the player stood on (sky world) */
 /* dragon powers (Y, once grown): forest Leafnado whirls round, sky breathes fire, snow breathes frost */
 static float g_power_t, g_power_cd; static int g_power_kind;
+/* Kaine Blackfeather sweeps over the Sky Kingdom on his black mech dragon the first time you arrive */
+static float g_kaine_t = -1; static int g_kaine_done;
 /* the wind column between worlds: in the forest it rises from the boss clearing once its captive is free; in the sky it waits on the first island */
 static float g_travel_t = -1; static int g_travel_to; static float g_travel_cd;
 static int column_at(float *cx, float *cz) {
@@ -601,8 +603,16 @@ static void draw_kind_dragon(int k, int st, float x, float y, float z, float yaw
     Mat4 mm = m4_mul(m4_mul(m4_translate(x, y, z), m4_rotate_y(yaw)), m4_scale(scale, scale, scale));
     anim3d_set_bend(0, air ? 0.35f : 0, air ? 0.4f : 0, g_time * 5.5f + 1.3f);
     gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(m, clip, anim_t, &mm, 1.1f, 1.1f, 1.1f, 1); gfx_bump(0); gfx_bind(NULL); }
+static void draw_kaine(void) {
+    if (g_kaine_t < 1.5f || g_kaine_t > 13 || !g_model_ok[ST_BEYONDER]) return;
+    if ((g_kind == 0 && g_dragon.stage == ST_BEYONDER) || (g_friend.on && g_fk == 0 && g_other.stage == ST_BEYONDER)) return;   /* that model is busy being a player's dragon */ float u = (g_kaine_t - 1.5f) / 11.5f;
+    float a = -2.2f + u * 3.4f; float r = 70 - 30 * sinf(u * 3.14159f); Vec3 c = v3(g_dragon.x + sinf(a) * r, g_dragon.y + 16 + 10 * sinf(u * 3.14159f), g_dragon.z + cosf(a) * r);
+    float yaw = a + 1.5708f; float sc = dragon_scale(ST_BEYONDER) * 1.25f;
+    Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(c.x, c.y, c.z), m4_rotate_y(yaw)), m4_rotate_z(-0.35f)), m4_scale(sc, sc, sc));
+    Anim3D *m = &g_model[ST_BEYONDER]; int clip = anim3d_clip(m, "fly"); anim3d_set_bend(0.3f, 0.35f, 0.3f, g_time * 5.5f);
+    gfx_state(ST_SOLID); anim3d_draw(m, clip < 0 ? 0 : clip, g_time * 1.3f, &mm, 0.16f, 0.15f, 0.2f, 1); gfx_bind(NULL); }
 static void draw_arena(Vec3 eye) {
-    draw_ironhorn(eye);
+    draw_ironhorn(eye); draw_kaine();
     if (!g_rescued) { float open = g_boss.cage_open, ground = g_world.arena_y + 0.1f; float cy = g_world.cage_y - open * (g_world.cage_y - ground);
         float dx = g_world.cage_x - eye.x, dz = g_world.cage_z - eye.z;
         if (dx * dx + dz * dz < 140 * 140) draw_kind_dragon(CAPTIVE[g_wk], ST_DRAGONET, g_world.cage_x, cy + 0.08f, g_world.cage_z, atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z) + 0.4f * sinf(g_time * 0.7f), DA_IDLE, g_time, 0); }
@@ -1005,7 +1015,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
 #ifdef DB_TOUR
     static Pad tourpad; static int tour_once; if (!tour_once && g_state == G_PLAY) { tour_once = 1;   /* the emulator is slow: start grown, in the Sky Kingdom, with Scarlet */
         g_dragon.stage = ST_DRAGON; g_dragon.max_hearts = g_dragon.hearts = 5; g_dragon.growth = 0;
-        g_wrescued[WK_FOREST] = 1; g_has[1] = 1; g_fk = 1; g_diff = 0; dragon_init(&g_team[1], &g_world, 0, 0); enter_world(WK_SKY, 4, -4, 2.3f); }
+        g_wrescued[WK_FOREST] = 1; g_has[1] = 1; g_fk = 1; g_diff = 0; dragon_init(&g_team[1], &g_world, 0, 0); enter_world(WK_SKY, 4, -4, 2.3f); g_kaine_done = 1; g_kaine_t = 0; }
     g_tour_real_dt = g_tour_real_dt * 0.9f + dt * 0.1f;
     if (dt < 0.08f) dt = 0.08f;   /* the cloud emulator is slow: let game time run ahead so the clip covers more */
     tour_input(&tourpad, g_time); pads = &tourpad; npads = 1;
@@ -1088,11 +1098,15 @@ void game_frame(const Pad *pads, int npads, float dt) {
       if (g_travel_t < 0 && g_travel_cd <= 0 && column_at(&ccx, &ccz)) { float dx = g_dragon.x - ccx, dz = g_dragon.z - ccz; float gy = world_height(&g_world, ccx, ccz);
           if (dx * dx + dz * dz < 3.5f * 3.5f && g_dragon.y < gy + 30) { g_travel_t = 0; g_travel_to = g_wk == WK_FOREST ? WK_SKY : WK_FOREST; sfx_play(SFX_FLAP, 1.0f, 0); sfx_play(SFX_GROW, 0.7f, 0); platform_rumble(0.5f, 1.0f);
               snprintf(g_msg, sizeof g_msg, g_travel_to == WK_SKY ? "THE WIND CARRIES YOU UP TO THE SKY KINGDOM..." : "THE WIND CARRIES YOU DOWN TO EVERLEAF WILDS..."); g_msg_t = 4; } } }
+    if (g_kaine_t >= 0) { float before = g_kaine_t; g_kaine_t += dt;
+        if (before < 2.5f && g_kaine_t >= 2.5f) { snprintf(g_msg, sizeof g_msg, "KAINE BLACKFEATHER! HE SWOOPS PAST ON HIS MECH DRAGON: YOU WILL NEVER FREE THEM ALL!"); g_msg_t = 6; sfx_play(SFX_ROAR, 1.0f, 0); platform_rumble(0.8f, 0.8f); }
+        if (g_kaine_t > 13) g_kaine_t = -1; }
     if (g_travel_t >= 0) { float before = g_travel_t; g_travel_t += dt; g_dragon.y += 12 * dt; g_dragon.mode = DM_AIR; g_dragon.vy = 0;
         if (before < 0.9f && g_travel_t >= 0.9f) { float ax = g_travel_to == WK_SKY ? 4 : g_world.arena_x, az = g_travel_to == WK_SKY ? -4 : g_world.arena_z;
             if (g_travel_to == WK_FOREST) { ax = -62 + 8; az = 60 - 8; }   /* beside the forest column */
             enter_world(g_travel_to, ax, az, g_travel_to == WK_SKY ? 2.3f : 0.8f); g_travel_cd = 4; save_progress();
-            snprintf(g_msg, sizeof g_msg, g_wk == WK_SKY ? (g_wrescued[WK_SKY] ? "THE SKY KINGDOM" : "THE SKY KINGDOM! A DRAGONET IS CAGED ON THE BIG ISLAND") : "EVERLEAF WILDS"); g_msg_t = 5; }
+            snprintf(g_msg, sizeof g_msg, g_wk == WK_SKY ? (g_wrescued[WK_SKY] ? "THE SKY KINGDOM" : "THE SKY KINGDOM! A DRAGONET IS CAGED ON THE BIG ISLAND") : "EVERLEAF WILDS"); g_msg_t = 5;
+            if (g_wk == WK_SKY && !g_wrescued[WK_SKY] && !g_kaine_done) { g_kaine_done = 1; g_kaine_t = 0; } }
         if (g_travel_t > 1.8f) g_travel_t = -1; }
     { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
       float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4));
