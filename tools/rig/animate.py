@@ -62,7 +62,8 @@ def wings_folded():
 def wings_flap(t, amp=45, base=10):
     # the shoulder does the work (a deep, slightly quick downstroke), the outer wing lags behind and bends further
     s1 = S(t); down = s1 - 0.25 * (1 - s1 * s1)   # a little sharper at the bottom of the stroke
-    a = base + amp * down; b = 0.12 * amp * S(t, -0.6); c = 0.1 * amp * S(t, -1.0)   # outer wing follows the shoulder, only a slight lag
+    a = base + amp * down * (1.0 if down > 0 else 1.45)   # the wing is swept back, so the downstroke needs more turn to bring the tips under the belly
+    b = 0.12 * amp * S(t, -0.6); c = 0.1 * amp * S(t, -1.0)   # outer wing follows the shoulder, only a slight lag
     sweep = 0.18 * amp * S(t, -0.5)   # the wing also sweeps a little forward on the downstroke
     return {'wingL_1': (a, 0, -sweep), 'wingR_1': (a, 0, sweep), 'wingL_2': (b, 0, 0), 'wingR_2': (b, 0, 0), 'wingL_3': (c, 0, 0), 'wingR_3': (c, 0, 0)} if has_wings else {}
 def legs_walk(t, swing=28, lift=22, ph_fl=0.0):
@@ -99,14 +100,17 @@ def run(t):
     rots.update(tail(t, 18, 0.5, nod=-5)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, (0.055 if CH < 1 else 0.025) * H * max(0, S(2 * t, 0.3)))}
 def fly(t):
-    rots = wings_flap(t, 50, -42)
+    # bird-like stroke: the wing rests ~42 deg up, so -42 = level; +-88 around level brings the tips nearly together
+    # over the back on the upstroke and under the belly on the downstroke
+    rots = wings_flap(t, 88, -42)
     tuck = {f'leg{tag}_upper': (35 if tag[0] == 'F' else 40, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')}
     tuck.update({f'leg{tag}_lower': (-70, 0, 0) for tag in ('FL', 'FR', 'BL', 'BR')})
     rots.update(tuck)
-    rots.update({'spine1': (-6 + 2 * S(t), 0, 0), 'spine2': (-4 + 2 * S(t, 0.5), 0, 0), 'chest': (-4, 0, 0),
-                 'neck1': (-6, 0, 0), 'neck2': (-6, 0, 0), 'head': (14 - 3 * S(t), 0, 0)})
-    rots.update(tail(t, 6, 0.0, nod=-4 * S(t, 1.5) - 4))
-    return rots, {'hips': (0, 0, 0.03 * H * S(t, -1.2))}
+    # the body answers every beat: chest rises on the downstroke, a wave runs from the neck back through the tail
+    rots.update({'spine1': (-6 + 5 * S(t, 0.6), 0, 0), 'spine2': (-4 + 5 * S(t, 1.2), 0, 0), 'chest': (-4 + 4 * S(t), 0, 0),
+                 'neck1': (-6 - 5 * S(t, -0.4), 0, 0), 'neck2': (-6 - 4 * S(t, -0.8), 0, 0), 'head': (14 + 6 * S(t, -1.2), 0, 0)})
+    rots.update({f'tail{i+1}': (-4 + 9 * S(t, 1.6 + i * 0.8), 0, 6 * S(t * 0.5, i * 0.9)) for i in range(5)})
+    return rots, {'hips': (0, 0, -0.07 * H * S(t))}   # the body sinks while the wings are up, lifts on the downstroke
 def glide(t):
     rots = wings_flap(t, 4, -40)
     rots.update({k: v for k, v in fly(t)[0].items() if k.startswith('leg')})

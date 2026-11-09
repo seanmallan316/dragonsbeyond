@@ -267,9 +267,10 @@ static int load_progress(void) {
     gfx_log("progress loaded: %s the %s, growth %.0f", NAMES[g_name], dragon_stage_name(stage), growth); return 1; }
 
 /* ---------- camera ---------- */
+static float g_turn, g_bank, g_bodyph;   /* smoothed turn rate (rad/s), bank angle, phase of the body wave */
 static Mat4 dragon_matrix(const Dragon *d, float scale) {
     Mat4 m = m4_mul(m4_translate(d->x, d->y, d->z), m4_rotate_y(d->yaw));
-    if (d->mode == DM_AIR) m = m4_mul(m, m4_rotate_x(-d->pitch * 0.8f));
+    if (d->mode == DM_AIR) m = m4_mul(m4_mul(m, m4_rotate_x(-d->pitch * 0.8f)), m4_rotate_z(g_bank));
     return m4_mul(m, m4_scale(scale, scale, scale)); }
 static void camera_update(float dt) {
     const Dragon *d = &g_dragon; float L = dragon_length(d->stage);
@@ -368,6 +369,9 @@ static void draw_dragon(const Dragon *d) {
     Mat4 base = dragon_matrix(d, sc); int clip = anim3d_clip(m, dragon_anim_name(d->anim)); if (clip < 0) clip = 0;
     gfx_state(ST_SOLID);
     float glow = d->evolve_t > 0 ? 0.5f + 0.5f * sinf(g_time * 20) : 0;
+    { int air = d->mode == DM_AIR; float arc = clampf(g_turn * (air ? 0.55f : 0.35f), -1, 1);
+      float climb = air ? clampf(d->vy / 5.0f, 0, 1) : 0; float side = air ? 0.35f + 0.25f * fabsf(arc) : (d->speed > 0.5f ? 0.25f : 0.0f);
+      anim3d_set_bend(arc, side, air ? 0.3f + 0.9f * climb : 0, g_bodyph); }
     gfx_bump(2); anim3d_draw(m, clip, d->anim_t, &base, 1.12f + glow, 1.12f + glow, 1.1f + 0.6f * glow, 1); gfx_bump(0); gfx_bind(NULL); }
 
 static void draw_sparkles(const Dragon *d, Vec3 eye) {
@@ -537,7 +541,7 @@ static void draw_title_dragons(void) {
         float R = 15 + k * 9, w = (0.5f - k * 0.07f) * (k & 1 ? -1 : 1), a = g_time * w + k * 1.7f, h = 7 + k * 5 + 2.5f * sinf(g_time * 0.8f + k);
         Vec3 pos = v3(cosf(a) * R, h, sinf(a) * R); float yaw = atan2f(-sinf(a) * w, cosf(a) * w) ;   /* face along the circle */
         Mat4 base = m4_mul(m4_mul(m4_translate(pos.x, pos.y, pos.z), m4_rotate_y(yaw)), m4_mul(m4_rotate_z(w > 0 ? -0.35f : 0.35f), m4_scale(sc, sc, sc)));
-        int clip = anim3d_clip(m, "fly"); gfx_state(ST_SOLID); anim3d_draw(m, clip < 0 ? 0 : clip, g_time + k * 0.3f, &base, 1.12f, 1.12f, 1.1f, 1); }
+        int clip = anim3d_clip(m, "fly"); gfx_state(ST_SOLID); anim3d_set_bend(0.35f * sinf(g_time * 0.4f + k), 0.45f, 0.6f, g_time * 5.5f + k); anim3d_draw(m, clip < 0 ? 0 : clip, g_time + k * 0.3f, &base, 1.12f, 1.12f, 1.1f, 1); }
     gfx_bind(NULL); }
 static void title_camera(void) {
     float a = g_time * 0.07f; g_eye = v3(cosf(a) * 9, world_height(&g_world, cosf(a) * 9, sinf(a) * 9) + 3.0f, sinf(a) * 9); g_at = v3(-cosf(a) * 10, 15, -sinf(a) * 10); }   /* inside the 14 m clearing, clear of the trees */
@@ -600,7 +604,12 @@ void game_frame(const Pad *pads, int npads, float dt) {
         gfx_frame_end(); return; }
     if (p->up && !q->up) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
     g_look_x = p->rx;
+    float yaw_before = g_dragon.yaw;
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt);
+    { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
+      float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4));
+      float want_bank = g_dragon.mode == DM_AIR ? clampf(-g_turn * 0.45f, -0.7f, 0.7f) : 0; g_bank += (want_bank - g_bank) * (1 - expf(-dt * 3));
+      float spd = g_dragon.mode == DM_AIR ? 5.5f : 2.0f + g_dragon.speed * 1.2f; g_bodyph = fmodf(g_bodyph + dt * spd, 6.28318f * 100); }
 #ifdef DB_TOUR
     g_tour_a = in.a; g_tour_presses += in.a_press; g_tour_takeoffs += (ev & 4) != 0;
 #endif

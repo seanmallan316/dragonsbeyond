@@ -27,17 +27,25 @@ int anim3d_load(Anim3D *a, const char *name) {
     a->ok = a->nc > 0 && a->tex && a->vb && a->mesh;
     gfx_log("animated %s: %s (%d corners, %d triangles, %d moves)", name, a->ok ? "loaded" : "failed", a->nv, a->nt, a->nc);
     return a->ok; }
+static float g_arc, g_side, g_up, g_phase;
+void anim3d_set_bend(float arc, float side, float up, float phase) { g_arc = arc; g_side = side; g_up = up; g_phase = phase; }
 int anim3d_clip(const Anim3D *a, const char *name) { for (int c = 0; c < a->nc; c++) if (!strcmp(a->clip[c].name, name)) return c; return -1; }
 void anim3d_draw(Anim3D *a, int c, float t, const Mat4 *base, float r, float g, float b, float alpha) {
     if (!a->ok || c < 0 || c >= a->nc) return; const A3Clip *cl = &a->clip[c];
     float fpos = cl->dur > 0 ? t / cl->dur * (cl->loop ? cl->nf : cl->nf - 1) : 0; int i0, i1; float w;
     if (cl->loop) { fpos = fmodf(fpos, (float)cl->nf); if (fpos < 0) fpos += cl->nf; i0 = (int)fpos; i1 = (i0 + 1) % cl->nf; w = fpos - i0; }
     else { if (fpos < 0) fpos = 0; if (fpos > cl->nf - 1) fpos = (float)(cl->nf - 1); i0 = (int)fpos; i1 = i0 + 1 < cl->nf ? i0 + 1 : i0; w = fpos - i0; }
-    if (a->filled && a->last_c == c && a->last_t == t) { gfx_bind(a->tex); gfx_draw_ex(a->mesh, base, r, g, b, alpha, 0.25f, 0, 0, 0); return; }   /* same pose as the last call this frame: reuse it */
-    a->filled = 1; a->last_c = c; a->last_t = t;
+    float bendkey = g_arc * 7.1f + g_side * 3.3f + g_up * 1.7f + g_phase * 0.013f;
+    if (a->filled && a->last_c == c && a->last_t == t && a->last_bend == bendkey) { gfx_bind(a->tex); gfx_draw_ex(a->mesh, base, r, g, b, alpha, 0.25f, 0, 0, 0); return; }   /* same pose as the last call this frame: reuse it */
+    a->filled = 1; a->last_c = c; a->last_t = t; a->last_bend = bendkey; int bend = g_arc != 0 || g_side != 0 || g_up != 0;
     const uint8_t *f0 = cl->data + (size_t)i0 * a->nv * 10, *f1 = cl->data + (size_t)i1 * a->nv * 10;
     for (int k = 0; k < a->nt * 3; k++) { uint32_t v = a->idx[k]; const uint8_t *p0 = f0 + v * 10, *p1 = f1 + v * 10; Vertex *o = &a->vb[k];
         o->px = (rd16(p0) + (rd16(p1) - rd16(p0)) * w) * (1.0f / 4000); o->py = (rd16(p0 + 2) + (rd16(p1 + 2) - rd16(p0 + 2)) * w) * (1.0f / 4000); o->pz = (rd16(p0 + 4) + (rd16(p1 + 4) - rd16(p0 + 4)) * w) * (1.0f / 4000);
         o->nx = ((int8_t)p0[6] + ((int8_t)p1[6] - (int8_t)p0[6]) * w) * (1.0f / 127); o->ny = ((int8_t)p0[7] + ((int8_t)p1[7] - (int8_t)p0[7]) * w) * (1.0f / 127); o->nz = ((int8_t)p0[8] + ((int8_t)p1[8] - (int8_t)p0[8]) * w) * (1.0f / 127);
+        if (bend) {   /* u: -1 at the tail tip .. +1 at the snout; the middle of the body stays put, the ends swing */
+            float u = o->pz * (1.0f / 0.95f), au = fabsf(u), env = 0.25f + 0.75f * au; float wv = sinf(g_phase - u * 2.6f), wc = cosf(g_phase - u * 2.6f);
+            o->px += g_arc * u * u * 0.5f + g_side * wv * 0.16f * env;
+            o->py += g_up * sinf(g_phase - u * 2.6f + 1.2f) * 0.14f * env;
+            float slope = g_arc * 2.0f * u * 0.5f + g_side * -2.6f * wc * 0.16f * env; o->nx -= slope * o->nz; }   /* tilt the normals with the curve */
         o->u = a->uv[v * 2]; o->v = a->uv[v * 2 + 1]; o->r = o->g = o->b = o->a = 1; }
     gfx_mesh_update(a->mesh, a->vb, (uint32_t)(3 * a->nt)); gfx_bind(a->tex); gfx_draw_ex(a->mesh, base, r, g, b, alpha, 0.25f, 0, 0, 0); }
