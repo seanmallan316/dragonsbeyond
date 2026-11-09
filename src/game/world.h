@@ -10,6 +10,7 @@
 #define W_MAXFOOD 160
 #define W_MAXDRONES 6
 #define W_MAXHOUNDS 4
+#define W_MAXTHIEVES 5
 
 enum { P_TREE = 0, P_PALM, P_BUSH, P_ROCK, P_FERN, P_SPIRE, P_N };   /* spires: tall rock needles on the sky islands */
 enum { WK_FOREST = 0, WK_SKY, WK_N };   /* which world: Everleaf Wilds, the Sky Kingdom */
@@ -33,6 +34,7 @@ typedef struct {
     float crystal_x, crystal_y, crystal_z; int crystal_found;   /* the hidden egg crystal (one per world) */
     Drone drone[W_MAXDRONES]; int ndrone;
     Drone hound[W_MAXHOUNDS]; int nhound;
+    Drone thief[W_MAXTHIEVES]; int nthief;   /* Scale Thieves: state 0 lurk, 1 sneak up, 2 run off with food (flap = how much), 3 knocked out, 4 hiding */
     float arena_x, arena_z, arena_r, arena_y;   /* the boss clearing: flat ground ringed by big trees */
     int arena_tree[8]; int narena_tree;         /* prop indices of the ring trees (the boss rams these) */
     float cage_x, cage_y, cage_z;               /* where the captured dragonet's cage hangs */   /* Shock Hounds: same record, on the ground. state 0 patrol, 1 chase, 2 retreat, 3 knocked out */
@@ -51,6 +53,8 @@ int   world_nearest_food(const World *w, float x, float z, float reach);   /* in
 int   world_drones(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar);
 int   world_hounds(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar, int in_air);   /* same bitmask as the drones */
 /* a dragon's power hits Kaine's helpers: everything within range (and inside the cone ahead, cos_cone = -1 for all round) is knocked out. Returns how many. */
+/* Scale Thieves: returns 1 when one steals (amount in *stolen), 2 when one is caught (food back in *recovered) */
+int   world_thieves(World *w, float dt, float px, float py, float pz, float reach, int whip, float carry, float *stolen, float *recovered);
 int   world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone);
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */

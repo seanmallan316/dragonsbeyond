@@ -28,4 +28,13 @@ int main(void) {
     boss_init(&b, &w); int stunned = 0; px = w.arena_x; pz = w.arena_z;
     for (int f = 0; f < 30 * 3; f++) { float gx = b.x + 6, gz = b.z; int ev = boss_update(&b, &w, dt, gx, b.y, gz, 1.5f, 0, f == 45); if (ev & 32) stunned = 1; }
     if (!stunned) { printf("FAIL: roar did not stun\n"); return 1; }
+    /* Scale Thieves (sky world): one sneaks up and steals food; catching it with the tail gives it back */
+    static World sw; world_make_kind(&sw, 2127, WK_SKY); if (sw.nthief < 1) { printf("FAIL: no thieves\n"); return 1; }
+    Drone *th = &sw.thief[0]; float qx = th->x + 6, qz = th->z, st = 0, rc = 0, got = 0, back = 0;
+    if (world_is_void(&sw, qx, qz)) qx = th->x - 6;
+    for (int f = 0; f < 30 * 20 && !got; f++) { float sv, rv; int ev = world_thieves(&sw, dt, qx, world_height(&sw, qx, qz), qz, 1.5f, 0, 30, &sv, &rv); if (ev & 1) { got = 1; st = sv; } }
+    if (!got) { printf("FAIL: the thief never stole\n"); return 1; }
+    for (int f = 0; f < 30 * 2 && !back; f++) { qx = th->x; qz = th->z; float sv, rv; int ev = world_thieves(&sw, dt, qx, th->y, qz, 1.5f, 1, 20, &sv, &rv); if (ev & 2) { back = 1; rc = rv; } }
+    if (!back || rc < st) { printf("FAIL: catching the thief did not give the food back (%.0f of %.0f)\n", rc, st); return 1; }
+    printf("scale thief stole %.0f and gave %.0f back\n", st, rc);
     printf("boss test OK\n"); return 0; }

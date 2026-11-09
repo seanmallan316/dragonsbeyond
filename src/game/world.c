@@ -218,16 +218,37 @@ static void make_sky(World *w) {
     w->crystal_x = ISLES[4].x + 3; w->crystal_z = ISLES[4].z - 2; w->crystal_y = world_height(w, w->crystal_x, w->crystal_z) + 1.2f;
     /* Feather Drones circle the islands; no Shock Hounds up here */
     w->ndrone = 6; for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; const Isle *I = &ISLES[2 + i % (N_ISLES - 2)];   /* not over Stormtalon's island */ d->hx = I->x; d->hz = I->z; d->x = d->hx; d->z = d->hz; d->y = I->top + 9; d->t = i * 1.3f; }
-    w->nhound = 0; }
+    w->nhound = 0;
+    w->nthief = 4; for (int i = 0; i < w->nthief; i++) { Drone *t = &w->thief[i]; const Isle *I = &ISLES[2 + i]; t->hx = I->x + 3; t->hz = I->z - 2; t->x = t->hx; t->z = t->hz; t->y = world_height(w, t->x, t->z); t->t = i * 2.1f; } }
 void world_make_kind(World *w, unsigned seed, int kind) {
     if (kind != WK_SKY) { world_make(w, seed); return; }
     memset(w, 0, sizeof *w); w->seed = seed; w->kind = WK_SKY; g_rs = seed * 7919u + 23; make_sky(w); }
 int world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone) {
     int n = 0; float dl = sqrtf(dx * dx + dz * dz); if (dl > 1e-4f) { dx /= dl; dz /= dl; }
-    for (int pass = 0; pass < 2; pass++) { Drone *arr = pass ? w->hound : w->drone; int cnt = pass ? w->nhound : w->ndrone;
+    for (int pass = 0; pass < 3; pass++) { Drone *arr = pass == 2 ? w->thief : (pass ? w->hound : w->drone); int cnt = pass == 2 ? w->nthief : (pass ? w->nhound : w->ndrone);
         for (int i = 0; i < cnt; i++) { Drone *d = &arr[i]; if (d->state == 3) continue;
             float ex = d->x - x, ey = d->y - y, ez = d->z - z; float dist = sqrtf(ex * ex + ey * ey + ez * ez); if (dist > range) continue;
             if (cos_cone > -1 && dist > 1.0f && (ex * dx + ez * dz) / sqrtf(ex * ex + ez * ez + 1e-6f) < cos_cone) continue;
+            if (pass == 2) continue;   /* thieves are handled by world_thieves (they drop what they stole) */
             d->state = 3; d->t = 0; n++; } }
     return n; }
+static int thief_step_ok(const World *w, float x, float z) { return !(w->kind == WK_SKY && world_is_void(w, x, z)) && !world_in_pond(w, x, z) && fabsf(x) < W_SIZE / 2 - 4 && fabsf(z) < W_SIZE / 2 - 4; }
+int world_thieves(World *w, float dt, float px, float py, float pz, float reach, int whip, float carry, float *stolen, float *recovered) {
+    int ev = 0; *stolen = 0; *recovered = 0;
+    for (int i = 0; i < w->nthief; i++) { Drone *t = &w->thief[i]; t->t += dt;
+        float dx = px - t->x, dz = pz - t->z, dist = sqrtf(dx * dx + dz * dz); float sp = 0, yaw = t->yaw;
+        if (t->state == 3) { if (t->t > 12) { t->state = 4; t->t = 0; } continue; }
+        if (t->state == 4) { if (t->t > 18) { t->state = 0; t->t = 0; t->x = t->hx; t->z = t->hz; t->flap = 0; } continue; }
+        if (whip && dist < reach + 0.6f && fabsf(py - t->y) < reach + 1) {   /* caught! it drops what it stole */
+            if (t->flap > 0) { *recovered += t->flap; t->flap = 0; } t->state = 3; t->t = 0; ev |= 2; continue; }
+        if (t->state == 0) { float a = t->t * 0.7f + i; float tx = t->hx + cosf(a) * 4, tz = t->hz + sinf(a * 1.3f) * 4; yaw = atan2f(tx - t->x, tz - t->z); sp = 1.5f;
+            if (dist < 18 && carry >= 10 && fabsf(py - t->y) < 3) { t->state = 1; t->t = 0; } }
+        else if (t->state == 1) { yaw = atan2f(dx, dz); sp = 5.5f;
+            if (dist < reach * 0.6f + 0.5f && fabsf(py - t->y) < 2) { t->flap = 10; *stolen += 10; ev |= 1; t->state = 2; t->t = 0; }
+            else if (dist > 26 || t->t > 10 || fabsf(py - t->y) > 4) { t->state = 0; t->t = 0; } }
+        else if (t->state == 2) { yaw = atan2f(-dx, -dz) + 0.6f * sinf(t->t * 2); sp = 7; if (t->t > 14) { t->state = 4; t->t = 0; } }   /* gone with the food */
+        float nx = t->x + sinf(yaw) * sp * dt, nz = t->z + cosf(yaw) * sp * dt;
+        if (thief_step_ok(w, nx, nz)) { t->x = nx; t->z = nz; } else t->yaw += 1.5f * dt;
+        t->yaw = yaw; t->y = world_height(w, t->x, t->z); }
+    return ev; }
 

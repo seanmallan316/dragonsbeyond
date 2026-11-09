@@ -503,6 +503,17 @@ static void draw_food3d(Vec3 eye) {
             Vec3 a2 = v3(a.x - fw.x * 0.35f, a.y, a.z - fw.z * 0.35f), b2 = v3(b.x - fw.x * 0.5f, b.y, b.z - fw.z * 0.5f); Vec3 n = v3(0, 1, 0);
             bq_push(a, n, 0.22f, 0.23f, 0.27f); bq_push(b, n, 0.34f, 0.36f, 0.42f); bq_push(b2, n, 0.34f, 0.36f, 0.42f); bq_push(a, n, 0.22f, 0.23f, 0.27f); bq_push(b2, n, 0.34f, 0.36f, 0.42f); bq_push(a2, n, 0.22f, 0.23f, 0.27f);
             n = v3(0, -1, 0); bq_push(a, n, 0.2f, 0.21f, 0.25f); bq_push(b2, n, 0.3f, 0.32f, 0.38f); bq_push(b, n, 0.3f, 0.32f, 0.38f); bq_push(a, n, 0.2f, 0.21f, 0.25f); bq_push(a2, n, 0.2f, 0.21f, 0.25f); bq_push(b2, n, 0.3f, 0.32f, 0.38f); } }
+    for (int i = 0; i < g_world.nthief; i++) { const Drone *t = &g_world.thief[i]; if (t->state == 4) continue; float dx = t->x - eye.x, dz = t->z - eye.z; if (dx * dx + dz * dz > 120 * 120) continue;
+        int ko = t->state == 3; float bob = ko ? 0 : fabsf(sinf(g_time * (t->state ? 14 : 6) + i)) * 0.08f; Vec3 fw = v3(sinf(t->yaw), 0, cosf(t->yaw)), rt = v3(fw.z, 0, -fw.x);
+        float y = t->y + bob; float lean = ko ? 0.0f : (t->state ? 0.25f : 0.08f);
+        if (ko) { batch_ball(v3(t->x, t->y + 0.15f, t->z), 0.45f, 0.15f, 0.3f, 3, 8, 0.12f, 0.08f, 0.16f, 0); continue; }   /* flat on the ground */
+        batch_cyl(v3(t->x, y, t->z), v3(t->x + fw.x * lean, y + 0.85f, t->z + fw.z * lean), 0.34f, 0.07f, 8, 0.13f, 0.09f, 0.17f);   /* black-feather cloak */
+        for (int k = 0; k < 6; k++) { float a = k * 1.047f + t->yaw; batch_cyl(v3(t->x + sinf(a) * 0.3f, y + 0.05f, t->z + cosf(a) * 0.3f), v3(t->x + sinf(a) * 0.42f, y - 0.02f, t->z + cosf(a) * 0.42f), 0.05f, 0.01f, 4, 0.07f, 0.06f, 0.09f); }   /* ragged hem */
+        Vec3 hd = v3(t->x + fw.x * (lean + 0.08f), y + 0.95f, t->z + fw.z * (lean + 0.08f));
+        batch_ball(hd, 0.2f, 0.22f, 0.2f, 4, 8, 0.11f, 0.08f, 0.14f, 0);   /* hood */
+        for (int sgn = -1; sgn <= 1; sgn += 2) batch_ball(v3(hd.x + fw.x * 0.17f + rt.x * 0.07f * sgn, hd.y, hd.z + fw.z * 0.17f + rt.z * 0.07f * sgn), 0.045f, 0.035f, 0.03f, 2, 5, 1.6f, 1.3f, 0.2f, 0);   /* glowing eyes */
+        batch_cyl(v3(hd.x, hd.y + 0.15f, hd.z), v3(hd.x - fw.x * 0.25f, hd.y + 0.45f, hd.z - fw.z * 0.25f), 0.06f, 0.0f, 4, 0.1f, 0.07f, 0.12f);   /* the hood's point */
+        if (t->flap > 0) batch_ball(v3(t->x - fw.x * 0.35f, y + 0.75f, t->z - fw.z * 0.35f), 0.26f, 0.3f, 0.24f, 4, 8, 0.55f, 0.38f, 0.2f, 0); }   /* the stolen food sack */
     for (int i = 0; i < g_world.nhound; i++) { const Drone *h = &g_world.hound[i]; float dx = h->x - eye.x, dz = h->z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;
         Vec3 fw = v3(sinf(h->yaw), 0, cosf(h->yaw)), rt = v3(fw.z, 0, -fw.x); int ko = h->state == 3; float gait = sinf(h->flap);
         float by = h->y + (ko ? 0.25f : 0.55f); float gl = 0.6f + 0.4f * sinf(g_time * 8);
@@ -785,6 +796,7 @@ static void draw_map(void) {
     if (g_boss.state != B_DOWN) map_disc(MX(g_boss.x), MY(g_boss.z), 7, 8, 1.0f, 0.45f, 0.1f, 1);
     if (!g_rescued) map_disc(MX(g_world.cage_x), MY(g_world.cage_z), 5, 8, 0.4f, 0.7f, 1.0f, 1);
     if (g_friend.on) map_disc(MX(g_friend.x), MY(g_friend.z), 4, 6, 0.9f, 0.2f, 0.2f, 1);
+    for (int i = 0; i < g_world.nthief; i++) if (g_world.thief[i].state < 3) map_disc(MX(g_world.thief[i].x), MY(g_world.thief[i].z), 3, 6, 0.6f, 0.2f, 0.7f, 1);
     for (int i = 0; i < g_world.ndrone; i++) if (g_world.drone[i].state != 3) map_disc(MX(g_world.drone[i].x), MY(g_world.drone[i].z), 4, 6, 0.9f, 0.2f, 0.1f, 1);
     if (!g_world.crystal_found && d->stage >= ST_DRAGON) map_disc(MX(g_world.crystal_x), MY(g_world.crystal_z), 5 + 2 * sinf(g_time * 3), 8, 0.6f, 0.95f, 1, 0.8f);
     /* the dragon: a bright arrow pointing where it faces, with a pulse ring */
@@ -1098,7 +1110,11 @@ void game_frame(const Pad *pads, int npads, float dt) {
       int hev = world_hounds(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * dragon_length(g_dragon.stage) + 0.9f, whip, roar, g_dragon.mode == DM_AIR);
       if ((hev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A SHOCK HOUND! RUN (ZR), HOP (A), OR SWAT IT (B)"); g_msg_t = 4;
           if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
-      if (hev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 5; snprintf(g_msg, sizeof g_msg, "HOUND DOWN!"); g_msg_t = 2; } }
+      if (hev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 5; snprintf(g_msg, sizeof g_msg, "HOUND DOWN!"); g_msg_t = 2; }
+      { float L = dragon_length(g_dragon.stage), stolen, rec; int pw = g_power_t > 0.3f;
+        int tev = world_thieves(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, pw ? 8 + 2 * L : 0.7f * L + 0.9f, whip || pw, g_dragon.growth, &stolen, &rec);
+        if (tev & 1) { g_dragon.growth = fmaxf(0, g_dragon.growth - stolen); sfx_play(SFX_HIT, 0.5f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, "A SCALE THIEF STOLE YOUR FOOD! CATCH IT WITH YOUR TAIL (B)"); g_msg_t = 4; }
+        if (tev & 2) { g_dragon.growth += rec + 3; sfx_play(SFX_PICKUP, 0.7f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, rec > 0 ? "CAUGHT! YOU GOT YOUR FOOD BACK" : "SCALE THIEF CAUGHT!"); g_msg_t = 3; } } }
     boss_frame(dt);
     coop_frame(pads, npads, dt);
     if (ev & 1) { platform_rumble(0.3f, 0.1f); sfx_play(SFX_MUNCH, 0.6f, 0); sfx_play(SFX_PICKUP, 0.3f, 0); }
