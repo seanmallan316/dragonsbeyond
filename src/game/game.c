@@ -710,7 +710,7 @@ static void draw_title_hud(void) {
         for (int i = 0; i < 2; i++) { float x = 240 + i * 440, y = 260; int sel = g_name == i;
             batch_rect(&g_b, x, y, 360, 230, sel ? 0.25f : 0.1f, sel ? 0.5f : 0.2f, sel ? 0.2f : 0.1f, 0.9f);
             if (sel) { batch_rect(&g_b, x - 6, y - 6, 372, 6, 1, 1, 0.6f, pulse); batch_rect(&g_b, x - 6, y + 230, 372, 6, 1, 1, 0.6f, pulse); batch_rect(&g_b, x - 6, y, 6, 230, 1, 1, 0.6f, pulse); batch_rect(&g_b, x + 360, y, 6, 230, 1, 1, 0.6f, pulse); }
-            batch_text(&g_b, NAMES[i], x + 180 - text_width(NAMES[i], 40) / 2, y + 40, 40, 1, 1, 1, 1);
+            { float ns = 40; while (ns > 20 && text_width(NAMES[i], ns) > 330) ns -= 2; batch_text(&g_b, NAMES[i], x + 180 - text_width(NAMES[i], ns) / 2, y + 40, ns, 1, 1, 1, 1); }
             batch_text(&g_b, i == 0 ? "GIRL" : "BOY", x + 180 - text_width(i == 0 ? "GIRL" : "BOY", 26) / 2, y + 110, 26, 0.9f, 1, 0.8f, 0.9f);
             batch_text(&g_b, "LEAFNADO + LEAF TAIL", x + 180 - text_width("LEAFNADO + LEAF TAIL", 18) / 2, y + 170, 18, 1, 1, 1, 0.7f); }
         text_c("LEFT / RIGHT : CHOOSE     A : START", 540, 24, 1, 1, 1, 0.8f); }
