@@ -767,6 +767,7 @@ static void draw_hud(int drc) {
 #ifdef DB_TOUR
     { char tb[200]; snprintf(tb, sizeof tb, "T %.0f FPS %.1f %s ANIM %d ACT %.1f EVO %.1f STAM %.2f VY %.1f A %d PRESSES %d TAKEOFFS %d", g_time, 1.0f / fmaxf(g_tour_real_dt, 0.001f), d->mode == DM_AIR ? "AIR" : d->mode == DM_SWIM ? "SWIM" : "GROUND", d->anim, d->act_t, d->evolve_t, d->stamina, d->vy, g_tour_a, g_tour_presses, g_tour_takeoffs); batch_text(&g_b, tb, 40, 690, 14, 1, 1, 0.6f, 0.9f); }
 #endif
+    if (!g_swap_open && g_tale_i < 0) {   /* the play HUD hides under the menus and story cards */
     /* hearts */
     for (int i = 0; i < (int)d->max_hearts; i++) ui_heart(58 + i * 42, 50, 44, clampf(d->hearts - i, 0, 1));
     if (g_p2 >= 0) {   /* player 2's dragon, top right */
@@ -791,8 +792,9 @@ static void draw_hud(int drc) {
     float L = dragon_length(d->stage);
     int near = world_nearest_food(&g_world, d->x + sinf(d->yaw) * 0.45f * L, d->z + cosf(d->yaw) * 0.45f * L, 0.5f * L + 1.2f);
     if (near >= 0 && d->mode != DM_AIR && d->act_t <= 0) text_c(food_is_meat(g_world.food[near].kind) ? "X : EAT (MEAT, GROWS FAST)" : "X : EAT", 555, 30, 1, 1, 0.7f, 0.9f);
-    if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) { float ma = clampf(g_msg_t, 0, 1), mw = fminf(text_width(g_msg, 26), 1060); int nl = text_wrap_n(g_msg, 0, 26, 1060, 0, 0, 0, 0, 0); float my = 652 - (nl - 1) * 39;
-        ui_panel(640 - mw / 2 - 70, my - 34, mw + 140, 92 + (nl - 1) * 39, 0.9f * ma, 0); text_wrap_c(g_msg, my, 26, 1060, 1, 0.96f, 0.86f, ma); }
+    }
+    if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) { float ma = clampf(g_msg_t, 0, 1), mw = fminf(text_width(g_msg, 26), 1060); int nl = text_wrap_n(g_msg, 0, 26, 1060, 0, 0, 0, 0, 0); float my = 644 - (nl - 1) * 39;
+        ui_panel(640 - mw / 2 - 70, my - 36, mw + 140, 100 + (nl - 1) * 39, 0.9f * ma, 0); text_wrap_c(g_msg, my, 26, 1060, 1, 0.96f, 0.86f, ma); }
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(g_wk == WK_SKY ? "SKY KINGDOM" : "EVERLEAF WILDS", 352, 34, a); }
     static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST"}; char cl[120]; snprintf(cl, sizeof cl, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : %s   + : SWAP", d->stage >= ST_DRAGON ? PW[g_kind] : "ROAR");
@@ -808,15 +810,15 @@ static void draw_hud(int drc) {
           static const char *QUIRK[K_N] = {"STRONG TAIL, FLIES WHEN GROWN", "LIGHT AS AIR: LONG GLIDES", "ICE CLAWS: RUNS FASTER"};
           static const float CARD[K_N][3] = {{0.08f, 0.22f, 0.1f}, {0.25f, 0.06f, 0.06f}, {0.12f, 0.18f, 0.28f}};
           for (int k = 0; k < K_N; k++) { if (!g_has[k]) continue; const Dragon *dd = k == g_kind ? &g_dragon : &g_team[k]; float x = x0 + slot++ * (cw + gap), cx = x + cw / 2 - 6; int sel = k == g_swap_sel;
-            ui_panel(x - 6, 228, cw, 290, 1, sel); ui_rect(&g_ub, x + 14, 248, cw - 52, 250, CARD[k][0], CARD[k][1], CARD[k][2], 0.35f);
-            const char *nm = kind_name(k); float ns = 34; while (ns > 18 && text_width(nm, ns) > cw - 30) ns -= 2; batch_text(&g_b, nm, cx - text_width(nm, ns) / 2, 262, ns, 1, 1, 1, 1);
+            ui_panel(x - 6, 212, cw, 330, 1, sel); ui_rect(&g_ub, x + 20, 240, cw - 64, 274, CARD[k][0], CARD[k][1], CARD[k][2], 0.35f);
+            const char *nm = kind_name(k); float ns = 30; while (ns > 18 && text_width(nm, ns) > cw - 90) ns -= 2; batch_text(&g_b, nm, cx - text_width(nm, ns) / 2, 262, ns, 1, 1, 1, 1);
             batch_text(&g_b, KIND_TITLE[k], cx - text_width(KIND_TITLE[k], 18) / 2, 310, 18, 0.8f, 0.9f, 1, 0.9f);
             const char *st = dragon_stage_name(dd->stage); batch_text(&g_b, st, cx - text_width(st, 24) / 2, 346, 24, 1, 0.9f, 0.6f, 1);
             for (int i = 0; i < (int)dd->max_hearts; i++) { float full = clampf(dd->hearts - i, 0, 1); float hx = cx - dd->max_hearts * 15 + i * 30; ui_heart(hx + 12, 402, 28, full); }
-            char gb[64]; snprintf(gb, sizeof gb, "FOOD %.0f / %.0f", dd->growth, dragon_need(dd->stage)); if (dd->stage < ST_BEYONDER) batch_text(&g_b, gb, cx - text_width(gb, 16) / 2, 422, 16, 0.7f, 1, 0.7f, 0.9f);
-            float qs = 16; while (qs > 11 && text_width(QUIRK[k], qs) > cw - 30) qs -= 1; batch_text(&g_b, QUIRK[k], cx - text_width(QUIRK[k], qs) / 2, 448, qs, 1, 1, 1, 0.75f);
-            if (k == g_kind) batch_text(&g_b, "PLAYING NOW", cx - text_width("PLAYING NOW", 16) / 2, 476, 16, 0.6f, 1, 0.6f, 1);
-            else if (k == g_fk) batch_text(&g_b, "FOLLOWING YOU", cx - text_width("FOLLOWING YOU", 16) / 2, 476, 16, 0.8f, 0.8f, 1, 1); } }
+            char gb[64]; snprintf(gb, sizeof gb, "FOOD %.0f / %.0f", dd->growth, dragon_need(dd->stage)); if (dd->stage < ST_BEYONDER) batch_text(&g_b, gb, cx - text_width(gb, 16) / 2, 434, 16, 0.7f, 1, 0.7f, 0.9f);
+            float qs = 15; while (qs > 10 && text_width(QUIRK[k], qs) > cw - 80) qs -= 1; batch_text(&g_b, QUIRK[k], cx - text_width(QUIRK[k], qs) / 2, 462, qs, 1, 1, 1, 0.75f);
+            if (k == g_kind) batch_text(&g_b, "PLAYING NOW", cx - text_width("PLAYING NOW", 16) / 2, 492, 16, 0.6f, 1, 0.6f, 1);
+            else if (k == g_fk) batch_text(&g_b, "FOLLOWING YOU", cx - text_width("FOLLOWING YOU", 16) / 2, 492, 16, 0.8f, 0.8f, 1, 1); } }
         text_c("LEFT / RIGHT: CHOOSE    A: SWAP    X: SHARE FOOD    B OR +: BACK", 560, 22, 1, 1, 1, 0.9f);
         if (g_msg_t > 0) text_c(g_msg, 610, 22, 1, 0.95f, 0.5f, 1); }
     ui_flush(); (void)drc; }
@@ -955,7 +957,7 @@ static void title_camera(void) {
     float a = g_time * 0.07f; g_eye = v3(cosf(a) * 9, world_height(&g_world, cosf(a) * 9, sinf(a) * 9) + 3.0f, sinf(a) * 9); g_at = v3(-cosf(a) * 10, 15, -sinf(a) * 10); }   /* inside the 14 m clearing, clear of the trees */
 static void draw_title_hud(void) {
     batch_clear(&g_b); ui_begin();
-    float pulse = 0.75f + 0.25f * sinf(g_time * 3), in = clampf(g_state_t * 1.2f, 0, 1);
+    float pulse = 0.75f + 0.25f * sinf(g_time * 3), in = fmaxf(clampf(g_state_t * 1.2f, 0, 1), g_state == G_TITLE ? clampf(g_time - 1.0f, 0, 1) : 0);
     if (g_state == G_TITLE) {
         ui_shade(0.55f); ui_embers(60, 1);
         ui_pic_rot(&g_ub, UI_RING, 640, 215, 560, 560, g_time * 0.08f, 1, 1, 1, 0.28f * in); ui_pic_rot(&g_ua, UI_RING, 640, 215, 470, 470, -g_time * 0.13f, 1, 0.7f, 0.3f, 0.07f * in);
