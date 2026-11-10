@@ -72,7 +72,7 @@ static const char *TALE[WK_N][3] = {
 static int g_tale_w;
 static int g_tale_i = -1; static float g_tale_t;
 static const char *active_name(void);
-static float g_time, g_cam_yaw; static int g_cam_mode;   /* 0 rider, 1 overhead, 2 dragon's eyes */
+static float g_time, g_cam_yaw; static int g_cam_mode;   /* 0 overhead (behind and above), 1 rider (on its back), 2 dragon's eyes; D-pad Up cycles */
 static Vec3 g_eye, g_at; static float g_look_x, g_look_hold;
 static Pad g_prev[KK_PADS];
 static char g_save_path[256], g_save_base[256]; static float g_save_t;
@@ -107,6 +107,8 @@ static Texture *tx_ui; static Mesh *m_dynui, *m_dynuia; static Vertex g_uiv[UI_C
 static uint32_t n_sky;
 
 static Texture *tx_sky; static int g_sky_photo;
+#define BOSS_SCALE 1.25f   /* the robot bosses, a size up from their models so they tower over a young dragon */
+static Texture *tx_iron_glow, *tx_storm_glow; static Mesh *m_bossring;
 static Vec3 sun_dir(void) { return v3_norm(v3(0.55f, 0.62f, 0.4f)); }   /* late-afternoon sun: long shadows, shapes read as solid */
 static float frand01(unsigned *s) { *s = *s * 1664525u + 1013904223u; return (float)((*s >> 8) & 0xFFFFFF) / 16777216.0f; }
 
@@ -348,19 +350,23 @@ static void build_props(void) {
 int game_init(int gfx_status) {
     g_gfx_status = gfx_status;
     world_make(&g_world, 2026);
-    dragon_init(&g_dragon, &g_world, 0, 0); boss_init(&g_boss, &g_world);
+    dragon_init(&g_dragon, &g_world, 0, 0); boss_init(&g_boss, &g_world); g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
     g_boss.hp = BOSS_HITS[g_diff];
     if (gfx_status != GFX_OK) return 0;
     tx_grass = asset_texture("grass", 1, NULL, NULL); tx_dirt = asset_texture("dirt", 1, NULL, NULL); tx_bark = asset_texture("bark", 1, NULL, NULL);
     tx_leaves = asset_texture("leaves", 1, NULL, NULL); tx_fern = asset_texture("fern", 0, NULL, NULL); tx_bush = asset_texture("bush", 0, NULL, NULL);
     tx_rock = asset_texture("rock", 1, NULL, NULL); tx_water = asset_texture("water", 1, NULL, NULL); tx_spark = asset_texture("sparkle", 0, NULL, NULL);
     tx_tuft = asset_texture("grasstuft", 0, NULL, NULL); tx_flower = asset_texture("flowers", 0, NULL, NULL); tx_cloud = asset_texture("cloud", 0, NULL, NULL);
-    tx_sky = asset_texture("sky", 1, NULL, NULL); tx_font = asset_texture("font_hd", 0, NULL, NULL); if (tx_font) g_font_hd = 1;
+    tx_sky = asset_texture("sky", 1, NULL, NULL); tx_iron_glow = asset_texture_file("models/ironhorn_glow.png", 1, NULL, NULL); tx_storm_glow = asset_texture_file("models/stormtalon_glow.png", 1, NULL, NULL); tx_font = asset_texture("font_hd", 0, NULL, NULL); if (tx_font) g_font_hd = 1;
     for (int i = 0; i < PM_N; i++) propmodel_load(&g_pm[i], PM_NAMES[i]);
     build_ground(); build_props();
     scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f); scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f);   /* the packed models are already life-size; the prop's own scale varies them */
     batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(6000); m_dynhud = gfx_mesh_dynamic(36000);
-    sfx_load_samples(); tx_ui = asset_texture("ui", 0, NULL, NULL); batch_init(&g_ub, g_uiv, UI_CAP); batch_init(&g_ua, g_uav, UI_CAP); m_dynui = gfx_mesh_dynamic(UI_CAP); m_dynuia = gfx_mesh_dynamic(UI_CAP);
+    sfx_load_samples(); tx_ui = asset_texture("ui", 0, NULL, NULL);
+    { tv_begin(48 * 6); Vec3 up = v3(0, 1, 0); for (int j = 0; j < 48; j++) { float a0 = j * 6.2831853f / 48, a1 = (j + 1) * 6.2831853f / 48, r0 = 3.2f, r1 = 3.9f;   /* the boss's warning ring */
+        Vec3 p0 = v3(sinf(a0) * r0, 0, cosf(a0) * r0), p1 = v3(sinf(a1) * r0, 0, cosf(a1) * r0), p2 = v3(sinf(a1) * r1, 0, cosf(a1) * r1), p3 = v3(sinf(a0) * r1, 0, cosf(a0) * r1);
+        tv_tri(p0, p2, p1, up, up, up, WHITE_U, WHITE_V, WHITE_U, WHITE_V, WHITE_U, WHITE_V, 1, 1, 1); tv_tri(p0, p3, p2, up, up, up, WHITE_U, WHITE_V, WHITE_U, WHITE_V, WHITE_U, WHITE_V, 1, 1, 1); }
+      m_bossring = tv_mesh(); } batch_init(&g_ub, g_uiv, UI_CAP); batch_init(&g_ua, g_uav, UI_CAP); m_dynui = gfx_mesh_dynamic(UI_CAP); m_dynuia = gfx_mesh_dynamic(UI_CAP);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
     /* the other dragons load when they are needed (their world, their rescue, a save that has them): a quicker start */
@@ -420,7 +426,7 @@ static void slot_summary(FILE *f, SlotInfo *si) { SaveData sd; if (!parse_save(f
 static void new_game(void) {   /* a fresh adventure: just the forest dragonet, in Everleaf Wilds */
     for (int k = 0; k < K_N; k++) g_has[k] = k == 0; for (int w = 0; w < WK_N; w++) { g_wrescued[w] = 0; g_wcrystal[w] = 0; }
     g_kind = 0; g_fk = 1; g_p2 = -1; g_friend.on = 0; dragon_init(&g_dragon, &g_world, 0, 0);
-    if (g_wk != WK_FOREST || g_world.kind != WK_FOREST) enter_world(WK_FOREST, 0, 0, 0); else { boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; }
+    if (g_wk != WK_FOREST || g_world.kind != WK_FOREST) enter_world(WK_FOREST, 0, 0, 0); else { boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE; }
     g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); }
 static int load_progress(void) {
     if (!g_save_path[0]) return 0; FILE *f = fopen(g_save_path, "r"); if (!f) return 0;
@@ -461,19 +467,22 @@ static void camera_update(float dt) {
     if (fabsf(g_look_x) > 0.15f) { g_cam_yaw += g_look_x * 2.6f * dt; g_look_hold = 1.2f; }
     else { g_look_hold -= dt; if (g_look_hold <= 0) g_cam_yaw += dy * k * (fabsf(d->speed) > 0.3f || d->mode == DM_AIR ? 1.0f : 0.35f); }
     Vec3 want, at;
-    if (g_cam_mode == 0) {        /* rider: just behind and above the dragon's back */
+    if (g_cam_mode == 0) {        /* overhead: behind and above, the whole dragon in view */
         float back = 1.6f * L + 1.2f, up = 0.75f * L + 0.9f; if (d->mode == DM_AIR) { back *= 1.15f; up *= 1.1f; }
         if (g_p2 >= 0) { float px = g_other.x - d->x, pz = g_other.z - d->z; float extra = clampf(sqrtf(px * px + pz * pz) - 6, 0, 30) * 0.45f; back += extra; up += extra * 0.5f; }   /* keep player 2 in the picture */
         want = v3(d->x - sinf(g_cam_yaw) * back, d->y + up, d->z - cosf(g_cam_yaw) * back);
         at = v3(d->x + sinf(g_cam_yaw) * 1.5f * L, d->y + 0.45f * L + (d->mode == DM_AIR ? d->pitch * 2 : 0), d->z + cosf(g_cam_yaw) * 1.5f * L); }
-    else if (g_cam_mode == 1) {   /* overhead: high up, looking down, still turning with the dragon */
-        float up = 5.0f * L + 10; want = v3(d->x - sinf(g_cam_yaw) * up * 0.45f, d->y + up, d->z - cosf(g_cam_yaw) * up * 0.45f); at = v3(d->x, d->y, d->z); }
+    else if (g_cam_mode == 1) {   /* rider: sitting on the dragon's back between the wings, its neck and head out in front */
+        float sy = sinf(d->yaw), cy = cosf(d->yaw), back = 0.12f * L, up = 0.62f * L + 0.35f;
+        want = v3(d->x - sy * back, d->y + up, d->z - cy * back);
+        float pitch = d->mode == DM_AIR ? -d->pitch * 0.8f : 0;
+        at = v3(want.x + sy * 10, want.y - 1.6f + sinf(pitch) * 10, want.z + cy * 10); }
     else {                        /* the dragon's own eyes */
         float fwd = 0.42f * L, up = 0.55f * L; want = v3(d->x + sinf(d->yaw) * fwd, d->y + up, d->z + cosf(d->yaw) * fwd);
         at = v3(want.x + sinf(d->yaw) * 10, want.y - (d->mode == DM_AIR ? d->pitch * 8 : 0.8f), want.z + cosf(d->yaw) * 10); }
     /* keep the camera above the ground and out of the trees */
     float gnd = world_height(&g_world, want.x, want.z) + 0.6f; if (want.y < gnd) want.y = gnd;
-    if (g_cam_mode != 2) for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i];
+    if (g_cam_mode == 0) for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i];
         if (p->kind == P_BUSH) {   /* bushes: lift the camera over them rather than look through the leaves */
             float bx = want.x - p->x, bz = want.z - p->z, R = 1.6f * p->scale + 0.4f; if (bx * bx + bz * bz < R * R) { float top = world_height(&g_world, p->x, p->z) + 2.0f * p->scale + 0.3f; if (want.y < top) want.y = top; } continue; }
         if (p->kind != P_TREE && p->kind != P_PALM) continue;
@@ -482,7 +491,7 @@ static void camera_update(float dt) {
         float trunk_r = 1.0f; if (d2 < trunk_r * trunk_r && want.y < py + h) { float dd = sqrtf(d2) + 1e-4f; want.x = p->x + dx / dd * trunk_r; want.z = p->z + dz / dd * trunk_r; }
         if (p->kind == P_TREE) { Vec3 c = v3(p->x + (g_pm[PM_OAK].ok ? 0 : sinf(p->yaw) * 0.6f), py + h * (g_pm[PM_OAK].ok ? 0.7f : 0.95f), p->z + (g_pm[PM_OAK].ok ? 0 : cosf(p->yaw) * 0.6f)); float R = (g_pm[PM_OAK].ok ? 5.0f : 4.3f) * p->scale; Vec3 off = v3_sub(want, c); float od = sqrtf(v3_dot(off, off));
             if (od < R) { float push = R - od; if (off.y < -R * 0.3f || od < 0.01f) want.y = c.y - R; else { want.x += off.x / od * push; want.y += off.y / od * push; want.z += off.z / od * push; } } } }
-    if (g_cam_mode == 2) { g_eye = want; g_at = at; }
+    if (g_cam_mode >= 1) { g_eye = want; g_at = at; }   /* riding and the dragon's eyes move with the dragon exactly */
     else { float kk = 1 - expf(-dt * 6); g_eye = v3(g_eye.x + (want.x - g_eye.x) * kk, g_eye.y + (want.y - g_eye.y) * kk, g_eye.z + (want.z - g_eye.z) * kk); g_at = v3(g_at.x + (at.x - g_at.x) * kk, g_at.y + (at.y - g_at.y) * kk, g_at.z + (at.z - g_at.z) * kk); } }
 
 /* ---------- drawing ---------- */
@@ -624,7 +633,17 @@ static void draw_ironhorn(Vec3 eye) {
     else if (b->state == B_STUNNED || b->state == B_HURT) { roll = 0.12f * sinf(g_time * 9); pitch = -0.05f; }
     else if (b->state == B_DOWN) { float k = fminf(1, b->t / 0.8f); roll = 1.35f * k; y -= 0.6f * k; }
     Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(b->x, y, b->z), m4_rotate_y(yaw)), m4_rotate_x(pitch)), m4_rotate_z(roll));
-    gfx_state(ST_SOLID); gfx_bind(m->tex); gfx_draw(m->mesh[lod], &mm, 1, 1, 1, 1); gfx_bind(NULL); }
+    mm = m4_mul(mm, m4_scale(BOSS_SCALE, BOSS_SCALE, BOSS_SCALE));
+    /* polished steel that catches the sun, then its eyes, core and vents glowing on top, brighter while it charges */
+    gfx_state(ST_SOLID); gfx_bind(m->tex); gfx_draw_ex(m->mesh[lod], &mm, 1.1f, 1.1f, 1.15f, 1, 0.9f, 0, 0, 0);
+    Texture *glow = g_wk == WK_SKY ? tx_storm_glow : tx_iron_glow;
+    if (glow && b->state != B_DOWN) { float pulse = 0.65f + 0.35f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4));
+        gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_bind(glow); gfx_draw_ex(m->mesh[lod], &mm, 1, 1, 1, pulse, 0, 1, 0, 0);
+        gfx_draw_ex(m->mesh[lod], &mm, 1, 1, 1, pulse * 0.6f, 0, 1, 0, 0); }
+    /* a red warning ring on the ground round it while the fight is on */
+    if (m_bossring && b->woke && b->state != B_DOWN) { float rp = 0.5f + 0.5f * sinf(g_time * 5); Mat4 rm = m4_mul(m4_translate(b->x, world_height(&g_world, b->x, b->z) + 0.12f, b->z), m4_scale(BOSS_SCALE, 1, BOSS_SCALE));
+        gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_bind(tx_font); gfx_draw_ex(m_bossring, &rm, 1, 0.25f, 0.1f, 0.35f + 0.35f * rp, 0, 1, 0, 0); }
+    gfx_state(ST_SOLID); gfx_bind(NULL); }
 static void draw_kind_dragon(int k, int st, float x, float y, float z, float yaw, int anim, float anim_t, int air) {
     Anim3D *m = kind_model(k, st); if (!m) return; float scale = kind_scale(k, st); int clip = anim3d_clip(m, dragon_anim_name(anim)); if (clip < 0) clip = 0;
     Mat4 mm = m4_mul(m4_mul(m4_translate(x, y, z), m4_rotate_y(yaw)), m4_scale(scale, scale, scale));
@@ -646,7 +665,7 @@ static void draw_arena(Vec3 eye) {
     if (g_friend.on) draw_kind_dragon(g_fk, g_other.stage, g_friend.x, g_friend.y, g_friend.z, g_friend.yaw, g_friend.anim, g_friend.anim_t, g_friend.mode); }
 static void draw_scene(int drc) {
     float aspect = gfx_aspect(drc); Vec3 eye = g_eye, at = g_at;
-    float cr = g_dragon.mode == DM_AIR && g_cam_mode != 1 ? g_bank * (g_cam_mode == 2 ? 0.6f : 0.3f) : 0;   /* the camera leans into a banked turn with the dragon */
+    float cr = g_dragon.mode == DM_AIR ? g_bank * (g_cam_mode == 0 ? 0.3f : 0.85f) : 0;   /* the camera leans into a banked turn with the dragon */
     Vec3 up = v3(-sinf(cr) * cosf(g_cam_yaw), cosf(cr), sinf(cr) * sinf(g_cam_yaw));
     Mat4 proj = m4_perspective(g_cam_mode == 2 ? 1.25f : 1.05f, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir();
@@ -796,7 +815,7 @@ static void draw_hud(int drc) {
     if (g_msg_t > 0 && !g_swap_open && g_tale_i < 0) { float ma = clampf(g_msg_t, 0, 1), mw = fminf(text_width(g_msg, 26), 1060); int nl = text_wrap_n(g_msg, 0, 26, 1060, 0, 0, 0, 0, 0); float my = 644 - (nl - 1) * 39;
         ui_panel(640 - mw / 2 - 70, my - 36, mw + 140, 100 + (nl - 1) * 39, 0.9f * ma, 0); text_wrap_c(g_msg, my, 26, 1060, 1, 0.96f, 0.86f, ma); }
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(g_wk == WK_SKY ? "SKY KINGDOM" : "EVERLEAF WILDS", 352, 34, a); }
-    static const char *cams[3] = {"RIDER VIEW", "OVERHEAD VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
+    static const char *cams[3] = {"OVERHEAD VIEW", "RIDER VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST"}; char cl[120]; snprintf(cl, sizeof cl, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : %s   + : SWAP", d->stage >= ST_DRAGON ? PW[g_kind] : "ROAR");
       batch_text(&g_b, cl, 640 - text_width(cl, 16) / 2, 692, 16, 1, 1, 1, 0.5f); }
     if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, 0, 0, 1280, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }
@@ -837,7 +856,7 @@ static void tour_input_base(Pad *p, float t) {
     memset(p, 0, sizeof *p); p->source = 1;
     const Dragon *d = &g_dragon;
     if (t < 4) return; if (g_state != G_PLAY || g_tale_i >= 0) { p->a = fmodf(t, 0.9f) < 0.12f && (g_state != G_NAME || t > 6); return; }
-    int wantcam = 0; int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
+    int wantcam = t > 100 && t < 125 ? 1 : (t >= 125 && t < 140 ? 2 : 0); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
     float ax = g_world.arena_x - d->x, az = g_world.arena_z - d->z, adist = sqrtf(ax * ax + az * az);
     if (g_wk == WK_SKY && g_wrescued[WK_SKY] && g_kind == 2) {   /* after the swap: walk home over the bridge and ride the wind column down */
         static int reached; float tx, tz;
@@ -1012,7 +1031,7 @@ static void enter_world(int wk, float x, float z, float yaw) {
         scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f);
         scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f); }
     ensure_kind(CAPTIVE[wk], ST_DRAGONET); for (int k = 1; k < K_N; k++) if (g_has[k]) ensure_kind(k, ST_BEYONDER);
-    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; if (wk == WK_SKY) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; }
+    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; if (wk == WK_SKY) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
     if (g_wrescued[wk]) { g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_boss.t = 10; }
     float sx, sz; world_safe_spot(&g_world, clampf(x, -110, 110), clampf(z, -110, 110), &sx, &sz);
     g_dragon.x = sx; g_dragon.z = sz; g_dragon.y = world_height(&g_world, sx, sz); g_dragon.yaw = yaw; g_dragon.mode = DM_GROUND; g_dragon.vy = 0; g_dragon.speed = 0; g_dragon.act_t = 0; g_dragon.anim = DA_IDLE;
@@ -1039,6 +1058,12 @@ static int sky_fall(Dragon *d, float *sx, float *sz) {
     if ((d->mode != DM_AIR && over_void) || d->y < W_CLOUDS) {
         d->x = *sx; d->z = *sz; d->y = world_height(&g_world, d->x, d->z); d->mode = DM_GROUND; d->vy = 0; d->speed = 0; return 1; }
     return 0; }
+/* scenery and the boss are solid: the dragon goes round them, not through */
+static void solid_body(Dragon *d) {
+    float r = 0.3f * dragon_length(d->stage) + 0.2f; int air = d->mode == DM_AIR;
+    if (world_push_out(&g_world, &d->x, &d->y, &d->z, r, air) && !air) d->y = world_height(&g_world, d->x, d->z);
+    if (g_boss.state != B_DOWN) { float bx = d->x - g_boss.x, bz = d->z - g_boss.z, R = r + (g_wk == WK_SKY ? 2.6f : 2.2f) * BOSS_SCALE, d2 = bx * bx + bz * bz;
+        if (d2 < R * R && d->y < g_boss.y + (g_wk == WK_SKY ? 4.5f : 3.5f) * BOSS_SCALE) { float dd = sqrtf(d2) + 1e-4f; d->x = g_boss.x + bx / dd * R; d->z = g_boss.z + bz / dd * R; } } }
 /* ---------- Ironhorn, the cage and the rescued friend ---------- */
 static void hurt_dragon(float amount, const char *msg) {
     if (g_dragon.evolve_t > 0) return;
@@ -1096,7 +1121,7 @@ static void coop_frame(const Pad *pads, int npads, float dt) {
     g_p2_gone = 0;
     if (p->plus && !q->plus) { g_p2 = -1; snprintf(g_msg, sizeof g_msg, "PLAYER 2 LEFT. YOUR FRIEND FOLLOWS YOU AGAIN"); g_msg_t = 4; sfx_play(SFX_MENU_BACK, 0.6f, 0); return; }
     DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl;
-    int ev = dragon_update(&g_other, &g_world, &in, g_cam_yaw, dt);
+    int ev = dragon_update(&g_other, &g_world, &in, g_cam_yaw, dt); solid_body(&g_other);
     kind_quirks(&g_other, g_fk, &in, dt, &ev);   /* player 2 plays the friend */
     { static float p2x, p2z; static int init; if (!init) { init = 1; p2x = g_dragon.x; p2z = g_dragon.z; } if (sky_fall(&g_other, &p2x, &p2z)) { snprintf(g_msg, sizeof g_msg, "PLAYER 2: LOST IN THE CLOUDS!"); g_msg_t = 3; } }
     float dx = g_other.x - g_dragon.x, dz = g_other.z - g_dragon.z;
@@ -1187,7 +1212,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (p->up && !q->up) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
     g_look_x = p->rx;
     float yaw_before = g_dragon.yaw;
-    int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt);
+    int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt); solid_body(&g_dragon);
     kind_quirks(&g_dragon, g_kind, &in, dt, &ev);
     if (g_power_cd > 0) g_power_cd -= dt; if (g_power_t > 0) g_power_t -= dt;
     if (in.y_press && g_dragon.stage >= ST_DRAGON && g_power_cd <= 0) { g_power_t = 1.4f; g_power_cd = 3.0f; g_power_kind = g_kind; sfx_play(g_kind == 1 ? SFX_FIRE : SFX_ROAR, 0.9f, 0); platform_rumble(0.7f, 0.6f);

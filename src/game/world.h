@@ -58,5 +58,6 @@ int   world_thieves(World *w, float dt, float px, float py, float pz, float reac
 int   world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone);
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */
+int   world_push_out(const World *w, float *x, float *y, float *z, float r, int air);   /* keep a body of radius r out of trees, rocks and spires; 1 if pushed */
 float world_fbm(float x, float y, unsigned seed);   /* layered noise 0..1, for scenery builders */
 #endif

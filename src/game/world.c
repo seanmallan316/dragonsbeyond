@@ -252,3 +252,31 @@ int world_thieves(World *w, float dt, float px, float py, float pz, float reach,
         t->yaw = yaw; t->y = world_height(w, t->x, t->z); }
     return ev; }
 
+
+/* keep a body of radius r out of the scenery: tree trunks and leafy crowns, palm trunks, rocks and rock spires (bushes and ferns are soft).
+   On the ground only sideways pushes (the ground sets the height); in the air the dragon slides round crowns and over rocks.
+   Shapes match what is drawn (game.c builds rocks and spires as balls of these sizes; the oak model is ~9 m x scale). Returns 1 if pushed. */
+static int push_ball(float *x, float *y, float *z, float cx, float cy, float cz, float rx, float ry, float rz, float r, int air) {
+    float dx = (*x - cx) / (rx + r), dy = (*y - cy) / (ry + r), dz = (*z - cz) / (rz + r);
+    if (!air) dy = 0;
+    float d2 = dx * dx + dy * dy + dz * dz; if (d2 >= 1.0f) return 0;
+    float d = sqrtf(d2); if (d < 1e-4f) { dx = 1; dy = 0; dz = 0; d = 1; }
+    *x = cx + dx / d * (rx + r); *z = cz + dz / d * (rz + r); if (air) *y = cy + dy / d * (ry + r);
+    return 1; }
+static int push_post(float *x, float *y, float *z, float cx, float cz, float base, float top, float pr, float r) {
+    if (*y > top || *y < base - 2) return 0;
+    float dx = *x - cx, dz = *z - cz, R = pr + r, d2 = dx * dx + dz * dz; if (d2 >= R * R) return 0;
+    float d = sqrtf(d2); if (d < 1e-4f) { dx = 1; dz = 0; d = 1; }
+    *x = cx + dx / d * R; *z = cz + dz / d * R; return 1; }
+int world_push_out(const World *w, float *x, float *y, float *z, float r, int air) {
+    int hit = 0;
+    for (int i = 0; i < w->nprop; i++) { const Prop *p = &w->prop[i]; float dx = *x - p->x, dz = *z - p->z; if (dx * dx + dz * dz > 14 * 14) continue;
+        float s = p->scale, gy = world_height(w, p->x, p->z);
+        switch (p->kind) {
+        case P_TREE: hit |= push_post(x, y, z, p->x, p->z, gy, gy + 5.5f * s, 0.55f * s, r);
+                     if (air) hit |= push_ball(x, y, z, p->x, gy + 6.3f * s, p->z, 3.4f * s, 2.4f * s, 3.4f * s, r, 1); break;
+        case P_PALM: hit |= push_post(x, y, z, p->x, p->z, gy, gy + 8.5f * s, 0.4f * s, r); break;
+        case P_ROCK: hit |= push_ball(x, y, z, p->x, gy - 0.3f * s, p->z, 1.3f * s, 0.9f * s, 1.0f * s, r, air); break;
+        case P_SPIRE: { float H = 9.0f * s; hit |= push_ball(x, y, z, p->x, gy + H * 0.45f, p->z, 2.0f * s, H, 1.8f * s, r, air); } break;
+        default: break; } }
+    return hit; }
