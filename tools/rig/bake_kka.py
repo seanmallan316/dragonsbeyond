@@ -45,7 +45,7 @@ def grab():
 sc = bpy.context.scene
 clips = []
 for a in bpy.data.actions:
-    if a.name not in ('idle', 'walk', 'run', 'fly', 'glide', 'eat', 'roar', 'tailwhip', 'hit', 'dive'): continue
+    if a.name not in ('idle', 'walk', 'run', 'fly', 'glide', 'eat', 'roar', 'tailwhip', 'hit', 'dive', 'chirp'): continue
     arm.animation_data.action = a
     try: arm.animation_data.action_slot = a.slots[0]
     except Exception: pass
@@ -55,7 +55,7 @@ for a in bpy.data.actions:
         f = f0 + (f1 - f0 + (1 if loop else 0)) * i / (nf if loop else max(nf - 1, 1))
         sc.frame_set(int(f), subframe=f - int(f)); frames.append(grab())
     clips.append((a.name, nf, dur, loop, frames)); print('clip', a.name, nf, 'frames', round(dur, 2), 's')
-order = ['idle', 'walk', 'run', 'fly', 'glide', 'eat', 'roar', 'tailwhip', 'hit', 'dive']; clips.sort(key=lambda c: order.index(c[0]))
+order = ['idle', 'walk', 'run', 'fly', 'glide', 'eat', 'roar', 'tailwhip', 'hit', 'dive', 'chirp']; clips.sort(key=lambda c: order.index(c[0]))
 y0 = min(P[:, 1].min() for c in clips for P, N in c[4]) if clips else 0   # feet on y = 0
 y0 = clips[0][4][0][0][:, 1].min()
 with open(out + '.kka', 'wb') as f:

@@ -41,7 +41,7 @@ typedef struct { int16_t *d; int n, ch; } Sample;
 enum { SMP_IDLE, SMP_ACCEL, SMP_TOP, SMP_DECEL, SMP_START, SMP_SHIFT, SMP_POP, SMP_BRAKE, SMP_HARDBRAKE, SMP_COUNTDOWN, SMP_UNLOCK, SMP_COUNT };
 static const char *SMP_NAMES[SMP_COUNT] = {"kart_engine_idle", "kart_engine_acceleration", "kart_engine_top_speed", "kart_engine_deceleration", "kart_engine_start", "kart_gear_shift", "kart_exhaust_pop", "kart_braking", "kart_hard_braking", "sting_countdown", "sting_unlock"};
 static const char *SFX_NAMES[SFX_COUNT] = {"menu_move", "menu_ok", "menu_back", "count_tick", "go", "pickup", "use_item", "throw", "hit", "block", "bump", "lap", "final_lap", "finish", "win",
-    "mini_turbo", "super_turbo", "boost_pad", "bounce", "land", "splash", "shofar", "fire", "locusts", "dove", "unlock", "welcome_home", "wrong_way", "coin", "crumble", "shout", "whale_roar", "countdown", "engine_start"};
+    "mini_turbo", "super_turbo", "boost_pad", "bounce", "land", "splash", "shofar", "fire", "locusts", "dove", "unlock", "welcome_home", "wrong_way", "coin", "crumble", "shout", "whale_roar", "countdown", "engine_start", "chirp", "roar", "munch", "flap", "grow", "tail"};
 static Sample smp[SMP_COUNT], smp_fx[SFX_COUNT];
 static void (*logf_)(const char *fmt, ...) = NULL;
 #define LOG(...) do { if (logf_) logf_(__VA_ARGS__); } while (0)

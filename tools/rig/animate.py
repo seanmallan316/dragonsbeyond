@@ -147,15 +147,24 @@ def eat(t):    # 0-0.3 lower head, 0.3-0.8 chomp x3, 0.8-1 raise
     rots.update(tail(t, 8)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, -0.01 * H * down)}
 def roar(t):   # rear up, head back, mouth wide, wings spread, then settle
-    k = min(1, t / 0.25) if t < 0.7 else max(0, 1 - (t - 0.7) / 0.3)
+    # timed to the roar sound: the mouth is open by the time the sound swells (~0.25 s) and shuts as it dies (~1.4 s)
+    k = min(1, t / 0.12) if t < 0.6 else max(0, 1 - (t - 0.6) / 0.2)
     shake = 2 * S(8 * t) * k
     rots = {'chest': (-12 * k, 0, 0), 'spine2': (-6 * k, 0, 0), 'neck1': (-30 * CH * k, 0, shake), 'neck2': (-20 * CH * k, 0, 0), 'head': (-15 * CH * k, 0, shake),
-            'jaw': (38 * k, 0, 0), 'legFL_upper': (-25 * k, 0, 0), 'legFR_upper': (-25 * k, 0, 0), 'legFL_lower': (30 * k, 0, 0), 'legFR_lower': (30 * k, 0, 0)}
+            'jaw': (38 * k * (0.85 + 0.15 * S(12 * t)), 0, 0), 'legFL_upper': (-25 * k, 0, 0), 'legFR_upper': (-25 * k, 0, 0), 'legFL_lower': (30 * k, 0, 0), 'legFR_lower': (30 * k, 0, 0)}
     if has_wings:
         rots.update({'wingL_1': (30 * k - 35 * (1 - k), 0, -25 * (1 - k)), 'wingR_1': (30 * k - 35 * (1 - k), 0, 25 * (1 - k)),
                      'wingL_2': (10 * k, 0, 45 * (1 - k)), 'wingR_2': (10 * k, 0, -45 * (1 - k)), 'wingL_3': (0, 0, 30 * (1 - k)), 'wingR_3': (0, 0, -30 * (1 - k))})
     rots.update(tail(t, 12, 0, nod=-10 * k))
     return rots, {'hips': (0, 0, 0.05 * H * k)}
+def chirp(t):   # a dragonet's chirp, 0.8 s: head up and tilted, two quick snaps of the jaw, one per note of the chirp sound (0-0.12 s, 0.13-0.23 s)
+    up = min(1, t / 0.1) if t < 0.6 else max(0, 1 - (t - 0.6) / 0.4)
+    def snap(a, b): return max(0.0, math.sin(math.pi * (t - a) / (b - a))) if a <= t <= b else 0.0
+    jaw = 24 * snap(0.0, 0.16) + 20 * snap(0.16, 0.3)
+    rots = {'neck1': (-14 * CH * up, 0, 0), 'neck2': (-10 * CH * up, 0, 0), 'head': (-10 * CH * up, 8 * up, 0), 'jaw': (jaw, 0, 0), 'chest': (-4 * up, 0, 0)}
+    rots.update(tail(t, 14, 0, nod=-4 * up)); rots.update(wings_folded())
+    if has_wings: rots.update({'wingL_1': (-35 + 12 * up, 0, -25), 'wingR_1': (-35 + 12 * up, 0, 25)})   # a little flutter of happiness
+    return rots, {'hips': (0, 0, 0.02 * H * up)}
 def tailwhip(t):   # wind up left, whip right, recover
     w = -40 * min(1, t / 0.3) if t < 0.3 else (-40 + 110 * (t - 0.3) / 0.25 if t < 0.55 else 70 * max(0, 1 - (t - 0.55) / 0.45))
     rots = {f'tail{i+1}': (0, 0, w * (0.4 + 0.2 * i)) for i in range(5)}
@@ -202,7 +211,7 @@ def with_life(kind, fn):
     return g
 
 CLIPS = [('idle', 120, True, idle), ('walk', 30, True, walk), ('run', 18, True, run), ('fly', 24, True, fly), ('glide', 60, True, glide), ('dive', 30, True, dive),
-         ('eat', 54, False, eat), ('roar', 60, False, roar), ('tailwhip', 30, False, tailwhip), ('hit', 24, False, hit)]
+         ('eat', 54, False, eat), ('roar', 60, False, roar), ('tailwhip', 30, False, tailwhip), ('hit', 24, False, hit), ('chirp', 24, False, chirp)]
 for name, frames, loop, fn in CLIPS:
     c = Clip(name, frames, loop); c.bake(with_life(name, fn)); c.act.use_fake_user = True
     print('clip', name, frames, 'loop' if loop else 'once')

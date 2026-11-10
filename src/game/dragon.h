@@ -5,7 +5,7 @@
 
 enum { ST_DRAGONET = 0, ST_DRAGON = 1, ST_BEYONDER = 2, ST_N };
 enum { DM_GROUND = 0, DM_AIR = 1, DM_SWIM = 2 };
-enum { DA_IDLE = 0, DA_WALK, DA_RUN, DA_FLY, DA_GLIDE, DA_EAT, DA_ROAR, DA_TAILWHIP, DA_HIT, DA_N };
+enum { DA_IDLE = 0, DA_WALK, DA_RUN, DA_FLY, DA_GLIDE, DA_EAT, DA_ROAR, DA_TAILWHIP, DA_HIT, DA_CHIRP, DA_N };
 
 typedef struct {
     int stage;                  /* ST_* */

@@ -7,7 +7,7 @@ static const float LEN[ST_N] = {1.3f, 3.6f, 7.0f};          /* metres nose to ta
 static const float WALK[ST_N] = {3.2f, 5.0f, 6.5f}, RUN[ST_N] = {6.5f, 10.0f, 13.0f}, FLY[ST_N] = {0, 14.0f, 20.0f};
 static const float NEED[ST_N] = {50.0f, 150.0f, 1e9f};   /* 5 plants or 2 meats to become a dragon */
 static const char *NAMES[ST_N] = {"DRAGONET", "DRAGON", "BEYONDER"};
-static const char *ANIMS[DA_N] = {"idle", "walk", "run", "fly", "glide", "eat", "roar", "tailwhip", "hit"};
+static const char *ANIMS[DA_N] = {"idle", "walk", "run", "fly", "glide", "eat", "roar", "tailwhip", "hit", "chirp"};
 #define MODEL_LEN 1.88f
 
 float dragon_length(int s) { return LEN[s]; }
@@ -63,7 +63,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         int near = world_nearest_food(w, d->x + sinf(d->yaw) * 0.45f * L, d->z + cosf(d->yaw) * 0.45f * L, 0.5f * L + 1.2f);
         if (in->x_press && near >= 0) { d->eating = near; d->act_t = 1.77f; set_anim(d, DA_EAT); Food *f = &w->food[near]; d->yaw = atan2f(f->x - d->x, f->z - d->z); return ev; }
         if (in->b_press) { d->act_t = 0.97f; set_anim(d, DA_TAILWHIP); return ev; }
-        if (in->y_press) { d->act_t = 1.97f; set_anim(d, DA_ROAR); ev |= 16; return ev; }
+        if (in->y_press) { if (d->stage == ST_DRAGONET) { d->act_t = 0.8f; set_anim(d, DA_CHIRP); } else { d->act_t = 1.97f; set_anim(d, DA_ROAR); } ev |= 16; return ev; }
         if (d->mode == DM_SWIM) set_anim(d, d->speed > 0.3f ? DA_WALK : DA_IDLE);
         else set_anim(d, d->speed > 0.6f * RUN[d->stage] ? DA_RUN : (d->speed > 0.25f ? DA_WALK : DA_IDLE));
         d->land_t -= dt;

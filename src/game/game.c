@@ -342,7 +342,7 @@ int game_init(int gfx_status) {
     build_ground(); build_props();
     scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f); scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f);   /* the packed models are already life-size; the prop's own scale varies them */
     batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(6000); m_dynhud = gfx_mesh_dynamic(36000);
-    tx_ui = asset_texture("ui", 0, NULL, NULL); batch_init(&g_ub, g_uiv, UI_CAP); batch_init(&g_ua, g_uav, UI_CAP); m_dynui = gfx_mesh_dynamic(UI_CAP); m_dynuia = gfx_mesh_dynamic(UI_CAP);
+    sfx_load_samples(); tx_ui = asset_texture("ui", 0, NULL, NULL); batch_init(&g_ub, g_uiv, UI_CAP); batch_init(&g_ua, g_uav, UI_CAP); m_dynui = gfx_mesh_dynamic(UI_CAP); m_dynuia = gfx_mesh_dynamic(UI_CAP);
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
     /* the other dragons load when they are needed (their world, their rescue, a save that has them): a quicker start */
@@ -1054,8 +1054,10 @@ static void boss_frame(float dt) {
         g_friend.y += dy * (1 - expf(-dt * (air ? 3 : 10))); if (!air) g_friend.y = fmaxf(g_friend.y, world_height(&g_world, g_friend.x, g_friend.z));
         float fyaw = g_friend.speed > 0.5f ? atan2f(dx, dz) : d->yaw; float dyaw = fyaw - g_friend.yaw; while (dyaw > 3.14159f) dyaw -= 6.28318f; while (dyaw < -3.14159f) dyaw += 6.28318f; g_friend.yaw += dyaw * (1 - expf(-dt * 5));
         int anim = air ? (dy > 0.2f || g_friend.speed > 6 ? DA_FLY : DA_GLIDE) : (g_friend.speed > 6 ? DA_RUN : (g_friend.speed > 0.6f ? DA_WALK : DA_IDLE));
+        static float chirp_t; chirp_t -= dt;
+        if (fmodf(g_time, 9.0f) < dt && !air) { sfx_play(SFX_CHIRP, 0.25f, 0.3f); if (anim == DA_IDLE) chirp_t = 0.8f; }   /* the friend chirps, and its mouth moves with it */
+        if (chirp_t > 0 && anim == DA_IDLE) anim = DA_CHIRP;
         if (anim != g_friend.anim) { g_friend.anim = anim; g_friend.anim_t = 0; } g_friend.anim_t += dt; g_friend.mode = air;
-        if (fmodf(g_time, 9.0f) < dt && !air) sfx_play(SFX_CHIRP, 0.25f, 0.3f);
         g_other.x = g_friend.x; g_other.z = g_friend.z; g_other.y = g_friend.y; g_other.yaw = g_friend.yaw; g_other.mode = air ? DM_AIR : DM_GROUND; } }
 
 /* co-op: join with A on a Wii controller while player 1 is on the GamePad; + on that controller (or putting it down for a while) leaves */
@@ -1236,7 +1238,8 @@ paused:
     memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));
     { int chased = 0; for (int i = 0; i < g_world.ndrone; i++) if (g_world.drone[i].state == 1) chased = 1; for (int i = 0; i < g_world.nhound; i++) if (g_world.hound[i].state == 1) chased = 1;
       static float danger_t; if (chased) danger_t = 4; else danger_t -= dt;
-      music_want(danger_t > 0 && music_available("danger") ? "danger" : "everleaf"); }
+      int bossfight = g_boss.woke && g_boss.state != B_DOWN;
+      music_want(bossfight && music_available("boss") ? "boss" : danger_t > 0 && music_available("danger") ? "danger" : (g_wk == WK_SKY && music_available("sky") ? "sky" : "everleaf")); }
     music_update(2);
     gfx_frame_begin();
     shadow_pass();
