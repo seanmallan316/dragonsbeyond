@@ -940,8 +940,8 @@ static void draw_title_hud(void) {
     float pulse = 0.75f + 0.25f * sinf(g_time * 3), in = clampf(g_state_t * 1.2f, 0, 1);
     if (g_state == G_TITLE) {
         ui_shade(0.55f); ui_embers(60, 1);
-        ui_pic_rot(&g_ub, UI_RING, 640, 215, 560, 560, g_time * 0.08f, 1, 1, 1, 0.28f * in); ui_pic_rot(&g_ua, UI_RING, 640, 215, 470, 470, -g_time * 0.13f, 1, 0.7f, 0.3f, 0.16f * in);
-        ui_pic_c(&g_ua, UI_GLOW, 640, 205, 1300, 300, 1, 0.6f, 0.25f, 0.18f * in);
+        ui_pic_rot(&g_ub, UI_RING, 640, 215, 560, 560, g_time * 0.08f, 1, 1, 1, 0.28f * in); ui_pic_rot(&g_ua, UI_RING, 640, 215, 470, 470, -g_time * 0.13f, 1, 0.7f, 0.3f, 0.07f * in);
+        ui_pic_c(&g_ua, UI_GLOW, 640, 205, 1300, 300, 1, 0.6f, 0.25f, 0.05f * in);
         { float sc = 1.15f - 0.15f * in; ui_logo(640, 205 - 60 * sc, 1120 * sc, in); }
         ui_divider(640, 300, 640, in);
         text_cg("EVERLEAF WILDS", 322, 34, in);
