@@ -735,7 +735,7 @@ static void ui_glint(float x, float y, float w, float h, float t, float size, fl
     ui_pic_c(&g_ua, UI_GLOW, px, py, size, size, 1, 0.85f, 0.5f, a); ui_pic_c(&g_ua, UI_GLOW, px, py, size * 0.35f, size * 0.35f, 1, 1, 0.9f, a); }
 /* the stone slab with its gold rim, cut in nine so it stretches to any size without bending the corners */
 static void ui_panel(float x, float y, float w, float h, float a, int sel) {
-    const float F = 104.0f / 512.0f; float c = fminf(fminf(76, w / 2), h / 2); float xs[4] = {x, x + c, x + w - c, x + w}, ys[4] = {y, y + c, y + h - c, y + h}, fs[4] = {0, F, 1 - F, 1};
+    const float F = 104.0f / 512.0f; float c = fminf(fminf(76, w / 2), h * 0.32f); float xs[4] = {x, x + c, x + w - c, x + w}, ys[4] = {y, y + c, y + h - c, y + h}, fs[4] = {0, F, 1 - F, 1};
     float k = sel ? 1.0f : 0.78f;
     for (int j = 0; j < 3; j++) for (int i = 0; i < 3; i++) ui_part(&g_ub, UI_PANEL, fs[i], fs[j], fs[i + 1], fs[j + 1], xs[i], ys[j], xs[i + 1] - xs[i], ys[j + 1] - ys[j], k, k, k * (sel ? 0.95f : 1), a);
     if (sel) { float pulse = 0.5f + 0.5f * sinf(g_time * 4);
@@ -768,7 +768,7 @@ static void ui_logo(float cx, float y, float w, float a) {
         if (k > 0.02f) ui_part(&g_ua, UI_LOGO, f0, 0, f1, 1, x + f0 * w, y, (f1 - f0) * w, h, 1, 0.9f, 0.7f, 0.9f * k * a); } }
 /* just the gold rim of a panel, nothing in the middle: a frame round a picture (the GamePad map) */
 static void ui_frame(float x, float y, float w, float h, float a) {
-    const float F = 104.0f / 512.0f; float c = fminf(fminf(76, w / 2), h / 2); float xs[4] = {x, x + c, x + w - c, x + w}, ys[4] = {y, y + c, y + h - c, y + h}, fs[4] = {0, F, 1 - F, 1};
+    const float F = 104.0f / 512.0f; float c = fminf(fminf(76, w / 2), h * 0.32f); float xs[4] = {x, x + c, x + w - c, x + w}, ys[4] = {y, y + c, y + h - c, y + h}, fs[4] = {0, F, 1 - F, 1};
     for (int j = 0; j < 3; j++) for (int i = 0; i < 3; i++) if (i != 1 || j != 1) ui_part(&g_ub, UI_PANEL, fs[i], fs[j], fs[i + 1], fs[j + 1], xs[i], ys[j], xs[i + 1] - xs[i], ys[j + 1] - ys[j], 1, 1, 1, a); }
 static void ui_begin(void) { batch_clear(&g_ub); batch_clear(&g_ua); }
 /* draw the three layers (call once per view, after the words are in g_b) */
@@ -856,7 +856,8 @@ static void tour_input_base(Pad *p, float t) {
     memset(p, 0, sizeof *p); p->source = 1;
     const Dragon *d = &g_dragon;
     if (t < 4) return; if (g_state != G_PLAY || g_tale_i >= 0) { p->a = fmodf(t, 0.9f) < 0.12f && (g_state != G_NAME || t > 6); return; }
-    int wantcam = t > 100 && t < 125 ? 1 : (t >= 125 && t < 140 ? 2 : 0); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
+    static float play_t0 = -1; if (play_t0 < 0) play_t0 = t; float pt = t - play_t0;   /* show off the views once playing: rider, then the dragon's eyes */
+    int wantcam = pt > 25 && pt < 50 ? 1 : (pt >= 50 && pt < 62 ? 2 : 0); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
     float ax = g_world.arena_x - d->x, az = g_world.arena_z - d->z, adist = sqrtf(ax * ax + az * az);
     if (g_wk == WK_SKY && g_wrescued[WK_SKY] && g_kind == 2) {   /* after the swap: walk home over the bridge and ride the wind column down */
         static int reached; float tx, tz;
