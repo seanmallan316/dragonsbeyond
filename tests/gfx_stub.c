@@ -28,6 +28,7 @@ void gfx_viewport(int d, float a, float b, float c, float e) { (void)d; (void)a;
 void gfx_camera(const Mat4 *vp, Vec3 l, float am, float r, float g, float b, float s, float e) { (void)vp; (void)l; (void)am; (void)r; (void)g; (void)b; (void)s; (void)e; }
 void gfx_clear_depth(int d) { (void)d; }
 int gfx_shadow_begin(const Mat4 *l) { (void)l; return 1; } void gfx_shadow_end(void) {}
+void gfx_post(int d, float b, float s, float v) { (void)d; (void)b; (void)s; (void)v; }
 Texture *gfx_grab(int d) { (void)d; return NULL; } Texture *gfx_grab_ex(int s, int d) { (void)s; (void)d; return NULL; }
 void gfx_bump(int l) { (void)l; } void gfx_shadow_use(int on) { (void)on; } void gfx_shadow_none(void) {} Texture *gfx_shadow_texture(void) { return NULL; }
 void gfx_set_time(float t) { (void)t; } void gfx_camera_2d(void) {} void gfx_grade(float a, float b, float c, float d) { (void)a; (void)b; (void)c; (void)d; }

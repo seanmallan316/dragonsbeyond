@@ -135,6 +135,49 @@ static const char *PS_SRC =
     "  out_color = vec4(c, t.a);\n"
     "}\n";
 
+
+/* the finishing pass over the whole 3D picture: smooths jagged edges (an FXAA-style blend along each edge), sharpens flat areas,
+   adds a soft glow round bright light (bloom) and darkens the corners a touch. u_k: x unused, y bloom, z sharpen, w vignette */
+static const char *VS_POST_SRC =
+    "#version 450\n"
+    "layout(location = 0) in vec3 in_position;\n"
+    "layout(location = 1) in vec3 in_normal;\n"
+    "layout(location = 2) in vec2 in_texcoord;\n"
+    "layout(location = 3) in vec4 in_color;\n"
+    "layout(location = 0) out vec2 v_uv;\n"
+    "void main() { v_uv = in_texcoord; gl_Position = vec4(in_position.xy, 0.0, 1.0); }\n";
+static const char *PS_POST_SRC =
+    "#version 450\n"
+    "layout(location = 0) in vec2 v_uv;\n"
+    "layout(binding = 0) uniform sampler2D u_scene;\n"
+    "layout(binding = 0) uniform Post { vec4 u_px; vec4 u_k; };\n"
+    "layout(location = 0) out vec4 out_color;\n"
+    "float lu(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }\n"
+    "vec3 at(vec2 o) { return texture(u_scene, v_uv + o * u_px.xy).rgb; }\n"
+    "void main() {\n"
+    "  vec3 cM = at(vec2(0.0)), cN = at(vec2(0.0, -1.0)), cS = at(vec2(0.0, 1.0)), cE = at(vec2(1.0, 0.0)), cW = at(vec2(-1.0, 0.0));\n"
+    "  float lM = lu(cM), lN = lu(cN), lS = lu(cS), lE = lu(cE), lW = lu(cW);\n"
+    "  float mn = min(lM, min(min(lN, lS), min(lE, lW))), mx = max(lM, max(max(lN, lS), max(lE, lW)));\n"
+    "  vec3 c = cM;\n"
+    "  if (mx - mn > max(0.035, mx * 0.1)) {\n"
+    "    float lNW = lu(at(vec2(-1.0, -1.0))), lNE = lu(at(vec2(1.0, -1.0))), lSW = lu(at(vec2(-1.0, 1.0))), lSE = lu(at(vec2(1.0, 1.0)));\n"
+    "    vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));\n"
+    "    float red = max((lNW + lNE + lSW + lSE) * 0.03125, 0.0078125);\n"
+    "    dir = clamp(dir / (min(abs(dir.x), abs(dir.y)) + red), vec2(-8.0), vec2(8.0));\n"
+    "    vec3 a = 0.5 * (at(dir * (1.0 / 3.0 - 0.5)) + at(dir * (2.0 / 3.0 - 0.5)));\n"
+    "    vec3 b = a * 0.5 + 0.25 * (at(dir * -0.5) + at(dir * 0.5));\n"
+    "    float lb = lu(b); c = (lb < mn || lb > mx) ? a : b;\n"
+    "  } else {\n"
+    "    c = max(cM + (cM * 4.0 - cN - cS - cE - cW) * 0.25 * u_k.z, vec3(0.0));\n"
+    "  }\n"
+    "  vec3 bl = vec3(0.0);\n"
+    "  bl += max(at(vec2(6.0, 0.0)) - 0.72, 0.0) + max(at(vec2(-6.0, 0.0)) - 0.72, 0.0) + max(at(vec2(0.0, 6.0)) - 0.72, 0.0) + max(at(vec2(0.0, -6.0)) - 0.72, 0.0);\n"
+    "  bl += max(at(vec2(10.0, 10.0)) - 0.72, 0.0) + max(at(vec2(-10.0, 10.0)) - 0.72, 0.0) + max(at(vec2(10.0, -10.0)) - 0.72, 0.0) + max(at(vec2(-10.0, -10.0)) - 0.72, 0.0);\n"
+    "  bl += max(at(vec2(18.0, 0.0)) - 0.72, 0.0) + max(at(vec2(-18.0, 0.0)) - 0.72, 0.0) + max(at(vec2(0.0, 18.0)) - 0.72, 0.0) + max(at(vec2(0.0, -18.0)) - 0.72, 0.0);\n"
+    "  c += bl * (u_k.y / 12.0) * vec3(1.0, 0.95, 0.85);\n"
+    "  vec2 d = v_uv - 0.5; c *= 1.0 - u_k.w * dot(d, d) * 1.2;\n"
+    "  out_color = vec4(min(c, vec3(1.0)), 1.0);\n"
+    "}\n";
 /* the shadow pass: the scene seen from the sun, writing only how far each spot is from it (see-through leaf pixels skipped) */
 static const char *VS_SHADOW_SRC =
     "#version 450\n"
@@ -185,7 +228,8 @@ static uint32_t g_loc_frame = 0, g_loc_object = 1, g_loc_fog = 0;
 static void *g_framebuf = NULL, *g_fogbuf = NULL;
 static int g_flags = -1, g_initialized = 0;
 /* the sun's shadow map */
-#define SHADOW_RES 1024
+#define SHADOW_RES 2048   /* sharper sun shadows */
+static WHBGfxShaderGroup g_post; static Mesh *g_postquad; static int g_post_ok; static uint32_t g_post_loc_tex, g_post_loc_ub;
 static WHBGfxShaderGroup g_shs; static uint32_t g_shloc_frame = 0, g_shloc_object = 1; static int g_shadow_ok = 0, g_in_shadow = 0, g_shadow_use = 0, g_shadow_have = 0;
 static GX2ColorBuffer g_shcb; static GX2DepthBuffer g_shdb; static GX2Texture g_shtex; static GX2Sampler g_shsmp; static GX2ContextState *g_shctx; static float g_shadow_vp[16];
 static void bind_shadow_sampler(void);
@@ -276,6 +320,22 @@ int gfx_init(void) {
                 GX2SetViewport(0, 0, SHADOW_RES, SHADOW_RES, 0.0f, 1.0f); GX2SetScissor(0, 0, SHADOW_RES, SHADOW_RES);
                 g_shadow_ok = 1; } } }
     gfx_log("sun shadows %s%s", g_shadow_ok ? "on" : "off: ", g_shadow_ok ? "" : info);
+    {   /* the finishing pass: optional - without it the picture is just a little less smooth */
+        char pinfo[1024]; pinfo[0] = 0; memset(&g_post, 0, sizeof g_post);
+        g_post.vertexShader = glsl_CompileVertexShader(VS_POST_SRC, pinfo, sizeof pinfo, GLSL_COMPILER_FLAG_NONE);
+        if (g_post.vertexShader) g_post.pixelShader = glsl_CompilePixelShader(PS_POST_SRC, pinfo, sizeof pinfo, GLSL_COMPILER_FLAG_NONE);
+        if (g_post.vertexShader && g_post.pixelShader) {
+            int k = 1; k &= WHBGfxInitShaderAttribute(&g_post, "in_position", 0, 0, GX2_ATTRIB_FORMAT_FLOAT_32_32_32);
+            WHBGfxInitShaderAttribute(&g_post, "in_normal", 0, 12, GX2_ATTRIB_FORMAT_FLOAT_32_32_32); WHBGfxInitShaderAttribute(&g_post, "in_texcoord", 0, 24, GX2_ATTRIB_FORMAT_FLOAT_32_32);
+            WHBGfxInitShaderAttribute(&g_post, "in_color", 0, 32, GX2_ATTRIB_FORMAT_FLOAT_32_32_32_32);
+            if (k && WHBGfxInitFetchShader(&g_post) && g_post.pixelShader->samplerVarCount >= 1) {
+                g_post_loc_tex = sampler_location(g_post.pixelShader, "u_scene", g_post.pixelShader->samplerVars[0].location);
+                g_post_loc_ub = pblock_location(g_post.pixelShader, "Post", 0);
+                Vertex q[6]; static const float P[6][4] = {{-1, -1, 0, 1}, {1, -1, 1, 1}, {1, 1, 1, 0}, {-1, -1, 0, 1}, {1, 1, 1, 0}, {-1, 1, 0, 0}};
+                memset(q, 0, sizeof q); for (int i = 0; i < 6; i++) { q[i].px = P[i][0]; q[i].py = P[i][1]; q[i].nz = 1; q[i].u = P[i][2]; q[i].v = P[i][3]; q[i].r = q[i].g = q[i].b = q[i].a = 1; }
+                g_postquad = gfx_mesh_static(q, 6); g_post_ok = g_postquad != NULL; }
+        }
+        gfx_log("finishing pass %s %s", g_post_ok ? "ok" : "off", pinfo); }
     return GFX_OK;
 }
 
@@ -493,6 +553,20 @@ Texture *gfx_grab_ex(int src, int drc) {   /* src: which screen's picture (0 TV,
     GX2SetFetchShader(&g_shader.fetchShader); GX2SetVertexShader(g_shader.vertexShader); GX2SetPixelShader(g_shader.pixelShader); GX2SetShaderMode(GX2_SHADER_MODE_UNIFORM_BLOCK);
     g_flags = -1; g_bound = NULL; gfx_bind(g_white); bind_shadow_sampler();
     return t; }
+
+/* run the finishing pass over what is on screen drc now (call after the 3D scene, before the words and panels) */
+void gfx_post(int drc, float bloom, float sharpen, float vignette) {
+    if (!g_post_ok || g_in_shadow) return;
+    Texture *t = gfx_grab(drc); if (!t) return;
+    gfx_viewport(drc, 0, 0, 1, 1);
+    GX2SetFetchShader(&g_post.fetchShader); GX2SetVertexShader(g_post.vertexShader); GX2SetPixelShader(g_post.pixelShader); GX2SetShaderMode(GX2_SHADER_MODE_UNIFORM_BLOCK);
+    GX2SetDepthOnlyControl(FALSE, FALSE, GX2_COMPARE_FUNC_ALWAYS); GX2SetCullOnlyControl(GX2_FRONT_FACE_CCW, FALSE, FALSE); GX2SetColorControl(GX2_LOGIC_OP_COPY, 0x00, FALSE, TRUE);
+    GX2SetPixelTexture(&t->tex, g_post_loc_tex); GX2SetPixelSampler(&t->smp, g_post_loc_tex);
+    float pb[8] = {1.0f / (float)t->tex.surface.width, 1.0f / (float)t->tex.surface.height, 0, 0, 1, bloom, sharpen, vignette};
+    GX2SetPixelUniformBlock(g_post_loc_ub, sizeof pb, pool_upload(pb, sizeof pb));
+    GX2RSetAttributeBuffer(&g_postquad->buf[0], 0, sizeof(Vertex), 0); GX2DrawEx(GX2_PRIMITIVE_MODE_TRIANGLES, 6, 0, 1);
+    GX2SetFetchShader(&g_shader.fetchShader); GX2SetVertexShader(g_shader.vertexShader); GX2SetPixelShader(g_shader.pixelShader);
+    g_flags = -1; g_bound = NULL; gfx_bind(g_white); bind_shadow_sampler(); }
 static int g_bump;
 void gfx_bump(int level) { g_bump = level < 0 ? 0 : level > 9 ? 9 : level; }
 void gfx_shadow_use(int on) { g_shadow_use = on; }

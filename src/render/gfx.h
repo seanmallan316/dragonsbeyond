@@ -48,6 +48,7 @@ void gfx_clear_depth(int drc);
    then gfx_shadow_end. gfx_shadow_use(1) before a scene's gfx_camera lets that scene receive them; gfx_shadow_none() for a frame with none */
 int gfx_shadow_begin(const Mat4 *lightvp);
 void gfx_shadow_end(void);
+void gfx_post(int drc, float bloom, float sharpen, float vignette);   /* smooth edges, sharpen, glow and corner shade over the 3D picture so far */
 Texture *gfx_grab(int drc);   /* the picture so far as a texture (NULL if it can't be done); then set the viewport again */
 Texture *gfx_grab_ex(int src, int drc);   /* the same, copying screen src (0 TV, 1 GamePad) while drawing screen drc */
 void gfx_bump(int level);   /* 0 = flat; 1..9 = the picture's brightness read as bumps that catch the light, and stands up as you look across it (roads, ground, walls) */

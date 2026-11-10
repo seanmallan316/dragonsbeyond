@@ -1138,7 +1138,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
             gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
             draw_title_dragons();
             { Mat4 cm = m4_translate(fmodf(g_time * 1.5f, 900.0f) - 450.0f, 0, 0); gfx_state(ST_DEPTH | ST_BLEND); gfx_bind(tx_cloud); if (m_clouds) { gfx_draw_ex(m_clouds, &cm, 1, 1, 1, 0.9f, 0, 1, 0, 0); Mat4 cm2 = m4_translate(cm.m[12] + 900.0f, 0, 0); gfx_draw_ex(m_clouds, &cm2, 1, 1, 1, 0.9f, 0, 1, 0, 0); } }
-            draw_title_hud(); }
+            gfx_post(0, 0.9f, 0.35f, 0.35f); draw_title_hud(); }
         gfx_view_end(0);
         gfx_view_begin(1, 0.08f, 0.14f, 0.08f); draw_title_hud(); gfx_view_end(1);
         gfx_frame_end(); return; }
@@ -1240,6 +1240,6 @@ paused:
     music_update(2);
     gfx_frame_begin();
     shadow_pass();
-    gfx_view_begin(0, 0.55f, 0.75f, 0.95f); draw_scene(0); draw_hud(0); gfx_view_end(0);   /* the TV: the game */
+    gfx_view_begin(0, 0.55f, 0.75f, 0.95f); draw_scene(0); gfx_post(0, 0.9f, 0.35f, 0.35f); draw_hud(0); gfx_view_end(0);   /* the TV: the game */
     gfx_view_begin(1, 0.08f, 0.14f, 0.08f); draw_map(); gfx_view_end(1);                   /* the GamePad: the map */
     gfx_frame_end(); }
