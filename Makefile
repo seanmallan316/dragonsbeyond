@@ -44,7 +44,8 @@ test:
 	gcc $(TESTFLAGS) tests/game_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/game/props.c src/game/boss.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o game_test && ASAN_OPTIONS=detect_leaks=0 ./game_test
 	gcc $(TESTFLAGS) tests/coop_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/game/props.c src/game/boss.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o coop_test && ASAN_OPTIONS=detect_leaks=0 ./coop_test
 	gcc $(TESTFLAGS) tests/sky_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/game/props.c src/game/boss.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o sky_test && ASAN_OPTIONS=detect_leaks=0 ./sky_test
+	gcc $(TESTFLAGS) -DDB_TOUR tests/tour_test.c tests/gfx_stub.c src/game/game.c src/game/world.c src/game/dragon.c src/game/anim3d.c src/game/props.c src/game/boss.c src/render/assets.c src/audio/sfx.c src/audio/music.c -lm -lpthread -o tour_test && ASAN_OPTIONS=detect_leaks=0 ./tour_test
 
 clean:
-	rm -f $(TARGET).elf $(TARGET).rpx $(TARGET).wuhb $(TARGET)-tour.elf $(TARGET)-tour.rpx dragon_test game_test boss_test coop_test sky_test
+	rm -f $(TARGET).elf $(TARGET).rpx $(TARGET).wuhb $(TARGET)-tour.elf $(TARGET)-tour.rpx dragon_test game_test boss_test coop_test sky_test tour_test
 .PHONY: all clean test tour

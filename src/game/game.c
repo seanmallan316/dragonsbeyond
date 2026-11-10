@@ -857,7 +857,8 @@ static void tour_input_base(Pad *p, float t) {
     const Dragon *d = &g_dragon;
     if (t < 4) return; if (g_state != G_PLAY || g_tale_i >= 0) { p->a = fmodf(t, 0.9f) < 0.12f && (g_state != G_NAME || t > 6); return; }
     static float play_t0 = -1; if (play_t0 < 0) play_t0 = t; float pt = t - play_t0;   /* show off the views once playing: rider, then the dragon's eyes */
-    int wantcam = pt > 25 && pt < 50 ? 1 : (pt >= 50 && pt < 62 ? 2 : 0); int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
+    static float swap_t = -1; if (g_kind == 2 && swap_t < 0) swap_t = pt;
+    int wantcam = pt > 3 && g_boss.state != B_DOWN ? 1 : (swap_t >= 0 && pt < swap_t + 15 ? 2 : 0);   /* the fight from on its back, overhead after, the snow dragon's eyes after the swap */ int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
     float ax = g_world.arena_x - d->x, az = g_world.arena_z - d->z, adist = sqrtf(ax * ax + az * az);
     if (g_wk == WK_SKY && g_wrescued[WK_SKY] && g_kind == 2) {   /* after the swap: walk home over the bridge and ride the wind column down */
         static int reached; float tx, tz;
@@ -1063,7 +1064,7 @@ static int sky_fall(Dragon *d, float *sx, float *sz) {
 static void solid_body(Dragon *d) {
     float r = 0.3f * dragon_length(d->stage) + 0.2f; int air = d->mode == DM_AIR;
     if (world_push_out(&g_world, &d->x, &d->y, &d->z, r, air) && !air) d->y = world_height(&g_world, d->x, d->z);
-    if (g_boss.state != B_DOWN) { float bx = d->x - g_boss.x, bz = d->z - g_boss.z, R = r + (g_wk == WK_SKY ? 2.6f : 2.2f) * BOSS_SCALE, d2 = bx * bx + bz * bz;
+    if (g_boss.state != B_DOWN && g_boss.state != B_STUCK && g_boss.state != B_STUNNED && g_boss.state != B_HURT) { float bx = d->x - g_boss.x, bz = d->z - g_boss.z, R = r + (g_wk == WK_SKY ? 1.6f : 1.5f) * BOSS_SCALE, d2 = bx * bx + bz * bz;
         if (d2 < R * R && d->y < g_boss.y + (g_wk == WK_SKY ? 4.5f : 3.5f) * BOSS_SCALE) { float dd = sqrtf(d2) + 1e-4f; d->x = g_boss.x + bx / dd * R; d->z = g_boss.z + bz / dd * R; } } }
 /* ---------- Ironhorn, the cage and the rescued friend ---------- */
 static void hurt_dragon(float amount, const char *msg) {
