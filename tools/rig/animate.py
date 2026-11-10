@@ -146,12 +146,19 @@ def eat(t):    # 0-0.3 lower head, 0.3-0.8 chomp x3, 0.8-1 raise
             'chest': (8 * down, 0, 0), 'legFL_upper': (-10 * down, 0, 0), 'legFR_upper': (-10 * down, 0, 0)}
     rots.update(tail(t, 8)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, -0.01 * H * down)}
+# lip-sync: how loud each voice is every 40 ms (measured from content/sfx/sfx_roar.wav and sfx_chirp.wav); the jaw opens as wide as the voice is loud
+ROAR_ENV = [0.01, 0.04, 0.11, 0.13, 0.53, 0.67, 0.71, 0.84, 0.73, 0.86, 0.61, 0.93, 0.71, 1.00, 0.87, 0.88, 0.64, 0.77, 0.70, 0.68, 0.43, 0.53, 0.28, 0.21, 0.09, 0.03, 0.0]
+CHIRP_ENV = [0.12, 0.37, 0.83, 1.00, 0.89, 0.71, 0.42, 0.32, 0.24, 0.16, 0.11, 0.08, 0.0]
+def voice(envl, sec, lead=0.04):   # the voice's loudness at sec seconds (the jaw leads the sound by a hair, as real mouths do)
+    i = (sec + lead) / 0.04
+    if i <= 0 or i >= len(envl) - 1: return 0.0
+    k = int(i); f = i - k; return envl[k] * (1 - f) + envl[k + 1] * f
 def roar(t):   # rear up, head back, mouth wide, wings spread, then settle
     # timed to the roar sound: the mouth is open by the time the sound swells (~0.25 s) and shuts as it dies (~1.4 s)
     k = min(1, t / 0.12) if t < 0.6 else max(0, 1 - (t - 0.6) / 0.2)
     shake = 2 * S(8 * t) * k
     rots = {'chest': (-12 * k, 0, 0), 'spine2': (-6 * k, 0, 0), 'neck1': (-30 * CH * k, 0, shake), 'neck2': (-20 * CH * k, 0, 0), 'head': (-15 * CH * k, 0, shake),
-            'jaw': (38 * k * (0.85 + 0.15 * S(12 * t)), 0, 0), 'legFL_upper': (-25 * k, 0, 0), 'legFR_upper': (-25 * k, 0, 0), 'legFL_lower': (30 * k, 0, 0), 'legFR_lower': (30 * k, 0, 0)}
+            'jaw': (6 * k + 34 * voice(ROAR_ENV, 2.0 * t), 0, 0), 'legFL_upper': (-25 * k, 0, 0), 'legFR_upper': (-25 * k, 0, 0), 'legFL_lower': (30 * k, 0, 0), 'legFR_lower': (30 * k, 0, 0)}
     if has_wings:
         rots.update({'wingL_1': (30 * k - 35 * (1 - k), 0, -25 * (1 - k)), 'wingR_1': (30 * k - 35 * (1 - k), 0, 25 * (1 - k)),
                      'wingL_2': (10 * k, 0, 45 * (1 - k)), 'wingR_2': (10 * k, 0, -45 * (1 - k)), 'wingL_3': (0, 0, 30 * (1 - k)), 'wingR_3': (0, 0, -30 * (1 - k))})
@@ -159,8 +166,7 @@ def roar(t):   # rear up, head back, mouth wide, wings spread, then settle
     return rots, {'hips': (0, 0, 0.05 * H * k)}
 def chirp(t):   # a dragonet's chirp, 0.8 s: head up and tilted, two quick snaps of the jaw, one per note of the chirp sound (0-0.12 s, 0.13-0.23 s)
     up = min(1, t / 0.1) if t < 0.6 else max(0, 1 - (t - 0.6) / 0.4)
-    def snap(a, b): return max(0.0, math.sin(math.pi * (t - a) / (b - a))) if a <= t <= b else 0.0
-    jaw = 24 * snap(0.0, 0.16) + 20 * snap(0.16, 0.3)
+    jaw = 26 * voice(CHIRP_ENV, 0.8 * t)
     rots = {'neck1': (-14 * CH * up, 0, 0), 'neck2': (-10 * CH * up, 0, 0), 'head': (-10 * CH * up, 8 * up, 0), 'jaw': (jaw, 0, 0), 'chest': (-4 * up, 0, 0)}
     rots.update(tail(t, 14, 0, nod=-4 * up)); rots.update(wings_folded())
     if has_wings: rots.update({'wingL_1': (-35 + 12 * up, 0, -25), 'wingR_1': (-35 + 12 * up, 0, 25)})   # a little flutter of happiness

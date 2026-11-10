@@ -1221,7 +1221,8 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (ev & 4) sfx_play(SFX_FLAP, 0.6f, 0);
     if (ev & 8) sfx_play(SFX_LAND, 0.5f, 0);
     if (in.b_press && g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.9f) sfx_play(SFX_TAIL, 0.6f, 0);
-    { static float flap_t; if (g_dragon.mode == DM_AIR && g_dragon.anim == DA_FLY) { flap_t += dt; if (flap_t > 0.8f) { flap_t = 0; sfx_play(SFX_FLAP, 0.35f, 0); } } else flap_t = 0.6f; }
+    if (g_dragon.mode == DM_AIR && g_dragon.anim == DA_FLY) {   /* the whoosh lands on each downstroke of the 0.8 s wingbeat */
+        float ph = fmodf(g_dragon.anim_t, 0.8f), was = fmodf(fmaxf(g_dragon.anim_t - dt, 0), 0.8f); if (was < 0.26f && ph >= 0.26f) sfx_play(SFX_FLAP, 0.45f, 0); }
     if (g_state == G_PLAY && g_dragon.stage == ST_DRAGONET && fmodf(g_time, 7.0f) < dt && g_dragon.anim == DA_IDLE) sfx_play(SFX_CHIRP, 0.3f, 0);
     if (ev & 2) save_progress();
     if (!g_world.crystal_found) { float dx = g_dragon.x - g_world.crystal_x, dz = g_dragon.z - g_world.crystal_z, dy = g_dragon.y - g_world.crystal_y; if (dx * dx + dz * dz + dy * dy < (1.2f + 0.5f * dragon_length(g_dragon.stage)) * (1.2f + 0.5f * dragon_length(g_dragon.stage))) { g_world.crystal_found = 1; snprintf(g_msg, sizeof g_msg, "SECRET EGG CRYSTAL FOUND! 1 OF 10"); g_msg_t = 6; sfx_play(SFX_UNLOCK, 0.8f, 0); platform_rumble(0.8f, 0.5f); save_progress(); } }

@@ -1,0 +1,8 @@
+Music and sound effects in Dragons Beyond (all CC0 / public domain, from OpenGameArt.org; thank you to the artists):
+- title.mp3: "Adventure Theme Intro" by nene - https://opengameart.org/content/adventure-intro-title-cinematic-epic
+- everleaf.mp3: "Beautiful Forest" by nene - https://opengameart.org/content/beautiful-forest-orchestra
+- sky.mp3: "New Sunrise" by nene - https://opengameart.org/content/new-sunrise
+- danger.mp3: "Determined Pursuit" by emmama - https://opengameart.org/content/determined-pursuit-epic-orchestra-loop
+- boss.mp3: "Epic Boss Battle" by Juhani Junkala (subspaceaudio) - https://opengameart.org/content/boss-battle-music
+Sound effects (content/sfx): 80 CC0 creature SFX 1 and 2, 80 CC0 RPG SFX (rubberduck), Large wings flap, Crunch (Tito), Swishes pack - all CC0 on OpenGameArt.
+Ground, rock and bark surfaces: ambientCG.com (CC0) - Ground085, Rock051, Bark014.
