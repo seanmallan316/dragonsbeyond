@@ -50,11 +50,11 @@ int   world_in_pond(const World *w, float x, float z);
 void  world_update(World *w, float dt, float px, float pz);   /* regrowth, grubs wandering away from the player */
 int   world_nearest_food(const World *w, float x, float z, float reach);   /* index or -1 */
 /* drones: returns a bitmask: 1 a drone hit the dragon (take damage), 2 a drone was knocked down. whip = tail whip landing this frame, roar = roaring */
-int   world_drones(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar);
-int   world_hounds(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar, int in_air);   /* same bitmask as the drones */
+int   world_drones(World *w, float dt, float px, float py, float pz, float reach, float whip, int roar);
+int   world_hounds(World *w, float dt, float px, float py, float pz, float reach, float whip, int roar, int in_air);   /* same bitmask as the drones */
 /* a dragon's power hits Kaine's helpers: everything within range (and inside the cone ahead, cos_cone = -1 for all round) is knocked out. Returns how many. */
 /* Scale Thieves: returns 1 when one steals (amount in *stolen), 2 when one is caught (food back in *recovered) */
-int   world_thieves(World *w, float dt, float px, float py, float pz, float reach, int whip, float carry, float *stolen, float *recovered);
+int   world_thieves(World *w, float dt, float px, float py, float pz, float reach, float whip, float carry, float *stolen, float *recovered);
 int   world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone);
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */

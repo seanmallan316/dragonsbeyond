@@ -522,8 +522,8 @@ static void draw_food3d(Vec3 eye) {
     /* real models: bushes (duller when the berries are eaten) and mushrooms, one draw each */
     gfx_state(ST_SOLID);
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; float dx = f->x - eye.x, dz = f->z - eye.z; float d2 = dx * dx + dz * dz; if (d2 > 130 * 130) continue; int lod = d2 > 40 * 40;
-        if (f->kind == F_BERRY && g_pm[PM_BUSH].ok) { float t = f->alive ? 1.0f : 0.72f; propmodel_draw(&g_pm[PM_BUSH], lod, f->x, f->y - 0.05f, f->z, f->yaw, 1.0f, t, t * 1.05f, t); }
-        if (f->kind == F_MUSHROOM && g_pm[PM_MUSH].ok && f->alive) propmodel_draw(&g_pm[PM_MUSH], lod, f->x, f->y - 0.02f, f->z, f->yaw, 1.0f + 0.06f * sinf(f->phase), 1, 1, 1); }
+        if (f->kind == F_BERRY && g_pm[PM_BUSH].ok) { float t = f->alive ? 1.18f + 0.12f * sinf(g_time * 3.2f + i * 1.7f) : 0.72f; propmodel_draw(&g_pm[PM_BUSH], lod, f->x, f->y - 0.05f, f->z, f->yaw, 1.0f, t, t * 1.05f, t); }
+        if (f->kind == F_MUSHROOM && g_pm[PM_MUSH].ok && f->alive) { float t = 1.2f + 0.12f * sinf(g_time * 3.2f + i * 1.7f); propmodel_draw(&g_pm[PM_MUSH], lod, f->x, f->y - 0.02f, f->z, f->yaw, 1.0f + 0.06f * sinf(f->phase), t, t, t); } }
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue;
         float dx = f->x - eye.x, dz = f->z - eye.z; float d2 = dx * dx + dz * dz; if (d2 > 120 * 120) continue; int lod = d2 > 35 * 35;
         if (f->kind == F_BERRY && !g_pm[PM_BUSH].ok) {   /* red berries sitting on the (static) bush */
@@ -608,7 +608,28 @@ static void draw_dragon(const Dragon *d) {
 
 static void draw_sparkles(const Dragon *d, Vec3 eye) {
     float ccx, ccz; int col = column_at(&ccx, &ccz) && (ccx - eye.x) * (ccx - eye.x) + (ccz - eye.z) * (ccz - eye.z) < 170 * 170;
-    if (d->evolve_t <= 0 && !col && g_power_t <= 0) return; batch_clear(&g_b); unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
+    batch_clear(&g_b);
+    {   /* food glows: a soft golden halo round every bite still there, motes of light rising off it and a faint pillar of light
+           above it that can be seen across the meadow, so food is easy to find and plainly food */
+        int near[48], nn = 0; float nd[48];   /* the nearest 48 bites (keeps the glow mesh small) */
+        for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue;
+            float dx = f->x - eye.x, dz = f->z - eye.z, d2 = dx * dx + dz * dz; if (d2 > 110 * 110) continue;
+            if (nn < 48) { near[nn] = i; nd[nn++] = d2; } else { int w = 0; for (int k = 1; k < 48; k++) if (nd[k] > nd[w]) w = k; if (d2 < nd[w]) { near[w] = i; nd[w] = d2; } } }
+        for (int q = 0; q < nn; q++) { int i = near[q]; const Food *f = &g_world.food[i];
+            float dx = f->x - eye.x, dz = f->z - eye.z, dist = sqrtf(nd[q]);
+            float pul = 0.75f + 0.25f * sinf(g_time * 3.2f + i * 1.7f), far = clampf((dist - 6) / 30, 0, 1);
+            float cy = f->y + (f->kind == F_BERRY ? 1.05f : f->kind == F_MUSHROOM ? 0.6f : 0.35f);   /* just above the bush or the bite */
+            float r = 1.0f, g = 0.8f, b = 0.3f; if (f->kind == F_FISH) { r = 0.55f; g = 0.9f; b = 1.0f; }
+            Vec3 rt = v3_norm(v3_cross(v3(0, 1, 0), v3(dx, 0, dz)));
+            float hs = fmaxf(1.3f + 0.5f * far, dist * 0.035f) * pul;   /* never smaller than a dot you can see on the screen */
+            batch_quad(&g_b, v3(f->x, cy, f->z), v3(rt.x * hs, 0, rt.z * hs), v3(0, hs, 0), v3(0, 1, 0), 0, 0, 1, 1, r, g, b, 1.0f);
+            batch_quad(&g_b, v3(f->x, cy, f->z), v3(rt.x * hs * 0.45f, 0, rt.z * hs * 0.45f), v3(0, hs * 0.45f, 0), v3(0, 1, 0), 0, 0, 1, 1, 1, 0.95f, 0.7f, 1.0f);   /* bright heart */
+            float ph = 3.0f + 4.0f * far, pw = fmaxf(0.45f, dist * 0.013f);   /* the pillar: taller and stronger far away */
+            batch_quad(&g_b, v3(f->x, cy + ph, f->z), v3(rt.x * pw, 0, rt.z * pw), v3(0, ph, 0), v3(0, 1, 0), 0, 0, 1, 1, r, g, b, (0.35f + 0.5f * far) * pul);
+            if (dist < 40) for (int k = 0; k < 3; k++) { float u = fmodf(g_time * 0.45f + k * 0.333f + i * 0.17f, 1.0f); float a = i * 2.1f + k * 2.09f + g_time * 0.8f;
+                float ms = 0.1f + 0.06f * (1 - u); Vec3 c = v3(f->x + cosf(a) * 0.5f, cy + u * 1.6f, f->z + sinf(a) * 0.5f);
+                batch_quad(&g_b, c, v3(rt.x * ms, 0, rt.z * ms), v3(0, ms, 0), v3(0, 1, 0), 0, 0, 1, 1, r, g, b, (1 - u) * 0.95f); } } }
+    if (d->evolve_t <= 0 && !col && g_power_t <= 0) { gfx_mesh_update(m_dynspark, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_spark); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_draw_ex(m_dynspark, &id, 1, 1, 1, 1, 0, 1, 0, 0); return; } unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
     Vec3 right = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(d->x < eye.x ? v3(d->x, d->y, d->z) : v3(d->x, d->y, d->z), eye))); Vec3 up = v3(0, 1, 0);
     for (int i = 0; i < 60; i++) { float a = frand01(&s) * 6.28f, r = frand01(&s) * L * 0.9f, h = frand01(&s) * L * 0.8f, ph = frand01(&s) * 6.28f;
         float rise = fmodf(t * (0.8f + frand01(&s)) + ph, 2.0f); float sz = 0.08f * L * (1 - rise / 2) + 0.05f;
@@ -699,7 +720,14 @@ static void draw_scene(int drc) {
     gfx_bind(tx_flower); if (m_flowers) gfx_draw(m_flowers, &id, 1, 1, 1, 1);
     draw_food3d(eye);
     draw_arena(eye);
-    if (g_cam_mode != 2) draw_dragon(&g_dragon);
+    if (g_cam_mode != 2) {   /* the player's dragon gets a character light, as in films: the sun swung round toward the camera and a
+                                brighter fill, so the side we see (usually its back) shows its shape and colours instead of a dark flat cut-out */
+        Vec3 tc = v3_norm(v3(eye.x - g_dragon.x, 0, eye.z - g_dragon.z)); Vec3 L2 = v3_norm(v3(L.x * 0.5f + tc.x * 0.6f, L.y * 0.7f + 0.35f, L.z * 0.5f + tc.z * 0.6f));
+        gfx_light(v3(1.05f, 0.98f, 0.86f), v3(0.62f, 0.72f, 0.86f), v3(0.42f, 0.44f, 0.32f), eye);
+        gfx_shadow_use(1); gfx_camera(&vp, L2, 0.44f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620); gfx_shadow_use(0);
+        draw_dragon(&g_dragon);
+        gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye);
+        gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620); gfx_shadow_use(0); }
     if (m_water) { gfx_state(ST_TRANSPARENT); gfx_bind(tx_water); gfx_draw_ex(m_water, &id, 1, 1, 1, 0.8f, 0.9f, 0, g_time * 0.02f, g_time * 0.013f); }
     draw_sparkles(&g_dragon, eye);
     { Mat4 cm = m4_translate(fmodf(g_time * 1.5f, 900.0f) - 450.0f, 0, 0); gfx_state(ST_DEPTH | ST_BLEND); gfx_bind(tx_cloud); if (m_clouds) { gfx_draw_ex(m_clouds, &cm, 1, 1, 1, 0.9f, 0, 1, 0, 0); Mat4 cm2 = m4_translate(cm.m[12] + 900.0f, 0, 0); gfx_draw_ex(m_clouds, &cm2, 1, 1, 1, 0.9f, 0, 1, 0, 0); } }
@@ -1083,7 +1111,7 @@ static void hurt_dragon(float amount, const char *msg) {
     if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
 static void boss_frame(float dt) {
     const Dragon *d = &g_dragon; float L = dragon_length(d->stage);
-    int whip = d->anim == DA_TAILWHIP && d->act_t > 0.35f && d->act_t < 0.6f; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
+    int whip = d->anim == DA_TAILWHIP && d->act_t > 0.2f && d->act_t < 0.85f; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
     int bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar);
     if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_GUARD[g_wk]); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
@@ -1255,7 +1283,9 @@ void game_frame(const Pad *pads, int npads, float dt) {
     g_tour_a = in.a; g_tour_presses += in.a_press; g_tour_takeoffs += (ev & 4) != 0;
 #endif
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
-    { int whip = g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.35f && g_dragon.act_t < 0.6f; int roar = g_dragon.anim == DA_ROAR && g_dragon.act_t > 1.0f;
+    { /* the tail sweeps all round, from just after the press for most of the swing, and reaches at least 2.8 m even for a dragonet */
+      float Lw = dragon_length(g_dragon.stage); float whip = (g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.2f && g_dragon.act_t < 0.85f) ? fmaxf(2.8f, 0.9f * Lw + 1.2f) : 0;
+      int roar = g_dragon.anim == DA_ROAR && g_dragon.act_t > 1.0f;
       int dev = world_drones(&g_world, dt, g_dragon.x, g_dragon.y + 0.4f * dragon_length(g_dragon.stage), g_dragon.z, 0.8f * dragon_length(g_dragon.stage) + 1.0f, whip, roar);
       if ((dev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, g_dragon.stage >= ST_DRAGON ? "A FEATHER DRONE! B TO SWAT IT, Y FOR YOUR POWER" : "A FEATHER DRONE! PRESS B TO SWAT IT, Y TO SCARE IT"); g_msg_t = 4;
           if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
@@ -1265,7 +1295,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
           if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
       if (hev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 5; snprintf(g_msg, sizeof g_msg, "HOUND DOWN!"); g_msg_t = 2; }
       { float L = dragon_length(g_dragon.stage), stolen, rec; int pw = g_power_t > 0.3f;
-        int tev = world_thieves(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, pw ? 8 + 2 * L : 0.7f * L + 0.9f, whip || pw, g_dragon.growth, &stolen, &rec);
+        int tev = world_thieves(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * L + 0.9f, pw ? 8 + 2 * L : whip, g_dragon.growth, &stolen, &rec);
         if (tev & 1) { g_dragon.growth = fmaxf(0, g_dragon.growth - stolen); sfx_play(SFX_HIT, 0.5f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, "A SCALE THIEF STOLE YOUR FOOD! CATCH IT WITH YOUR TAIL (B)"); g_msg_t = 4; }
         if (tev & 2) { g_dragon.growth += rec + 3; sfx_play(SFX_PICKUP, 0.7f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, rec > 0 ? "CAUGHT! YOU GOT YOUR FOOD BACK" : "SCALE THIEF CAUGHT!"); g_msg_t = 3; } } }
     boss_frame(dt);

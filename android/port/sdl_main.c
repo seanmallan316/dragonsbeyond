@@ -282,6 +282,27 @@ static void remove_old_copy(void) {
 #endif
 
 #ifndef __ANDROID__
+#include "game/anim3d.h"
+/* PC check of how a dragon really looks in the game's renderer: KK_VIEW="name clip bump yaw t" draws just that model close up */
+static void view_frame(const char *spec) {
+    static Anim3D a; static int loaded; static char name[64], clipn[32]; static int bump0; int bump; static float yaw, tt;
+    if (!loaded) { sscanf(spec, "%63s %31s %d %f %f", name, clipn, &bump0, &yaw, &tt); loaded = anim3d_load(&a, name) ? 1 : -1; }
+    if (loaded < 0) return;
+    int c = anim3d_clip(&a, clipn); if (c < 0) c = 0; bump = bump0;
+    gfx_frame_begin(); gfx_shadow_none(); gfx_view_begin(0, 0.55f, 0.65f, 0.75f);
+    Vec3 tgt = v3(0, 0.55f, 0), eye = v3(sinf(yaw) * 2.6f, 1.5f, cosf(yaw) * 2.6f);
+    Mat4 vp = m4_mul(m4_perspective(0.7f, gfx_aspect(0), 0.05f, 100), m4_look_at(eye, tgt, v3(0, 1, 0)));
+    Vec3 L = v3_norm(v3(0.55f, 0.62f, 0.4f));
+    gfx_grade(0.9f, 0.3f, 0.22f, 1.06f);
+    if (bump >= 10) {   /* the game's character light (game.c draw_scene) */
+        Vec3 tc = v3_norm(v3(eye.x, 0, eye.z)); L = v3_norm(v3(L.x * 0.5f + tc.x * 0.6f, L.y * 0.7f + 0.35f, L.z * 0.5f + tc.z * 0.6f));
+        gfx_light(v3(1.05f, 0.98f, 0.86f), v3(0.62f, 0.72f, 0.86f), v3(0.42f, 0.44f, 0.32f), eye); gfx_camera(&vp, L, 0.44f, 0.7f, 0.8f, 0.9f, 140, 620);
+    } else { gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye); gfx_camera(&vp, L, 0.34f, 0.7f, 0.8f, 0.9f, 140, 620); }
+    bump = bump % 10;
+    Mat4 id = m4_identity(); gfx_state(ST_SOLID); gfx_bump(bump); anim3d_draw(&a, c, tt, &id, 1.12f, 1.12f, 1.1f, 1); gfx_bump(0);
+    gfx_post(0, 0.9f, 0.3f, 0.3f);
+    gfx_view_end(0); gfx_frame_end();
+}
 /* PC test of the touch controls: fingers put down and lifted by a script, as a player would (KK_TOUCHTEST=1) */
 static void finger(int type, int id, float x, float y) {
     SDL_Event e; memset(&e, 0, sizeof e); e.type = type; e.tfinger.fingerId = id; e.tfinger.x = x; e.tfinger.y = y; e.tfinger.pressure = 1; touch_event(&e);
@@ -299,7 +320,7 @@ static void touch_script(long f) {
     if (f == 820) finger(SDL_FINGERUP, 3, 0.72f, 0.4f);
     tap_at(f, 850, 4, BTN[0].cx, BTN[0].cy);
     tap_at(f, 950, 4, BTN[1].cx, BTN[1].cy);
-    tap_at(f, 1000, 4, BTN[4].cx, BTN[4].cy);
+    tap_at(f, 1000, 4, BTN[2].cx, BTN[2].cy);
 }
 #endif
 
@@ -398,6 +419,9 @@ int main(int argc, char **argv) {
         if (g_shot_now) snprintf(g_shot_path, sizeof g_shot_path, "%s/frame_%06ld.ppm", shots, frame + 1);
 #ifndef __ANDROID__
         if (getenv("KK_TOUCHTEST") && frame % 25 == 0) port_log("touch %ld: sx %.2f sy %.2f rx %.2f a%d b%d x%d y%d zr%d up%d | %.90s", frame, pads[0].sx, pads[0].sy, pads[0].rx, pads[0].a, pads[0].b, pads[0].x, pads[0].y, pads[0].zr, pads[0].up, game_where());
+#endif
+#ifndef __ANDROID__
+        if (getenv("KK_VIEW")) { view_frame(getenv("KK_VIEW")); } else
 #endif
         game_frame(pads, KK_PADS, dt);
         frame++;

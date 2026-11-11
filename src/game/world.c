@@ -110,14 +110,14 @@ int world_nearest_food(const World *w, float x, float z, float reach) {
     return best; }
 
 static float air_floor(const World *w, float x, float z) { float h = world_height(w, x, z); return w->kind == WK_SKY ? fmaxf(h, W_CLOUDS + 8) : h; }   /* flyers keep above the cloud sea */
-int world_drones(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar) {
+int world_drones(World *w, float dt, float px, float py, float pz, float reach, float whip, int roar) {   /* whip: how far the tail reaches right now (0 = not whipping) */
     int ev = 0;
     for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; d->t += dt; d->flap += dt * (d->state == 1 ? 14 : 9);
         float dx = px - d->x, dz = pz - d->z, dist = sqrtf(dx * dx + dz * dz), dy = py - d->y;
         float gy = air_floor(w, d->x, d->z);
         if (d->state == 3) { if (d->y > gy + 0.2f) { d->y -= 6 * dt; d->yaw += 5 * dt; } if (d->t > 25) { d->state = 0; d->x = d->hx; d->z = d->hz; d->y = air_floor(w, d->x, d->z) + 9; d->t = 0; } continue; }
         if (roar && dist < 14) { d->state = 2; d->t = 0; }
-        if (whip && dist < reach && fabsf(dy) < reach) { d->state = 3; d->t = 0; ev |= 2; continue; }
+        if (whip > 0 && dist < whip && fabsf(dy) < whip) { d->state = 3; d->t = 0; ev |= 2; continue; }
         if (d->state == 0) {   /* circle the home spot, dive when the dragon comes near */
             float ang = d->t * 0.5f; float tx = d->hx + cosf(ang) * 12, tz = d->hz + sinf(ang) * 12; float ty = air_floor(w, tx, tz) + 8 + 1.5f * sinf(d->t);
             float ddx = tx - d->x, ddz = tz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 7 * dt; d->z += cosf(d->yaw) * 7 * dt; d->y += (ty - d->y) * dt * 2;
@@ -132,13 +132,13 @@ int world_drones(World *w, float dt, float px, float py, float pz, float reach, 
             if (d->t > 8) { d->state = 0; d->t = 0; } } }
     return ev; }
 
-int world_hounds(World *w, float dt, float px, float py, float pz, float reach, int whip, int roar, int in_air) {
+int world_hounds(World *w, float dt, float px, float py, float pz, float reach, float whip, int roar, int in_air) {
     int ev = 0; (void)py;
     for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; h->t += dt;
         float dx = px - h->x, dz = pz - h->z, dist = sqrtf(dx * dx + dz * dz);
         if (h->state == 3) { h->flap += dt * 3; if (h->t > 22) { h->state = 0; h->t = 0; } continue; }
         if (roar && dist < 12) { h->state = 2; h->t = 0; }
-        if (whip && dist < reach) { h->state = 3; h->t = 0; ev |= 2; continue; }
+        if (whip > 0 && dist < whip) { h->state = 3; h->t = 0; ev |= 2; continue; }
         float sp = 0;
         if (h->state == 0) { float ang = h->t * 0.35f; float tx = h->hx + cosf(ang) * 10, tz = h->hz + sinf(ang) * 10; h->yaw = atan2f(tx - h->x, tz - h->z); sp = 2.2f; if (dist < 15 && !in_air) { h->state = 1; h->t = 0; } }
         else if (h->state == 1) { h->yaw = atan2f(dx, dz); sp = 5.6f; if (dist < reach * 0.6f && !in_air) { ev |= 1; h->state = 2; h->t = 0; } if (h->t > 9 || dist > 40 || in_air) { h->state = 2; h->t = 0; } }
@@ -233,13 +233,13 @@ int world_blast(World *w, float x, float y, float z, float dx, float dz, float r
             d->state = 3; d->t = 0; n++; } }
     return n; }
 static int thief_step_ok(const World *w, float x, float z) { return !(w->kind == WK_SKY && world_is_void(w, x, z)) && !world_in_pond(w, x, z) && fabsf(x) < W_SIZE / 2 - 4 && fabsf(z) < W_SIZE / 2 - 4; }
-int world_thieves(World *w, float dt, float px, float py, float pz, float reach, int whip, float carry, float *stolen, float *recovered) {
+int world_thieves(World *w, float dt, float px, float py, float pz, float reach, float whip, float carry, float *stolen, float *recovered) {
     int ev = 0; *stolen = 0; *recovered = 0;
     for (int i = 0; i < w->nthief; i++) { Drone *t = &w->thief[i]; t->t += dt;
         float dx = px - t->x, dz = pz - t->z, dist = sqrtf(dx * dx + dz * dz); float sp = 0, yaw = t->yaw;
         if (t->state == 3) { if (t->t > 12) { t->state = 4; t->t = 0; } continue; }
         if (t->state == 4) { if (t->t > 18) { t->state = 0; t->t = 0; t->x = t->hx; t->z = t->hz; t->flap = 0; } continue; }
-        if (whip && dist < reach + 0.6f && fabsf(py - t->y) < reach + 1) {   /* caught! it drops what it stole */
+        if (whip > 0 && dist < whip + 0.6f && fabsf(py - t->y) < whip + 1) {   /* caught! it drops what it stole */
             if (t->flap > 0) { *recovered += t->flap; t->flap = 0; } t->state = 3; t->t = 0; ev |= 2; continue; }
         if (t->state == 0) { float a = t->t * 0.7f + i; float tx = t->hx + cosf(a) * 4, tz = t->hz + sinf(a * 1.3f) * 4; yaw = atan2f(tx - t->x, tz - t->z); sp = 1.5f;
             if (dist < 18 && carry >= 10 && fabsf(py - t->y) < 3) { t->state = 1; t->t = 0; } }

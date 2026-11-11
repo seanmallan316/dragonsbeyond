@@ -42,6 +42,6 @@ int main(void) {
     for (int i = 0; i < 1200; i++) { int ev = world_drones(&w, 1.0f / 60, d.x, d.y + 1, d.z, 2.5f, 0, 0); if (ev & 1) hit++; }
     printf("drone hits in 20 s standing still: %d\n", hit); CHECK(hit >= 1);
     dr->state = 1; dr->x = d.x + 1; dr->z = d.z; dr->y = d.y + 1;
-    for (int i = 0; i < 10; i++) { int ev = world_drones(&w, 1.0f / 60, d.x, d.y + 1, d.z, 2.5f, 1, 0); if (ev & 2) down++; }
+    for (int i = 0; i < 10; i++) { int ev = world_drones(&w, 1.0f / 60, d.x, d.y + 1, d.z, 2.5f, 2.5f, 0); if (ev & 2) down++; }
     CHECK(down == 1 && dr->state == 3);
     printf("dragon test OK\n"); return 0; }
