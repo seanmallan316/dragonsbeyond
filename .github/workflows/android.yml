@@ -1,0 +1,106 @@
+# Builds Dragons Beyond for Android phones from the Wii U game in this repository, on GitHub's computers.
+# 1. builds the Android app (APK): the game's own code, with the phone parts in android/port (sharp graphics on OpenGL ES 3,
+#    touch controls, Bluetooth controllers, sound), and every model, picture, song and sound packed inside
+# 2. puts the APK on the Releases page
+# 3. at the same time, a PC build of the same phone code plays the game's own tour and takes pictures (artifact phone-pictures)
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get SDL (the library that runs the game on Android)
+        run: |
+          git clone -q --depth 1 -b release-2.30.0 https://github.com/libsdl-org/SDL android/app/jni/SDL
+          # newer Android NDKs removed ALooper_pollAll; ALooper_pollOnce takes the same arguments
+          sed -i 's/ALooper_pollAll(/ALooper_pollOnce(/' android/app/jni/SDL/src/sensor/android/SDL_androidsensor.c
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Pack the game's files into the app
+        run: |
+          A=android/app/src/main/assets
+          mkdir -p $A/content
+          cp -r content/* $A/content/
+          mkdir -p $A/content/port_ui && cp android/port/ui/*.png $A/content/port_ui/
+          echo "files: $(find $A/content -type f | wc -l), size: $(du -sh $A/content | cut -f1)"
+
+      - name: Get the signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/db-signing
+          key: dragonsbeyond-signing-key-v1
+
+      - name: Build the APK
+        run: |
+          mkdir -p ~/db-signing
+          if [ ! -f ~/db-signing/dragonsbeyond.keystore ]; then
+            openssl rand -hex 16 > ~/db-signing/pass.txt
+            keytool -genkeypair -keystore ~/db-signing/dragonsbeyond.keystore -alias dragonsbeyond -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$(cat ~/db-signing/pass.txt)" -keypass "$(cat ~/db-signing/pass.txt)" -dname "CN=Dragons Beyond"
+          fi
+          export KK_KEYSTORE=$HOME/db-signing/dragonsbeyond.keystore
+          export KK_KEYSTORE_PASS="$(cat ~/db-signing/pass.txt)"
+          export DB_WIIU_SRC=$PWD/src
+          export KK_VERSION_CODE=$((100 + ${{ github.run_number }}))
+          # SDL 2.30 needs an NDK from before version 30
+          export KK_NDK_VERSION=27.2.12479018
+          [ -d $ANDROID_HOME/ndk/$KK_NDK_VERSION ] || yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;$KK_NDK_VERSION" > /dev/null
+          cd android && chmod +x gradlew && ./gradlew --no-daemon -q assembleRelease
+          ls -la app/build/outputs/apk/release/
+          cp app/build/outputs/apk/release/app-release.apk ../dragonsbeyond.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dragonsbeyond-apk
+          path: dragonsbeyond.apk
+
+      - name: Put the APK on the Releases page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=${{ github.run_number }}
+          gh release create "android-$N" dragonsbeyond.apk \
+            --title "Dragons Beyond for Android, build $N" --notes "Download dragonsbeyond.apk on your phone and open it to install."
+
+  # a separate check that runs at the same time: the phone code, built for a PC, plays the game's own tour and takes pictures
+  phone-tour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: PC build of the phone version - the game plays its own tour and takes pictures
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libsdl2-dev xvfb libgl1-mesa-dri libegl1 libgles2 > /dev/null
+          mkdir -p stage && cp -r content stage/content && mkdir -p stage/content/port_ui && cp android/port/ui/*.png stage/content/port_ui/
+          OUT=$PWD/pc-tour bash android/port/build_pc.sh . /usr/include/SDL2 $PWD/stage/content -DDB_TOUR
+          mkdir -p shots
+          KK_FRAMES=1500 KK_SHOTS=$PWD/shots KK_SHOT_EVERY=150 SDL_AUDIODRIVER=dummy timeout 2400 \
+            xvfb-run -a -s "-screen 0 1600x800x24" ./pc-tour/dragonsbeyond 2>&1 | tee tour.log | grep -E "picture /|error|Error|failed" || true
+          python3 -c "
+          import glob
+          from PIL import Image
+          for f in sorted(glob.glob('shots/*.ppm')): Image.open(f).save(f[:-4] + '.png')
+          " || true
+          ls shots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phone-pictures
+          path: |
+            shots/*.png
+            tour.log

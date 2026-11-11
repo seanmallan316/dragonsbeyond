@@ -11,3 +11,9 @@ game_test
 *.rpx
 *.wuhb
 tour_test
+# Android build (SDL source, packed content and build output are made by the build)
+android/app/jni/SDL/
+android/app/src/main/assets/
+android/.gradle/
+android/app/build/
+android/port/build-*/

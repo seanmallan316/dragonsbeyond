@@ -1,0 +1,16 @@
+# The game: every file of the Wii U game except its Wii U-only parts (src/platform: drawing, controllers, sound output),
+# which are replaced by the files in android/port/.
+cmake_minimum_required(VERSION 3.6)
+set(PORT ${CMAKE_CURRENT_SOURCE_DIR}/../../../port)
+file(GLOB GAME_SRC ${WIIU_SRC}/game/*.c ${WIIU_SRC}/audio/*.c)
+add_library(kkassets OBJECT ${WIIU_SRC}/render/assets.c)
+target_compile_definitions(kkassets PRIVATE gfx_texture_rgba=gfx_texture_rgba_bytes gfx_texture_rgba_ex=gfx_texture_rgba_ex_bytes)
+add_library(main SHARED ${GAME_SRC} ${PORT}/gfx_gles.c ${PORT}/sdl_main.c ${PORT}/kk_files.c $<TARGET_OBJECTS:kkassets>)
+set(KK_FLAGS KK_CONTENT_DIR="content/" _GNU_SOURCE)
+target_compile_definitions(main PRIVATE ${KK_FLAGS})
+target_compile_definitions(kkassets PRIVATE ${KK_FLAGS})
+foreach(t main kkassets)
+  target_include_directories(${t} PRIVATE ${WIIU_SRC} ${PORT} ${CMAKE_CURRENT_SOURCE_DIR}/../SDL/include)
+  target_compile_options(${t} PRIVATE -O3 -w -std=gnu11 -ffast-math -fno-math-errno -include ${PORT}/kk_files.h)
+endforeach()
+target_link_libraries(main SDL2 GLESv3 EGL android log m)
