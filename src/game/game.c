@@ -1186,7 +1186,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         else if (g_state == G_NAME) { if ((p->left && !q->left) || (p->right && !q->right) || (fabsf(p->sx) > 0.6f && fabsf(q->sx) <= 0.6f)) { g_name ^= 1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } if (in.a_press && g_state_t > 0.3f) { g_state = G_STORY; g_state_t = 0; g_story_i = 0; } }
         else if (g_state == G_STORY) { if ((in.a_press && g_state_t > 0.4f) || g_state_t > 12) { g_state_t = 0; if (++g_story_i >= STORY_N) { g_state = G_PLAY; g_title_t = 4.0f; snprintf(g_msg, sizeof g_msg, "%s IS HUNGRY. WALK TO A BUSH AND PRESS X", NAMES[g_name]); g_msg_t = 9; } } }
         memcpy(g_prev, pads, sizeof(Pad) * (npads < KK_PADS ? npads : KK_PADS));
-        music_want("title"); music_update(2);
+        music_want("title"); music_update(16384);
         g_dragon.anim_t += dt; title_camera();
         gfx_frame_begin(); gfx_shadow_none();
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
@@ -1297,7 +1297,7 @@ paused:
       static float danger_t; if (chased) danger_t = 4; else danger_t -= dt;
       int bossfight = g_boss.woke && g_boss.state != B_DOWN;
       music_want(bossfight && music_available("boss") ? "boss" : danger_t > 0 && music_available("danger") ? "danger" : (g_wk == WK_SKY && music_available("sky") ? "sky" : "everleaf")); }
-    music_update(2);
+    music_update(16384);   /* keeps about 1.5 s of music decoded ahead (2 gave only 256 samples a frame: half what plays, so it stuttered) */
     gfx_frame_begin();
     shadow_pass();
     gfx_view_begin(0, 0.55f, 0.75f, 0.95f); draw_scene(0); gfx_post(0, 0.9f, 0.35f, 0.35f); draw_hud(0); gfx_view_end(0);   /* the TV: the game */
