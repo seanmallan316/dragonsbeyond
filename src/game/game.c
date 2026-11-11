@@ -1380,6 +1380,12 @@ void game_frame(const Pad *pads, int npads, float dt) {
         float ph = fmodf(g_dragon.anim_t, 0.8f), was = fmodf(fmaxf(g_dragon.anim_t - dt, 0), 0.8f); if (was < 0.26f && ph >= 0.26f) sfx_play(SFX_FLAP, 0.45f, 0); }
     if (g_state == G_PLAY && g_dragon.stage == ST_DRAGONET && fmodf(g_time, 7.0f) < dt && g_dragon.anim == DA_IDLE) sfx_play(SFX_CHIRP, 0.3f, 0);
     if (ev & 2) save_progress();
+#ifndef __wiiu__
+    if (getenv("DB_ROBOTVIEW") && g_world.ndrone > 0 && g_world.nhound > 0) {   /* PC look check: one drone and one hound kept right in front of the dragon */
+        float fx = sinf(g_dragon.yaw), fz = cosf(g_dragon.yaw); Drone *dr = &g_world.drone[0], *h = &g_world.hound[0];
+        dr->x = g_dragon.x + fx * 5 - fz * 1.5f; dr->z = g_dragon.z + fz * 5 + fx * 1.5f; dr->y = g_dragon.y + 2.2f; dr->hx = dr->x; dr->hz = dr->z; dr->state = (int)(g_time / 3) % 2 ? 4 : 0; dr->yaw = g_dragon.yaw + 3.14159f;
+        h->x = g_dragon.x + fx * 4 + fz * 1.6f; h->z = g_dragon.z + fz * 4 - fx * 1.6f; h->y = world_height(&g_world, h->x, h->z); h->state = (int)(g_time / 3) % 2 ? 5 : 1; h->yaw = g_dragon.yaw + 2.6f; h->flap += 0.2f; }
+#endif
     {   /* milestones on the way to the next stage: a quarter, half and three quarters grown */
         static int last_q = -1, last_stage = -1; int st = g_dragon.stage;
         int q = st < ST_BEYONDER ? (int)(4 * g_dragon.growth / dragon_need(st)) : 0; if (q > 3) q = 3;
