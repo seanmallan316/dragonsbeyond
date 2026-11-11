@@ -46,7 +46,21 @@ static void layout(void) {
     int dh = g_sh, dw = (int)(dh * asp + 0.5f); if (dw > g_sw) { dw = g_sw; dh = (int)(dw / asp + 0.5f); }
     g_ox = (g_sw - dw) / 2; g_oy = (g_sh - dh) / 2;
 }
-void port_target_size(int *w, int *h) { *w = g_tw; *h = g_th; }
+/* the drawing size follows how smoothly the phone keeps up: full resolution when it can, a little less on a slower phone
+   (the picture is still drawn with smooth edges and scaled up to the whole screen) */
+static float g_res_scale = 1.0f;
+void port_target_size(int *w, int *h) { *h = (int)(g_th * g_res_scale) & ~1; *w = (int)(g_tw * g_res_scale) & ~1; if (*h < 360) { *h = 360; *w = g_tw * 360 / g_th; } }
+static void res_adapt(float dt) {
+    static float acc; static int n; static float settle = 3.0f;   /* wait a few seconds after start or a change before judging */
+    if (settle > 0) { settle -= dt; acc = 0; n = 0; return; }
+    acc += dt; if (++n < 90) return;
+    float ms = acc / n * 1000.0f; acc = 0; n = 0;
+    float old = g_res_scale;
+    if (ms > 21.0f && g_res_scale > 0.6f) g_res_scale -= 0.1f;          /* below about 48 fps: draw smaller */
+    else if (ms < 15.5f && g_res_scale < 1.0f) g_res_scale += 0.1f;     /* plenty of room: back up */
+    if (g_res_scale > 1.0f) g_res_scale = 1.0f;
+    if (g_res_scale != old) { settle = 4.0f; port_log("drawing size %.0f%% (%.1f ms a frame)", g_res_scale * 100, ms); }
+}
 
 /* ------------------------------------------------------------------ touch controls */
 typedef struct { const char *file, *menu_file; float cx, cy, r; int key; int in_menu; float mx, my; GLuint tex, menu_tex; int down; } TButton;   /* mx, my: where it sits in the menus */   /* cx, cy, r: screen fractions (r of the height) */
@@ -152,6 +166,11 @@ static int finger_slot(SDL_FingerID id, int make) {
     for (int i = 0; i < 16; i++) if (!g_fdown[i]) { g_fid[i] = id; g_fdown[i] = 1; return i; }
     return -1;
 }
+static SDL_Haptic *g_haptic; static int g_haptic_tried;
+static void haptic_tap(void) {   /* the feel of a real button under the thumb */
+    if (!g_haptic_tried) { g_haptic_tried = 1; g_haptic = SDL_HapticOpen(0); if (g_haptic && SDL_HapticRumbleInit(g_haptic) != 0) { SDL_HapticClose(g_haptic); g_haptic = NULL; } }
+    if (g_haptic) SDL_HapticRumblePlay(g_haptic, 0.25f, 12);
+}
 static int on_any_button(float x, float y) {
     for (int i = 0; i < NBTN; i++) if (btn_visible(i)) { float dx = x - bx(i), dy = y - by(i), r = br(i) * 1.15f; if (dx * dx + dy * dy < r * r) return 1; }
     return 0;
@@ -184,6 +203,7 @@ static void touch_pad(Pad *p) {
     for (int i = 0; i < NBTN; i++) BTN[i].down = 0;
     for (int s = 0; s < 16; s++) if (g_fdown[s] && s != g_stick_finger && s != g_look_finger)
         for (int i = 0; i < NBTN; i++) if (btn_visible(i)) { float dx = g_fx[s] - bx(i), dy = g_fy[s] - by(i), r = br(i) * 1.15f; if (dx * dx + dy * dy < r * r) BTN[i].down = 1; }
+    { static int was[16]; for (int i = 0; i < NBTN && i < 16; i++) { if (BTN[i].down && !was[i]) haptic_tap(); was[i] = BTN[i].down; } }
     for (int i = 0; i < NBTN; i++) if (BTN[i].down) switch (BTN[i].key) {
         case K_A: p->a = 1; break; case K_B: p->b = 1; break; case K_X: p->x = 1; break; case K_Y: p->y = 1; break;
         case K_CAM: p->up = 1; break; default: break; }
@@ -235,8 +255,7 @@ static float g_rumble_left[KK_PADS];
 void platform_rumble_pad(int slot, float strength, float seconds) {
     if (strength <= 0 || seconds <= 0 || slot < 0 || slot >= KK_PADS) return;
     Uint16 s = (Uint16)(strength > 1 ? 65535 : strength * 65535);
-    if (slot == 0) { static SDL_Haptic *h; static int tried; if (!tried) { tried = 1; h = SDL_HapticOpen(0); if (h && SDL_HapticRumbleInit(h) != 0) { SDL_HapticClose(h); h = NULL; } }
-        if (h && g_touch_mode) SDL_HapticRumblePlay(h, strength, (Uint32)(seconds * 1000)); }
+    if (slot == 0) { if (!g_haptic_tried) haptic_tap(); if (g_haptic && g_touch_mode) SDL_HapticRumblePlay(g_haptic, strength, (Uint32)(seconds * 1000)); }
     else if (g_gc[slot - 1]) SDL_GameControllerRumble(g_gc[slot - 1], s, s, (Uint32)(seconds * 1000));
     g_rumble_left[slot] = seconds;
 }
@@ -259,6 +278,28 @@ static void remove_old_copy(void) {
     const char *in = SDL_AndroidGetInternalStoragePath(); if (!in) return;
     char p[400]; snprintf(p, sizeof p, "%s/content", in); struct stat st; if (stat(p, &st) != 0) return;
     nftw(p, rm_one, 16, FTW_DEPTH | FTW_PHYS); port_log("removed the old unpacked copy");
+}
+#endif
+
+#ifndef __ANDROID__
+/* PC test of the touch controls: fingers put down and lifted by a script, as a player would (KK_TOUCHTEST=1) */
+static void finger(int type, int id, float x, float y) {
+    SDL_Event e; memset(&e, 0, sizeof e); e.type = type; e.tfinger.fingerId = id; e.tfinger.x = x; e.tfinger.y = y; e.tfinger.pressure = 1; touch_event(&e);
+}
+static void tap_at(long f, long at, int id, float x, float y) { if (f == at) finger(SDL_FINGERDOWN, id, x, y); if (f == at + 4) finger(SDL_FINGERUP, id, x, y); }
+static void touch_script(long f) {
+    /* menus: OK on the title, OK on save 1 (new game), OK on Normal, OK on the name, OK through the story pages */
+    for (int k = 0; k < 12; k++) tap_at(f, 60 + k * 50, 1, BTN[0].mx, BTN[0].my);
+    /* playing (from frame 700): walk forward-right with the stick, push it to the edge (run), drag the camera, jump, roar, eat */
+    if (f == 700) finger(SDL_FINGERDOWN, 2, 0.15f, 0.65f);
+    if (f > 700 && f < 900) finger(SDL_FINGERMOTION, 2, 0.15f + 0.04f * (f < 800 ? (f - 700) / 100.0f : 1.0f), 0.65f - 0.10f);
+    if (f == 900) finger(SDL_FINGERUP, 2, 0.19f, 0.55f);
+    if (f == 760) finger(SDL_FINGERDOWN, 3, 0.6f, 0.4f);
+    if (f > 760 && f < 820) finger(SDL_FINGERMOTION, 3, 0.6f + (f - 760) * 0.002f, 0.4f);
+    if (f == 820) finger(SDL_FINGERUP, 3, 0.72f, 0.4f);
+    tap_at(f, 850, 4, BTN[0].cx, BTN[0].cy);
+    tap_at(f, 950, 4, BTN[1].cx, BTN[1].cy);
+    tap_at(f, 1000, 4, BTN[4].cx, BTN[4].cy);
 }
 #endif
 
@@ -333,7 +374,10 @@ int main(int argc, char **argv) {
         }
         Uint64 now = SDL_GetPerformanceCounter(); float dt = (float)(now - last) / (float)SDL_GetPerformanceFrequency(); last = now;
         if (dt > 0.1f) dt = 0.1f;
-        if (test) dt = 1.0f / 60.0f;
+        if (test) dt = 1.0f / 60.0f; else res_adapt(dt);
+#ifndef __ANDROID__
+        if (getenv("KK_TOUCHTEST")) touch_script(frame);
+#endif
         memset(pads, 0, sizeof pads);
         touch_pad(&pads[0]);
         { static int was_back; const Uint8 *ks = SDL_GetKeyboardState(NULL); int bk = ks[SDL_SCANCODE_AC_BACK] || ks[SDL_SCANCODE_ESCAPE];   /* the phone's back key: BACK in the menus, SWAP while playing */
@@ -342,6 +386,9 @@ int main(int argc, char **argv) {
         const char *where = game_where(); g_swapmenu = !strncmp(where, "playing", 7) && strstr(where, " swap 1 ") != NULL; g_playing = !strncmp(where, "playing", 7) && !g_swapmenu;   /* the Dragon Swap menu counts as a menu */
         g_shot_now = shots && (frame + 1) % shot_every == 0;
         if (g_shot_now) snprintf(g_shot_path, sizeof g_shot_path, "%s/frame_%06ld.ppm", shots, frame + 1);
+#ifndef __ANDROID__
+        if (getenv("KK_TOUCHTEST") && frame % 25 == 0) port_log("touch %ld: sx %.2f sy %.2f rx %.2f a%d b%d x%d y%d zr%d up%d | %.90s", frame, pads[0].sx, pads[0].sy, pads[0].rx, pads[0].a, pads[0].b, pads[0].x, pads[0].y, pads[0].zr, pads[0].up, game_where());
+#endif
         game_frame(pads, KK_PADS, dt);
         frame++;
         if (frames_left > 0 && --frames_left == 0) running = 0;
