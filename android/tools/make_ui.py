@@ -66,7 +66,7 @@ def medallion(size, word, letter, glow):
 
 BUTTONS = [  # file, word, controller letter, glow colour
     ("btn_fly", "FLY", "A", (70, 200, 120)),
-    ("btn_eat", "EAT", "X", (230, 170, 60)),
+    ("btn_eat", "CLAW", "EAT  X", (230, 170, 60)),
     ("btn_tail", "TAIL", "B", (200, 90, 70)),
     ("btn_roar", "ROAR", "Y", (240, 110, 40)),
     ("btn_run", "RUN", "R", (90, 160, 230)),

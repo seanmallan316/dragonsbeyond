@@ -110,38 +110,44 @@ int world_nearest_food(const World *w, float x, float z, float reach) {
     return best; }
 
 static float air_floor(const World *w, float x, float z) { float h = world_height(w, x, z); return w->kind == WK_SKY ? fmaxf(h, W_CLOUDS + 8) : h; }   /* flyers keep above the cloud sea */
-int world_drones(World *w, float dt, float px, float py, float pz, float reach, float whip, int roar) {   /* whip: how far the tail reaches right now (0 = not whipping) */
+static int atk_hits(Attack a, float x, float y, float z, float pad) { if (a.r <= 0) return 0; float dx = x - a.x, dy = y - a.y, dz = z - a.z; float r = a.r + pad; return dx * dx + dz * dz < r * r && fabsf(dy) < r + 0.5f; }
+int world_drones(World *w, float dt, float px, float py, float pz, float reach, Attack atk, int roar) {
     int ev = 0;
     for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; d->t += dt; d->flap += dt * (d->state == 1 ? 14 : 9);
         float dx = px - d->x, dz = pz - d->z, dist = sqrtf(dx * dx + dz * dz), dy = py - d->y;
         float gy = air_floor(w, d->x, d->z);
         if (d->state == 3) { if (d->y > gy + 0.2f) { d->y -= 6 * dt; d->yaw += 5 * dt; } if (d->t > 25) { d->state = 0; d->x = d->hx; d->z = d->hz; d->y = air_floor(w, d->x, d->z) + 9; d->t = 0; } continue; }
         if (roar && dist < 14) { d->state = 2; d->t = 0; }
-        if (whip > 0 && dist < whip && fabsf(dy) < whip) { d->state = 3; d->t = 0; ev |= 2; continue; }
-        if (d->state == 0) {   /* circle the home spot, dive when the dragon comes near */
-            float ang = d->t * 0.5f; float tx = d->hx + cosf(ang) * 12, tz = d->hz + sinf(ang) * 12; float ty = air_floor(w, tx, tz) + 8 + 1.5f * sinf(d->t);
-            float ddx = tx - d->x, ddz = tz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 7 * dt; d->z += cosf(d->yaw) * 7 * dt; d->y += (ty - d->y) * dt * 2;
-            if (dist < 16 && d->t > 3) { d->state = 1; d->t = 0; } }
-        else if (d->state == 1) {   /* dive at the dragon; a hit knocks half a heart, then it climbs away */
-            d->yaw = atan2f(dx, dz); float sp = 13; d->x += sinf(d->yaw) * sp * dt; d->z += cosf(d->yaw) * sp * dt; d->y += (py + 0.6f - d->y) * dt * 3;
+        if (atk_hits(atk, d->x, d->y, d->z, 0.3f)) { d->state = 3; d->t = 0; ev |= 2; continue; }
+        if (d->state == 0) {   /* circle the home spot; when the dragon comes near, stop and wind up */
+            float ang = d->t * 0.4f; float tx = d->hx + cosf(ang) * 12, tz = d->hz + sinf(ang) * 12; float ty = air_floor(w, tx, tz) + 8 + 1.5f * sinf(d->t);
+            float ddx = tx - d->x, ddz = tz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 4.5f * dt; d->z += cosf(d->yaw) * 4.5f * dt; d->y += (ty - d->y) * dt * 2;
+            if (dist < 18 && d->t > 3) { d->state = 4; d->t = 0; } }
+        else if (d->state == 4) {   /* wind-up: hovers in place facing the dragon, eye flashing red, for over a second */
+            d->yaw = atan2f(dx, dz); d->y += (py + 4.5f - d->y) * dt * 1.5f; d->x -= sinf(d->yaw) * 0.8f * dt; d->z -= cosf(d->yaw) * 0.8f * dt;
+            if (d->t > 1.3f) { d->state = 1; d->t = 0; } }
+        else if (d->state == 1) {   /* dive at the dragon, slow enough to see coming; a hit knocks half a heart, then it climbs away */
+            d->yaw = atan2f(dx, dz); float sp = 7.0f; d->x += sinf(d->yaw) * sp * dt; d->z += cosf(d->yaw) * sp * dt; d->y += (py + 0.6f - d->y) * dt * 2;
             if (d->y < gy + 0.5f) d->y = gy + 0.5f;
             if (dist < reach * 0.7f && fabsf(dy) < 1.5f) { ev |= 1; d->state = 2; d->t = 0; }
-            if (d->t > 6) { d->state = 2; d->t = 0; } }
+            if (d->t > 5) { d->state = 2; d->t = 0; } }
         else {   /* flee: climb and head home, then patrol again */
-            float ddx = d->hx - d->x, ddz = d->hz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 11 * dt; d->z += cosf(d->yaw) * 11 * dt; d->y += (gy + 14 - d->y) * dt * 1.5f;
+            float ddx = d->hx - d->x, ddz = d->hz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 6 * dt; d->z += cosf(d->yaw) * 6 * dt; d->y += (gy + 14 - d->y) * dt * 1.5f;
             if (d->t > 8) { d->state = 0; d->t = 0; } } }
     return ev; }
 
-int world_hounds(World *w, float dt, float px, float py, float pz, float reach, float whip, int roar, int in_air) {
+int world_hounds(World *w, float dt, float px, float py, float pz, float reach, Attack atk, int roar, int in_air) {
     int ev = 0; (void)py;
     for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; h->t += dt;
         float dx = px - h->x, dz = pz - h->z, dist = sqrtf(dx * dx + dz * dz);
         if (h->state == 3) { h->flap += dt * 3; if (h->t > 22) { h->state = 0; h->t = 0; } continue; }
         if (roar && dist < 12) { h->state = 2; h->t = 0; }
-        if (whip > 0 && dist < whip) { h->state = 3; h->t = 0; ev |= 2; continue; }
+        if (atk_hits(atk, h->x, h->y + 0.5f, h->z, 0.3f)) { h->state = 3; h->t = 0; ev |= 2; continue; }
         float sp = 0;
         if (h->state == 0) { float ang = h->t * 0.35f; float tx = h->hx + cosf(ang) * 10, tz = h->hz + sinf(ang) * 10; h->yaw = atan2f(tx - h->x, tz - h->z); sp = 2.2f; if (dist < 15 && !in_air) { h->state = 1; h->t = 0; } }
-        else if (h->state == 1) { h->yaw = atan2f(dx, dz); sp = 5.6f; if (dist < reach * 0.6f && !in_air) { ev |= 1; h->state = 2; h->t = 0; } if (h->t > 9 || dist > 40 || in_air) { h->state = 2; h->t = 0; } }
+        else if (h->state == 1) { h->yaw = atan2f(dx, dz); sp = 3.4f; if (dist < 3.4f + 0.3f * reach && !in_air) { h->state = 5; h->t = 0; } if (h->t > 12 || dist > 40 || in_air) { h->state = 2; h->t = 0; } }   /* stalks, slower than a running dragonet */
+        else if (h->state == 5) { h->yaw = atan2f(dx, dz); sp = 0; if (h->t > 0.8f) { h->state = 6; h->t = 0; } }   /* crouches and crackles: about to lunge */
+        else if (h->state == 6) { sp = 8.0f; if (dist < reach * 0.6f && !in_air) { ev |= 1; h->state = 2; h->t = 0; } if (h->t > 0.45f) { h->state = 2; h->t = 0; } }   /* the lunge: a straight dash, dodge it sideways */
         else { h->yaw = atan2f(h->hx - h->x, h->hz - h->z); sp = 4.0f; if (h->t > 6) { h->state = 0; h->t = 0; } }
         float nx = h->x + sinf(h->yaw) * sp * dt, nz = h->z + cosf(h->yaw) * sp * dt;
         if (!world_in_pond(w, nx, nz) && fabsf(nx) < W_SIZE / 2 - 8 && fabsf(nz) < W_SIZE / 2 - 8) { h->x = nx; h->z = nz; }
@@ -233,20 +239,20 @@ int world_blast(World *w, float x, float y, float z, float dx, float dz, float r
             d->state = 3; d->t = 0; n++; } }
     return n; }
 static int thief_step_ok(const World *w, float x, float z) { return !(w->kind == WK_SKY && world_is_void(w, x, z)) && !world_in_pond(w, x, z) && fabsf(x) < W_SIZE / 2 - 4 && fabsf(z) < W_SIZE / 2 - 4; }
-int world_thieves(World *w, float dt, float px, float py, float pz, float reach, float whip, float carry, float *stolen, float *recovered) {
+int world_thieves(World *w, float dt, float px, float py, float pz, float reach, Attack atk, float carry, float *stolen, float *recovered) {
     int ev = 0; *stolen = 0; *recovered = 0;
     for (int i = 0; i < w->nthief; i++) { Drone *t = &w->thief[i]; t->t += dt;
         float dx = px - t->x, dz = pz - t->z, dist = sqrtf(dx * dx + dz * dz); float sp = 0, yaw = t->yaw;
         if (t->state == 3) { if (t->t > 12) { t->state = 4; t->t = 0; } continue; }
         if (t->state == 4) { if (t->t > 18) { t->state = 0; t->t = 0; t->x = t->hx; t->z = t->hz; t->flap = 0; } continue; }
-        if (whip > 0 && dist < whip + 0.6f && fabsf(py - t->y) < whip + 1) {   /* caught! it drops what it stole */
+        if (atk_hits(atk, t->x, t->y + 0.5f, t->z, 0.6f)) {   /* caught! it drops what it stole */
             if (t->flap > 0) { *recovered += t->flap; t->flap = 0; } t->state = 3; t->t = 0; ev |= 2; continue; }
         if (t->state == 0) { float a = t->t * 0.7f + i; float tx = t->hx + cosf(a) * 4, tz = t->hz + sinf(a * 1.3f) * 4; yaw = atan2f(tx - t->x, tz - t->z); sp = 1.5f;
             if (dist < 18 && carry >= 10 && fabsf(py - t->y) < 3) { t->state = 1; t->t = 0; } }
-        else if (t->state == 1) { yaw = atan2f(dx, dz); sp = 5.5f;
+        else if (t->state == 1) { yaw = atan2f(dx, dz); sp = 4.0f;
             if (dist < reach * 0.6f + 0.5f && fabsf(py - t->y) < 2) { t->flap = 10; *stolen += 10; ev |= 1; t->state = 2; t->t = 0; }
             else if (dist > 26 || t->t > 10 || fabsf(py - t->y) > 4) { t->state = 0; t->t = 0; } }
-        else if (t->state == 2) { yaw = atan2f(-dx, -dz) + 0.6f * sinf(t->t * 2); sp = 7; if (t->t > 14) { t->state = 4; t->t = 0; } }   /* gone with the food */
+        else if (t->state == 2) { yaw = atan2f(-dx, -dz) + 0.6f * sinf(t->t * 2); sp = 5.5f; if (t->t > 14) { t->state = 4; t->t = 0; } }   /* gone with the food */
         float nx = t->x + sinf(yaw) * sp * dt, nz = t->z + cosf(yaw) * sp * dt;
         if (thief_step_ok(w, nx, nz)) { t->x = nx; t->z = nz; } else t->yaw += 1.5f * dt;
         t->yaw = yaw; t->y = world_height(w, t->x, t->z); }

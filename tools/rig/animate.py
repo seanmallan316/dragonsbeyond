@@ -1,5 +1,6 @@
 """animate.py rig.blend out.blend : adds the game's animation clips to a dragon rig as Blender actions.
-Clips (30 fps, looping unless noted): idle, walk, run, fly, glide, eat (once), roar (once), tailwhip (once), hit (once).
+Clips (30 fps, looping unless noted): idle, walk, run, fly, glide, dive, eat (once), roar (once), tailwhip (once), hit (once), chirp (once),
+claw (once), pounce, talon (once).
 Bone axes (roll 0): spine/neck/tail X = nod, Z = turn; legs X = swing forward/back; wings X = raise tip (+ up)."""
 import bpy, sys, math, mathutils
 src, out = sys.argv[1], sys.argv[2]
@@ -177,6 +178,34 @@ def tailwhip(t):   # wind up left, whip right, recover
     rots.update({'hips': (0, 0, -w * 0.25), 'spine1': (0, 0, -w * 0.15), 'chest': (0, 0, w * 0.1), 'neck1': (0, 0, w * 0.2), 'head': (0, 0, w * 0.15)})
     rots.update(wings_folded())
     return rots, {'hips': (0, 0, 0)}
+def claw(t):   # 0.6 s: rear up a little, the right front paw lifts high and slashes down and across, head lunges with the jaw open
+    up = math.sin(math.pi * min(1, t / 0.45)) if t < 0.45 else 0.0
+    lift = 1 - abs(t - 0.32) / 0.32 if t < 0.64 else 0.0; lift = max(0.0, lift)
+    slash = 0.0 if t < 0.32 else min(1.0, (t - 0.32) / 0.12)   # fast down-stroke
+    a = 115 * lift - 30 * slash * (1 - t)   # the paw goes up/forward, then strikes down past the start
+    rots = {'legFR_upper@body': (-a, 0, 0), 'legFR_lower@body': (-55 * lift, 0, 0), 'legFR_foot@body': (-40 * lift + 30 * slash * (1 - t), 0, 0),
+            'legFL_upper@body': (-12 * up, 0, 0),
+            'chest': (-18 * up, 0, -8 * lift), 'spine2': (-8 * up, 0, 0), 'neck1': (8 * up, 0, -6 * slash), 'neck2': (6 * up, 0, 0),
+            'head': (-10 * up + 14 * slash * (1 - t), 0, -8 * slash), 'jaw': (22 * max(0.0, slash * (1 - t) * 1.4), 0, 0)}
+    rots.update(tail(t, 12)); rots.update(wings_folded())
+    if has_wings: rots['wingL_1'] = (-25 + 10 * up, 0, -25); rots['wingR_1'] = (-25 + 10 * up, 0, 25)
+    return rots, {'hips': (0, -0.06 * H * slash, 0.06 * H * up)}
+def pounce(t):   # dropping onto prey from a jump: front legs reaching down and forward, claws out, wings up, tail high
+    rots = {}
+    for tag in ('FL', 'FR'): rots[f'leg{tag}_upper@body'] = (-45, 0, 0); rots[f'leg{tag}_lower@body'] = (-20, 0, 0); rots[f'leg{tag}_foot@body'] = (-25, 0, 0)
+    for tag in ('BL', 'BR'): rots[f'leg{tag}_upper@body'] = (30, 0, 0); rots[f'leg{tag}_lower@body'] = (10, 0, 0)
+    rots.update({'chest': (12, 0, 0), 'neck1': (14, 0, 0), 'head': (6, 0, 0), 'jaw': (16 + 4 * S(2 * t), 0, 0)})
+    rots.update({f'tail{i+1}': (-10, 0, 6 * S(t, i * 0.9)) for i in range(5)})
+    if has_wings: rots.update({'wingL_1': (20 + 6 * S(2 * t), 0, -10), 'wingR_1': (20 + 6 * S(2 * t), 0, 10)})
+    return rots, {}
+def talon(t):   # in flight, 0.6 s: wings swept back, back legs swing forward with the talons open, then rake back
+    k = math.sin(math.pi * min(1.0, t / 0.6))
+    rots = {k2: v for k2, v in glide(t)[0].items() if k2.startswith('wing')}
+    for tag in ('BL', 'BR'): rots[f'leg{tag}_upper@body'] = (72 - 120 * k, 0, 0); rots[f'leg{tag}_lower@body'] = (38 - 50 * k, 0, 0); rots[f'leg{tag}_foot@body'] = (25 - 45 * k, 0, 0)
+    for tag in ('FL', 'FR'): rots[f'leg{tag}_upper@body'] = (88 - 70 * k, 0, 0); rots[f'leg{tag}_lower@body'] = (8 - 30 * k, 0, 0); rots[f'leg{tag}_foot@body'] = (15 - 30 * k, 0, 0)
+    rots.update({'chest': (8 * k, 0, 0), 'neck1': (10 * k, 0, 0), 'head': (8 + 6 * k, 0, 0), 'jaw': (18 * k, 0, 0)})
+    rots.update(tail(t, 4, 0.0, nod=-4))
+    return rots, {}
 def hit(t):
     k = math.exp(-5 * t) * S(3 * t)
     rots = {'chest': (-15 * k, 0, 8 * k), 'neck1': (20 * k, 0, 0), 'head': (-25 * k, 0, 10 * k), 'jaw': (max(0, 15 * k), 0, 0)}
@@ -217,7 +246,8 @@ def with_life(kind, fn):
     return g
 
 CLIPS = [('idle', 120, True, idle), ('walk', 30, True, walk), ('run', 18, True, run), ('fly', 24, True, fly), ('glide', 60, True, glide), ('dive', 30, True, dive),
-         ('eat', 54, False, eat), ('roar', 60, False, roar), ('tailwhip', 30, False, tailwhip), ('hit', 24, False, hit), ('chirp', 24, False, chirp)]
+         ('eat', 54, False, eat), ('roar', 60, False, roar), ('tailwhip', 30, False, tailwhip), ('hit', 24, False, hit), ('chirp', 24, False, chirp),
+         ('claw', 18, False, claw), ('pounce', 30, True, pounce), ('talon', 18, False, talon)]
 for name, frames, loop, fn in CLIPS:
     c = Clip(name, frames, loop); c.bake(with_life(name, fn)); c.act.use_fake_user = True
     print('clip', name, frames, 'loop' if loop else 'once')

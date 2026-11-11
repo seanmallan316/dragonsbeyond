@@ -4,7 +4,7 @@
 #define KK_ANIM3D_H
 #include "../render/gfx.h"
 #include "../render/kkmath.h"
-#define A3_MAXCLIPS 12
+#define A3_MAXCLIPS 16
 typedef struct { char name[16]; int nf, loop; float dur; uint8_t *data; } A3Clip;   /* data: nf frames x nv corners x 10 bytes (position 3 x int16 / 4000 m, normal 3 x int8 / 127) */
 typedef struct { int ok, nv, nt, nc; float *uv; uint32_t *idx; A3Clip clip[A3_MAXCLIPS]; Texture *tex; Mesh *mesh; Vertex *vb; int last_c, filled; float last_t, last_bend; } Anim3D;
 int anim3d_load(Anim3D *a, const char *name);

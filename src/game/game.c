@@ -463,11 +463,14 @@ static void do_swap(int k) {   /* become dragon k; the one you were becomes the 
 
 /* ---------- camera ---------- */
 static float g_turn, g_bank, g_bodyph;   /* smoothed turn rate (rad/s), bank angle, phase of the body wave */
+static float g_shake_t, g_growpulse_t;   /* g_growpulse_t: the little sparkle of a growth milestone */   /* > 0: the camera shakes (a pounce landing, a robot knocked down) */
+static void hit_flash(void) { if (g_shake_t < 0.12f) g_shake_t = 0.12f; }
 static Mat4 dragon_matrix(const Dragon *d, float scale) {
     Mat4 m = m4_mul(m4_translate(d->x, d->y, d->z), m4_rotate_y(d->yaw));
-    if (d->mode == DM_AIR) m = m4_mul(m4_mul(m, m4_rotate_x(-d->pitch * 0.8f)), m4_rotate_z(g_bank));
+    if (d->mode == DM_AIR) m = m4_mul(m4_mul(m, m4_rotate_x(-d->pitch * 0.8f)), m4_rotate_z(g_bank + d->roll));   /* + the barrel roll */
     return m4_mul(m, m4_scale(scale, scale, scale)); }
 static void camera_update(float dt) {
+    if (g_shake_t > 0) g_shake_t -= dt; if (g_growpulse_t > 0) g_growpulse_t -= dt;
     const Dragon *d = &g_dragon; float L = dragon_length(d->stage);
     float k = 1 - expf(-dt * (d->mode == DM_AIR ? 2.2f : 3.5f));
     /* the camera turns to look where the dragon goes */
@@ -540,14 +543,26 @@ static void draw_food3d(Vec3 eye) {
             Vec3 t0 = v3(f->x - fw.x * 0.26f + rt.x * sw, f->y, f->z - fw.z * 0.26f + rt.z * sw), t1 = v3(f->x - fw.x * 0.42f + rt.x * sw * 2, f->y + 0.12f, f->z - fw.z * 0.42f + rt.z * sw * 2), t2 = v3(f->x - fw.x * 0.42f + rt.x * sw * 2, f->y - 0.12f, f->z - fw.z * 0.42f + rt.z * sw * 2);
             bq_push(t0, rt, 0.3f, 0.5f, 0.8f); bq_push(t1, rt, 0.3f, 0.5f, 0.8f); bq_push(t2, rt, 0.3f, 0.5f, 0.8f); bq_push(t0, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); bq_push(t2, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); bq_push(t1, v3(-rt.x, 0, -rt.z), 0.3f, 0.5f, 0.8f); } }
     for (int i = 0; i < g_world.ndrone; i++) { const Drone *dr = &g_world.drone[i]; float dx = dr->x - eye.x, dz = dr->z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;
-        Vec3 fw = v3(sinf(dr->yaw), 0, cosf(dr->yaw)), rt = v3(fw.z, 0, -fw.x); float fl = sinf(dr->flap) * (dr->state == 3 ? 0.1f : 0.6f);
-        batch_ball(v3(dr->x, dr->y, dr->z), 0.28f, 0.22f, 0.5f, 3, 6, 0.3f, 0.32f, 0.36f, 1);                                    /* gunmetal body */
-        batch_ball(v3(dr->x + fw.x * 0.55f, dr->y + 0.08f, dr->z + fw.z * 0.55f), 0.16f, 0.14f, 0.2f, 3, 5, 0.26f, 0.28f, 0.32f, 1);   /* head */
-        batch_ball(v3(dr->x + fw.x * 0.68f, dr->y + 0.12f, dr->z + fw.z * 0.68f), 0.06f, 0.06f, 0.06f, 2, 4, 1.0f, 0.1f, 0.05f, 1);  /* the red eye */
-        for (int sgn = -1; sgn <= 1; sgn += 2) { Vec3 a = v3(dr->x + rt.x * sgn * 0.25f, dr->y + 0.05f, dr->z + rt.z * sgn * 0.25f), b = v3(dr->x + rt.x * sgn * 1.3f, dr->y + 0.05f + fl * 0.9f, dr->z + rt.z * sgn * 1.3f);
-            Vec3 a2 = v3(a.x - fw.x * 0.35f, a.y, a.z - fw.z * 0.35f), b2 = v3(b.x - fw.x * 0.5f, b.y, b.z - fw.z * 0.5f); Vec3 n = v3(0, 1, 0);
-            bq_push(a, n, 0.22f, 0.23f, 0.27f); bq_push(b, n, 0.34f, 0.36f, 0.42f); bq_push(b2, n, 0.34f, 0.36f, 0.42f); bq_push(a, n, 0.22f, 0.23f, 0.27f); bq_push(b2, n, 0.34f, 0.36f, 0.42f); bq_push(a2, n, 0.22f, 0.23f, 0.27f);
-            n = v3(0, -1, 0); bq_push(a, n, 0.2f, 0.21f, 0.25f); bq_push(b2, n, 0.3f, 0.32f, 0.38f); bq_push(b, n, 0.3f, 0.32f, 0.38f); bq_push(a, n, 0.2f, 0.21f, 0.25f); bq_push(a2, n, 0.2f, 0.21f, 0.25f); bq_push(b2, n, 0.3f, 0.32f, 0.38f); } }
+        /* a Feather Drone: a polished brass robot bird with blue-steel wings, a turning tail rotor and one big glowing eye
+           (cyan while it patrols, flashing red when it winds up to dive) */
+        int ko = dr->state == 3, warn = dr->state == 4 || dr->state == 1; float fl = sinf(dr->flap) * (ko ? 0.05f : (warn ? 0.9f : 0.6f));
+        Vec3 fw = v3(sinf(dr->yaw), 0, cosf(dr->yaw)), rt = v3(fw.z, 0, -fw.x); float bob = ko ? 0 : 0.08f * sinf(g_time * 3 + i);
+        float tilt = dr->state == 1 ? -0.35f : (dr->state == 4 ? 0.25f : 0); Vec3 c = v3(dr->x, dr->y + bob, dr->z);
+        Vec3 nose = v3(c.x + fw.x * 0.62f, c.y + 0.1f - tilt * 0.6f, c.z + fw.z * 0.62f);
+        batch_ball(c, 0.36f, 0.3f, 0.62f, 4, 8, 0.95f, 0.66f, 0.28f, 1);                                        /* brass body */
+        batch_ball(v3(c.x, c.y + 0.16f, c.z), 0.22f, 0.12f, 0.4f, 3, 7, 0.55f, 0.62f, 0.75f, 1);                  /* steel back plate */
+        batch_ball(nose, 0.21f, 0.19f, 0.25f, 3, 7, 0.9f, 0.6f, 0.26f, 1);                                           /* head */
+        batch_cyl(v3(nose.x + fw.x * 0.15f, nose.y - 0.02f, nose.z + fw.z * 0.15f), v3(nose.x + fw.x * 0.42f, nose.y - 0.08f, nose.z + fw.z * 0.42f), 0.07f, 0.0f, 5, 0.35f, 0.35f, 0.38f);   /* beak */
+        { float fla = warn ? (fmodf(g_time * 8, 1.0f) < 0.5f ? 1.0f : 0.45f) : 1.0f; Vec3 e = v3(nose.x + fw.x * 0.17f, nose.y + 0.06f, nose.z + fw.z * 0.17f);
+          batch_ball(e, 0.09f, 0.09f, 0.08f, 2, 5, ko ? 0.2f : (warn ? 2.2f * fla : 0.4f), ko ? 0.2f : (warn ? 0.25f * fla : 1.8f), ko ? 0.2f : (warn ? 0.15f : 2.0f), 1); }   /* the eye */
+        { float sp = g_time * 30; for (int k = 0; k < 2; k++) { float a2 = sp + k * 1.5708f; Vec3 hub = v3(c.x - fw.x * 0.7f, c.y + 0.12f, c.z - fw.z * 0.7f);   /* tail rotor */
+            batch_cyl(v3(hub.x - rt.x * cosf(a2) * 0.32f, hub.y - sinf(a2) * 0.32f, hub.z - rt.z * cosf(a2) * 0.32f), v3(hub.x + rt.x * cosf(a2) * 0.32f, hub.y + sinf(a2) * 0.32f, hub.z + rt.z * cosf(a2) * 0.32f), 0.03f, 0.03f, 4, 0.7f, 0.75f, 0.8f); } }
+        for (int sgn = -1; sgn <= 1; sgn += 2) { Vec3 a = v3(c.x + rt.x * sgn * 0.3f, c.y + 0.08f, c.z + rt.z * sgn * 0.3f), b = v3(c.x + rt.x * sgn * 1.45f, c.y + 0.08f + fl * 0.9f, c.z + rt.z * sgn * 1.45f);
+            Vec3 a2 = v3(a.x - fw.x * 0.4f, a.y, a.z - fw.z * 0.4f), b2 = v3(b.x - fw.x * 0.6f, b.y, b.z - fw.z * 0.6f); Vec3 n = v3(0, 1, 0);
+            bq_push(a, n, 0.45f, 0.58f, 0.8f); bq_push(b, n, 0.6f, 0.75f, 1.0f); bq_push(b2, n, 0.6f, 0.75f, 1.0f); bq_push(a, n, 0.45f, 0.58f, 0.8f); bq_push(b2, n, 0.6f, 0.75f, 1.0f); bq_push(a2, n, 0.45f, 0.58f, 0.8f);
+            n = v3(0, -1, 0); bq_push(a, n, 0.4f, 0.5f, 0.7f); bq_push(b2, n, 0.55f, 0.68f, 0.9f); bq_push(b, n, 0.55f, 0.68f, 0.9f); bq_push(a, n, 0.4f, 0.5f, 0.7f); bq_push(a2, n, 0.4f, 0.5f, 0.7f); bq_push(b2, n, 0.55f, 0.68f, 0.9f);
+            batch_cyl(a, b, 0.05f, 0.03f, 4, 0.95f, 0.7f, 0.3f); }   /* brass wing spar */
+        (void)ko; }
     for (int i = 0; i < g_world.nthief; i++) { const Drone *t = &g_world.thief[i]; if (t->state == 4) continue; float dx = t->x - eye.x, dz = t->z - eye.z; if (dx * dx + dz * dz > 120 * 120) continue;
         int ko = t->state == 3; float bob = ko ? 0 : fabsf(sinf(g_time * (t->state ? 14 : 6) + i)) * 0.08f; Vec3 fw = v3(sinf(t->yaw), 0, cosf(t->yaw)), rt = v3(fw.z, 0, -fw.x);
         float y = t->y + bob; float lean = ko ? 0.0f : (t->state ? 0.25f : 0.08f);
@@ -560,14 +575,27 @@ static void draw_food3d(Vec3 eye) {
         batch_cyl(v3(hd.x, hd.y + 0.15f, hd.z), v3(hd.x - fw.x * 0.25f, hd.y + 0.45f, hd.z - fw.z * 0.25f), 0.06f, 0.0f, 4, 0.1f, 0.07f, 0.12f);   /* the hood's point */
         if (t->flap > 0) batch_ball(v3(t->x - fw.x * 0.35f, y + 0.75f, t->z - fw.z * 0.35f), 0.26f, 0.3f, 0.24f, 4, 8, 0.55f, 0.38f, 0.2f, 0); }   /* the stolen food sack */
     for (int i = 0; i < g_world.nhound; i++) { const Drone *h = &g_world.hound[i]; float dx = h->x - eye.x, dz = h->z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;
-        Vec3 fw = v3(sinf(h->yaw), 0, cosf(h->yaw)), rt = v3(fw.z, 0, -fw.x); int ko = h->state == 3; float gait = sinf(h->flap);
-        float by = h->y + (ko ? 0.25f : 0.55f); float gl = 0.6f + 0.4f * sinf(g_time * 8);
-        batch_ball(v3(h->x, by, h->z), 0.3f, 0.3f, 0.6f, 4, 7, 0.1f, 0.1f, 0.12f, 1);                                                     /* body */
-        batch_ball(v3(h->x + fw.x * 0.75f, by + 0.15f, h->z + fw.z * 0.75f), 0.22f, 0.2f, 0.3f, 3, 6, 0.12f, 0.12f, 0.14f, 1);              /* head */
-        batch_ball(v3(h->x + fw.x * 0.5f, by + 0.1f, h->z + fw.z * 0.5f), 0.26f, 0.08f, 0.26f, 2, 8, ko ? 0.3f : gl, ko ? 0.05f : 0.15f * gl, 0.05f, 1);   /* the zapping collar */
-        for (int k = 0; k < 2; k++) { int sgn = k ? 1 : -1; batch_ball(v3(h->x + fw.x * 0.85f + rt.x * sgn * 0.1f, by + 0.2f, h->z + fw.z * 0.85f + rt.z * sgn * 0.1f), 0.04f, 0.04f, 0.04f, 2, 4, 1, 0.1f, 0.05f, 1); }   /* eyes */
-        for (int k = 0; k < 4; k++) { float ox = (k & 1 ? 0.22f : -0.22f), oz = (k < 2 ? 0.35f : -0.35f); float sw = ko ? 0 : (k == 0 || k == 3 ? gait : -gait) * 0.25f;
-            Vec3 top = v3(h->x + rt.x * ox + fw.x * oz, by - 0.1f, h->z + rt.z * ox + fw.z * oz), bot = v3(top.x + fw.x * sw, h->y + (ko ? 0.05f : 0), top.z + fw.z * sw); batch_cyl(bot, top, 0.06f, 0.08f, 5, 0.15f, 0.15f, 0.17f); } }
+        /* a Shock Hound: a copper robot dog with steel plates, glowing eyes and a crackling blue collar. It trots, its antenna tail wags,
+           and when it is about to lunge it crouches low and flashes red */
+        Vec3 fw = v3(sinf(h->yaw), 0, cosf(h->yaw)), rt = v3(fw.z, 0, -fw.x); int ko = h->state == 3, crouch = h->state == 5, lunge = h->state == 6;
+        float gait = sinf(h->flap); float by = h->y + (ko ? 0.25f : (crouch ? 0.38f : 0.58f)) + (ko ? 0 : fabsf(gait) * 0.05f);
+        float fla = crouch ? (fmodf(g_time * 9, 1.0f) < 0.5f ? 1.0f : 0.4f) : 1.0f; float gl = 0.7f + 0.3f * sinf(g_time * 11 + i);
+        float pitch = crouch ? -0.12f : (lunge ? 0.08f : 0);
+        batch_ball(v3(h->x, by, h->z), 0.34f, 0.3f, 0.66f, 4, 8, 0.85f, 0.45f, 0.22f, 1);                                              /* copper body */
+        batch_ball(v3(h->x, by + 0.2f, h->z), 0.24f, 0.1f, 0.5f, 3, 7, 0.62f, 0.68f, 0.78f, 1);                                          /* steel back plate */
+        Vec3 hd = v3(h->x + fw.x * 0.78f, by + 0.18f + pitch, h->z + fw.z * 0.78f);
+        batch_ball(hd, 0.24f, 0.22f, 0.32f, 3, 7, 0.88f, 0.5f, 0.25f, 1);                                                                /* head */
+        batch_ball(v3(hd.x + fw.x * 0.28f, hd.y - 0.08f, hd.z + fw.z * 0.28f), 0.13f, 0.1f, 0.16f, 3, 6, 0.6f, 0.62f, 0.7f, 1);          /* snout */
+        for (int sgn = -1; sgn <= 1; sgn += 2) batch_cyl(v3(hd.x + rt.x * sgn * 0.13f, hd.y + 0.15f, hd.z + rt.z * sgn * 0.13f), v3(hd.x + rt.x * sgn * 0.18f - fw.x * 0.08f, hd.y + 0.38f, hd.z + rt.z * sgn * 0.18f - fw.z * 0.08f), 0.06f, 0.0f, 4, 0.6f, 0.62f, 0.7f);   /* ears */
+        batch_ball(v3(h->x + fw.x * 0.52f, by + 0.1f, h->z + fw.z * 0.52f), 0.28f, 0.08f, 0.28f, 2, 8, ko ? 0.2f : 0.4f * gl, ko ? 0.2f : 1.2f * gl, ko ? 0.25f : 2.0f * gl, 1);   /* the zapping collar, glowing blue */
+        for (int k = 0; k < 2; k++) { int sgn = k ? 1 : -1; batch_ball(v3(hd.x + fw.x * 0.22f + rt.x * sgn * 0.11f, hd.y + 0.07f, hd.z + fw.z * 0.22f + rt.z * sgn * 0.11f), 0.055f, 0.055f, 0.05f, 2, 5,
+            ko ? 0.2f : (crouch || lunge ? 2.2f * fla : 1.8f), ko ? 0.2f : (crouch || lunge ? 0.2f : 1.4f), ko ? 0.2f : (crouch || lunge ? 0.1f : 0.3f), 1); }   /* eyes: amber, red before it lunges */
+        { float wag = ko ? 0 : sinf(g_time * (h->state == 1 ? 14 : 6) + i) * 0.35f; Vec3 t0 = v3(h->x - fw.x * 0.6f, by + 0.15f, h->z - fw.z * 0.6f);   /* the antenna tail wags */
+          Vec3 t1 = v3(t0.x - fw.x * 0.35f + rt.x * wag, t0.y + 0.42f, t0.z - fw.z * 0.35f + rt.z * wag); batch_cyl(t0, t1, 0.04f, 0.02f, 4, 0.6f, 0.62f, 0.7f);
+          batch_ball(t1, 0.07f, 0.07f, 0.07f, 2, 5, ko ? 0.2f : 0.5f * gl, ko ? 0.2f : 1.4f * gl, ko ? 0.2f : 2.0f * gl, 1); }
+        for (int k = 0; k < 4; k++) { float ox = (k & 1 ? 0.24f : -0.24f), oz = (k < 2 ? 0.38f : -0.38f); float sw = ko ? 0 : (k == 0 || k == 3 ? gait : -gait) * (lunge ? 0.45f : 0.28f);
+            Vec3 top = v3(h->x + rt.x * ox + fw.x * oz, by - 0.1f, h->z + rt.z * ox + fw.z * oz), knee = v3(top.x + fw.x * sw * 0.5f, (top.y + h->y) * 0.5f + 0.05f, top.z + fw.z * sw * 0.5f), bot = v3(top.x + fw.x * sw, h->y + (ko ? 0.05f : 0), top.z + fw.z * sw);
+            batch_cyl(knee, top, 0.075f, 0.09f, 5, 0.6f, 0.62f, 0.7f); batch_cyl(bot, knee, 0.06f, 0.07f, 5, 0.85f, 0.45f, 0.22f); batch_ball(knee, 0.075f, 0.075f, 0.075f, 2, 5, 0.95f, 0.7f, 0.3f, 1); } }
     if (!g_world.crystal_found) { float cx = g_world.crystal_x, cz = g_world.crystal_z, cy = g_world.crystal_y + 0.9f + 0.15f * sinf(g_time * 2); float gl = 0.8f + 0.2f * sinf(g_time * 5);
         /* an egg-shaped crystal, slowly turning, and a halo of six small shards */
         float rot = g_time * 0.8f; batch_ball(v3(cx, cy, cz), 0.32f, 0.5f, 0.32f, 4, 6, 0.55f * gl, 0.95f * gl, 1.0f * gl, 1.0f);
@@ -597,6 +625,7 @@ static void draw_dragon(const Dragon *d) {
     Anim3D *m = &g_model[st]; if (!m->ok) m = g_model_ok[0] ? &g_model[0] : NULL;
     if (g_kind != 0) { m = kind_model(g_kind, st); sc = kind_scale(g_kind, st); if (d->evolve_t > 0) { float t = clampf(1 - d->evolve_t / 2.0f, 0, 1); float from = kind_scale(g_kind, st > 0 ? st - 1 : 0); sc = from + (sc - from) * clampf(t * 1.6f, 0, 1); } }
     if (!m) return;
+    if (d->stage < ST_BEYONDER) sc *= 0.85f + 0.15f * clampf(d->growth / dragon_need(d->stage), 0, 1);   /* grows a little bigger with every meal on the way to the next stage */
     Mat4 base = dragon_matrix(d, sc); int clip = anim3d_clip(m, dragon_anim_name(d->anim)); if (clip < 0) clip = 0;
     if (d->mode == DM_AIR && d->anim == DA_GLIDE && d->pitch < -0.3f) { int dv = anim3d_clip(m, "dive"); if (dv >= 0) clip = dv; }   /* nose down: wings swept back in a dive */
     gfx_state(ST_SOLID);
@@ -629,6 +658,41 @@ static void draw_sparkles(const Dragon *d, Vec3 eye) {
             if (dist < 40) for (int k = 0; k < 3; k++) { float u = fmodf(g_time * 0.45f + k * 0.333f + i * 0.17f, 1.0f); float a = i * 2.1f + k * 2.09f + g_time * 0.8f;
                 float ms = 0.1f + 0.06f * (1 - u); Vec3 c = v3(f->x + cosf(a) * 0.5f, cy + u * 1.6f, f->z + sinf(a) * 0.5f);
                 batch_quad(&g_b, c, v3(rt.x * ms, 0, rt.z * ms), v3(0, ms, 0), v3(0, 1, 0), 0, 0, 1, 1, r, g, b, (1 - u) * 0.95f); } } }
+    {   /* robots: a glow round each eye (and a big red flashing one when it is about to attack) so they read against any background */
+        for (int i = 0; i < g_world.ndrone; i++) { const Drone *dr = &g_world.drone[i]; if (dr->state == 3) continue;
+            float dx = dr->x - eye.x, dz = dr->z - eye.z, d2 = dx * dx + dz * dz; if (d2 > 120 * 120) continue; float dist = sqrtf(d2);
+            Vec3 rt = v3_norm(v3_cross(v3(0, 1, 0), v3(dx, 0, dz))); int warn = dr->state == 4 || dr->state == 1; float fla = fmodf(g_time * 8, 1.0f) < 0.5f ? 1.0f : 0.35f;
+            Vec3 e = v3(dr->x + sinf(dr->yaw) * 0.8f, dr->y + 0.2f, dr->z + cosf(dr->yaw) * 0.8f); float hs = fmaxf(warn ? 1.2f : 0.6f, dist * 0.02f);
+            batch_quad(&g_b, e, v3(rt.x * hs, 0, rt.z * hs), v3(0, hs, 0), v3(0, 1, 0), 0, 0, 1, 1, warn ? 1.0f : 0.3f, warn ? 0.15f : 0.9f, warn ? 0.1f : 1.0f, warn ? 0.9f * fla : 0.5f); }
+        for (int i = 0; i < g_world.nhound; i++) { const Drone *h = &g_world.hound[i]; if (h->state == 3) continue;
+            float dx = h->x - eye.x, dz = h->z - eye.z, d2 = dx * dx + dz * dz; if (d2 > 120 * 120) continue; float dist = sqrtf(d2);
+            Vec3 rt = v3_norm(v3_cross(v3(0, 1, 0), v3(dx, 0, dz))); int warn = h->state == 5 || h->state == 6; float fla = fmodf(g_time * 9, 1.0f) < 0.5f ? 1.0f : 0.35f;
+            Vec3 e = v3(h->x + sinf(h->yaw) * 0.95f, h->y + 0.75f, h->z + cosf(h->yaw) * 0.95f); float hs = fmaxf(warn ? 1.1f : 0.55f, dist * 0.02f);
+            batch_quad(&g_b, e, v3(rt.x * hs, 0, rt.z * hs), v3(0, hs, 0), v3(0, 1, 0), 0, 0, 1, 1, warn ? 1.0f : 1.0f, warn ? 0.15f : 0.7f, warn ? 0.1f : 0.25f, warn ? 0.9f * fla : 0.45f);
+            Vec3 cl = v3(h->x + sinf(h->yaw) * 0.52f, h->y + 0.65f, h->z + cosf(h->yaw) * 0.52f); float cs = 0.7f + 0.15f * sinf(g_time * 17 + i);   /* collar sparks */
+            batch_quad(&g_b, cl, v3(rt.x * cs, 0, rt.z * cs), v3(0, cs * 0.6f, 0), v3(0, 1, 0), 0, 0, 1, 1, 0.3f, 0.6f, 1.0f, 0.5f); } }
+    {   /* the dragon's attacks, drawn as light: claw slashes, the pounce's shock ring, the barrel roll's spin, the spark chirp */
+        Vec3 rt = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(v3(d->x, d->y, d->z), eye))); float L = dragon_length(d->stage);
+        float fx = sinf(d->yaw), fz = cosf(d->yaw), sx = fz, sz = -fx;
+        if (d->anim == DA_CLAW && d->act_t > 0.1f && d->act_t < 0.45f) { float u = (0.45f - d->act_t) / 0.35f;   /* three claw streaks raking across in front */
+            for (int k = 0; k < 3; k++) for (int j = 0; j < 8; j++) { float v = (j / 7.0f - 0.5f) * 1.4f * fminf(1, u * 2); float fwd = 0.4f * L + 0.7f + 0.12f * k;
+                Vec3 p = v3(d->x + fx * fwd + sx * v, d->y + 0.35f * L + 0.5f - v * 0.35f + 0.12f * k, d->z + fz * fwd + sz * v); float sz2 = 0.1f + 0.04f * (j % 2);
+                batch_quad(&g_b, p, v3(rt.x * sz2, 0, rt.z * sz2), v3(0, sz2, 0), v3(0, 1, 0), 0, 0, 1, 1, 0.9f, 1.0f, 0.85f, (1 - u) * 0.95f); } }
+        if (d->anim == DA_POUNCE && d->mode == DM_GROUND && d->act_t > 0) { float u = 1 - d->act_t / 0.45f; float R = (3.2f + 0.4f * L) * (0.3f + 0.9f * u);   /* the shock ring */
+            for (int k = 0; k < 40; k++) { float a = k * 0.15708f; Vec3 p = v3(d->x + sinf(a) * R, d->y + 0.25f, d->z + cosf(a) * R); float q = 0.35f;
+                batch_quad(&g_b, p, v3(rt.x * q, 0, rt.z * q), v3(0, q, 0), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.85f, 0.5f, (1 - u) * 0.9f); } }
+        if (d->air_act > 0 && d->air_kind == ATK_ROLL) { float R = fmaxf(3.0f, 0.8f * L + 1.5f) * 0.8f;   /* a spinning ring of wind */
+            for (int k = 0; k < 24; k++) { float a = k * 0.2618f + g_time * 14; Vec3 p = v3(d->x + sinf(a) * R, d->y + 0.3f * L + cosf(a * 2) * 0.4f, d->z + cosf(a) * R); float q = 0.3f;
+                batch_quad(&g_b, p, v3(rt.x * q, 0, rt.z * q), v3(0, q, 0), v3(0, 1, 0), 0, 0, 1, 1, 0.75f, 0.95f, 1.0f, 0.7f); } }
+        if (d->air_act > 0 && d->air_kind == ATK_TALON) { for (int k = 0; k < 12; k++) { float b2 = k / 11.0f; Vec3 p = v3(d->x + fx * (0.35f * L + 1.0f) * b2, d->y - 0.1f * L, d->z + fz * (0.35f * L + 1.0f) * b2); float q = 0.25f;   /* talon streak */
+                batch_quad(&g_b, p, v3(rt.x * q, 0, rt.z * q), v3(0, q, 0), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.95f, 0.7f, 0.6f * b2); } }
+        if (d->anim == DA_CHIRP && d->stage == ST_DRAGONET && d->act_t > 0.3f) { float u = clampf((0.8f - d->act_t) / 0.5f, 0, 1); float R = 0.5f + 4.0f * u;   /* the spark chirp: a ring of sparks rushing out */
+            for (int k = 0; k < 36; k++) { float a = k * 0.17453f; Vec3 p = v3(d->x + sinf(a) * R, d->y + 0.5f + 0.2f * sinf(a * 5 + g_time * 20), d->z + cosf(a) * R); float q = 0.22f;
+                batch_quad(&g_b, p, v3(rt.x * q, 0, rt.z * q), v3(0, q, 0), v3(0, 1, 0), 0, 0, 1, 1, 0.7f, 1.0f, 0.5f, (1 - u) * 0.95f); } } }
+    if (g_growpulse_t > 0 && d == &g_dragon) { float L = dragon_length(d->stage); unsigned s2 = 77; Vec3 rt = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(v3(d->x, d->y, d->z), eye)));   /* milestone: golden motes swirl up round the dragon */
+        for (int i = 0; i < 40; i++) { float a = frand01(&s2) * 6.28f + g_time * 2, r = 0.4f * L + frand01(&s2) * 0.6f, u = fmodf(frand01(&s2) + (1.2f - g_growpulse_t), 1.0f);
+            float q = 0.15f + 0.1f * frand01(&s2); Vec3 c = v3(d->x + cosf(a) * r, d->y + u * L * 1.2f, d->z + sinf(a) * r);
+            batch_quad(&g_b, c, v3(rt.x * q, 0, rt.z * q), v3(0, q, 0), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.85f, 0.4f, (1 - u) * fminf(1, g_growpulse_t)); } }
     if (d->evolve_t <= 0 && !col && g_power_t <= 0) { gfx_mesh_update(m_dynspark, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_spark); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_draw_ex(m_dynspark, &id, 1, 1, 1, 1, 0, 1, 0, 0); return; } unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
     Vec3 right = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(d->x < eye.x ? v3(d->x, d->y, d->z) : v3(d->x, d->y, d->z), eye))); Vec3 up = v3(0, 1, 0);
     for (int i = 0; i < 60; i++) { float a = frand01(&s) * 6.28f, r = frand01(&s) * L * 0.9f, h = frand01(&s) * L * 0.8f, ph = frand01(&s) * 6.28f;
@@ -694,6 +758,7 @@ static void draw_arena(Vec3 eye) {
     if (g_friend.on) draw_kind_dragon(g_fk, g_other.stage, g_friend.x, g_friend.y, g_friend.z, g_friend.yaw, g_friend.anim, g_friend.anim_t, g_friend.mode); }
 static void draw_scene(int drc) {
     float aspect = gfx_aspect(drc); Vec3 eye = g_eye, at = g_at;
+    if (g_shake_t > 0) { float a = g_shake_t * 0.6f; Vec3 o = v3(sinf(g_time * 71) * a, sinf(g_time * 83 + 1) * a, cosf(g_time * 67) * a); eye = v3(eye.x + o.x, eye.y + o.y, eye.z + o.z); at = v3(at.x + o.x * 0.5f, at.y + o.y * 0.5f, at.z + o.z * 0.5f); }
     float cr = g_dragon.mode == DM_AIR ? g_bank * (g_cam_mode == 0 ? 0.3f : 0.85f) : 0;   /* the camera leans into a banked turn with the dragon */
     Vec3 up = v3(-sinf(cr) * cosf(g_cam_yaw), cosf(cr), sinf(cr) * sinf(g_cam_yaw));
     Mat4 proj = m4_perspective(g_cam_mode == 2 ? 1.25f : 1.05f, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
@@ -853,7 +918,7 @@ static void draw_hud(int drc) {
         ui_panel(640 - mw / 2 - 70, my - 36, mw + 140, 100 + (nl - 1) * 39, 0.9f * ma, 0); text_wrap_c(g_msg, my, 26, 1060, 1, 0.96f, 0.86f, ma); }
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(g_wk == WK_SKY ? "SKY KINGDOM" : "EVERLEAF WILDS", 352, 34, a); }
     static const char *cams[3] = {"OVERHEAD VIEW", "RIDER VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
-    { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST"}; char cl[120]; snprintf(cl, sizeof cl, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : %s   + : SWAP", d->stage >= ST_DRAGON ? PW[g_kind] : "ROAR");
+    { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST"}; char cl[160]; snprintf(cl, sizeof cl, "A : JUMP/FLY   B : TAIL (AIR: %s)   X : CLAW/EAT%s   Y : %s   + : SWAP", d->stage >= ST_DRAGON ? "ROLL" : "POUNCE", d->stage >= ST_DRAGON ? " (AIR: TALONS)" : "", d->stage >= ST_DRAGON ? PW[g_kind] : "SPARK CHIRP");
       batch_text(&g_b, cl, 640 - text_width(cl, 16) / 2, 692, 16, 1, 1, 1, 0.5f); }
     if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, -700, 0, 2680, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }   /* wider than the TV for wide phone screens */
     if (g_tale_i >= 0) { char line[200]; snprintf(line, sizeof line, TALE[g_tale_w][g_tale_i], kind_name(CAPTIVE[g_tale_w])); float fade = clampf(g_tale_t * 2, 0, 1);
@@ -1111,7 +1176,7 @@ static void hurt_dragon(float amount, const char *msg) {
     if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
 static void boss_frame(float dt) {
     const Dragon *d = &g_dragon; float L = dragon_length(d->stage);
-    int whip = d->anim == DA_TAILWHIP && d->act_t > 0.2f && d->act_t < 0.85f; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
+    int whip = d->atk_r > 0; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
     int bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar);
     if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_GUARD[g_wk]); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
@@ -1283,19 +1348,20 @@ void game_frame(const Pad *pads, int npads, float dt) {
     g_tour_a = in.a; g_tour_presses += in.a_press; g_tour_takeoffs += (ev & 4) != 0;
 #endif
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
-    { /* the tail sweeps all round, from just after the press for most of the swing, and reaches at least 2.8 m even for a dragonet */
-      float Lw = dragon_length(g_dragon.stage); float whip = (g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.2f && g_dragon.act_t < 0.85f) ? fmaxf(2.8f, 0.9f * Lw + 1.2f) : 0;
+    { /* whatever attack the dragon is doing this step (claw, tail, pounce, talons, barrel roll, spark chirp) hits anything in its reach */
+      Attack atk = {g_dragon.atk_x, g_dragon.atk_y, g_dragon.atk_z, g_dragon.atk_r}; int safe = g_dragon.invuln_t > 0 || g_dragon.slam;
       int roar = g_dragon.anim == DA_ROAR && g_dragon.act_t > 1.0f;
-      int dev = world_drones(&g_world, dt, g_dragon.x, g_dragon.y + 0.4f * dragon_length(g_dragon.stage), g_dragon.z, 0.8f * dragon_length(g_dragon.stage) + 1.0f, whip, roar);
-      if ((dev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, g_dragon.stage >= ST_DRAGON ? "A FEATHER DRONE! B TO SWAT IT, Y FOR YOUR POWER" : "A FEATHER DRONE! PRESS B TO SWAT IT, Y TO SCARE IT"); g_msg_t = 4;
+      int dev = world_drones(&g_world, dt, g_dragon.x, g_dragon.y + 0.4f * dragon_length(g_dragon.stage), g_dragon.z, 0.8f * dragon_length(g_dragon.stage) + 1.0f, atk, roar);
+      if ((dev & 1) && g_dragon.evolve_t <= 0 && !safe) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, g_dragon.stage >= ST_DRAGON ? "A FEATHER DRONE! WHEN ITS EYE FLASHES RED IT DIVES: ROLL (B) OR TALONS (X)" : "A FEATHER DRONE! WHEN ITS EYE FLASHES RED IT DIVES: TAIL (B), OR HOP AND POUNCE (A THEN B)"); g_msg_t = 4;
           if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
-      if (dev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 5; snprintf(g_msg, sizeof g_msg, "DRONE DOWN!"); g_msg_t = 2; }
-      int hev = world_hounds(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * dragon_length(g_dragon.stage) + 0.9f, whip, roar, g_dragon.mode == DM_AIR);
-      if ((hev & 1) && g_dragon.evolve_t <= 0) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A SHOCK HOUND! RUN (ZR), HOP (A), OR SWAT IT (B)"); g_msg_t = 4;
+      if (dev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 8; hit_flash(); snprintf(g_msg, sizeof g_msg, "DRONE DOWN! +8"); g_msg_t = 2; }
+      int hev = world_hounds(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * dragon_length(g_dragon.stage) + 0.9f, atk, roar, g_dragon.mode == DM_AIR);
+      if ((hev & 1) && g_dragon.evolve_t <= 0 && !safe) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A SHOCK HOUND! WHEN IT CROUCHES AND FLASHES, HOP ASIDE (A), THEN CLAW (X) OR TAIL (B)"); g_msg_t = 4;
           if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
-      if (hev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 5; snprintf(g_msg, sizeof g_msg, "HOUND DOWN!"); g_msg_t = 2; }
+      if (hev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 8; hit_flash(); snprintf(g_msg, sizeof g_msg, "HOUND DOWN! +8"); g_msg_t = 2; }
       { float L = dragon_length(g_dragon.stage), stolen, rec; int pw = g_power_t > 0.3f;
-        int tev = world_thieves(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * L + 0.9f, pw ? 8 + 2 * L : whip, g_dragon.growth, &stolen, &rec);
+        Attack ta = atk; if (pw) { ta.x = g_dragon.x; ta.y = g_dragon.y; ta.z = g_dragon.z; ta.r = fmaxf(ta.r, 8 + 2 * L); }
+        int tev = world_thieves(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * L + 0.9f, ta, g_dragon.growth, &stolen, &rec);
         if (tev & 1) { g_dragon.growth = fmaxf(0, g_dragon.growth - stolen); sfx_play(SFX_HIT, 0.5f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, "A SCALE THIEF STOLE YOUR FOOD! CATCH IT WITH YOUR TAIL (B)"); g_msg_t = 4; }
         if (tev & 2) { g_dragon.growth += rec + 3; sfx_play(SFX_PICKUP, 0.7f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, rec > 0 ? "CAUGHT! YOU GOT YOUR FOOD BACK" : "SCALE THIEF CAUGHT!"); g_msg_t = 3; } } }
     boss_frame(dt);
@@ -1307,10 +1373,21 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (ev & 4) sfx_play(SFX_FLAP, 0.6f, 0);
     if (ev & 8) sfx_play(SFX_LAND, 0.5f, 0);
     if (in.b_press && g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.9f) sfx_play(SFX_TAIL, 0.6f, 0);
+    if (in.x_press && g_dragon.anim == DA_CLAW && g_dragon.act_t > 0.55f) sfx_play(SFX_TAIL, 0.45f, 0);
+    if ((in.x_press || in.b_press) && g_dragon.air_act > 0.55f) sfx_play(SFX_FLAP, 0.7f, 0);
+    if (ev & 32) { sfx_play(SFX_LAND, 1.0f, 0); sfx_play(SFX_BLOCK, 0.4f, 0); platform_rumble(0.8f, 0.25f); g_shake_t = 0.25f; }
     if (g_dragon.mode == DM_AIR && g_dragon.anim == DA_FLY) {   /* the whoosh lands on each downstroke of the 0.8 s wingbeat */
         float ph = fmodf(g_dragon.anim_t, 0.8f), was = fmodf(fmaxf(g_dragon.anim_t - dt, 0), 0.8f); if (was < 0.26f && ph >= 0.26f) sfx_play(SFX_FLAP, 0.45f, 0); }
     if (g_state == G_PLAY && g_dragon.stage == ST_DRAGONET && fmodf(g_time, 7.0f) < dt && g_dragon.anim == DA_IDLE) sfx_play(SFX_CHIRP, 0.3f, 0);
     if (ev & 2) save_progress();
+    {   /* milestones on the way to the next stage: a quarter, half and three quarters grown */
+        static int last_q = -1, last_stage = -1; int st = g_dragon.stage;
+        int q = st < ST_BEYONDER ? (int)(4 * g_dragon.growth / dragon_need(st)) : 0; if (q > 3) q = 3;
+        if (st != last_stage) { last_stage = st; last_q = q; }
+        else if (q > last_q && g_dragon.evolve_t <= 0) { last_q = q; static const char *QW[4] = {"", "A QUARTER", "HALF", "THREE QUARTERS"};
+            snprintf(g_msg, sizeof g_msg, "%s IS GROWING! %s OF THE WAY TO %s", g_kind == 0 ? NAMES[g_name] : "YOUR DRAGON", QW[q], st == ST_DRAGONET ? "DRAGON" : "BEYONDER"); g_msg_t = 4;
+            sfx_play(SFX_GROW, 0.5f, 0); platform_rumble(0.4f, 0.3f); g_growpulse_t = 1.2f; save_progress(); }
+        else if (q < last_q) last_q = q; }
     if (!g_world.crystal_found) { float dx = g_dragon.x - g_world.crystal_x, dz = g_dragon.z - g_world.crystal_z, dy = g_dragon.y - g_world.crystal_y; if (dx * dx + dz * dz + dy * dy < (1.2f + 0.5f * dragon_length(g_dragon.stage)) * (1.2f + 0.5f * dragon_length(g_dragon.stage))) { g_world.crystal_found = 1; snprintf(g_msg, sizeof g_msg, "SECRET EGG CRYSTAL FOUND! 1 OF 10"); g_msg_t = 6; sfx_play(SFX_UNLOCK, 0.8f, 0); platform_rumble(0.8f, 0.5f); save_progress(); } }
     g_save_t += dt; if (g_save_t > 20) { g_save_t = 0; save_progress(); }
     if (!g_rescued && g_dragon.stage >= ST_DRAGON && !g_boss.woke) {   /* point the way to the cage */

@@ -1,0 +1,168 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "src/CMakeFiles/kkassets.dir/./home/claude/dragonsbeyond/src/render/assets.c.o"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_compile_options",
+			"target_compile_definitions",
+			"target_include_directories"
+		],
+		"files" : 
+		[
+			"src/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 6,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 14,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 11,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 7,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 13,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -O2 -g -DNDEBUG -fPIC"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-O3"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-w"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-std=gnu11"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-ffast-math"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-math-errno"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-include"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "/home/claude/dragonsbeyond/android/app/jni/src/../../../port/kk_files.h"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 3,
+					"define" : "KK_CONTENT_DIR=\"content/\""
+				},
+				{
+					"backtrace" : 3,
+					"define" : "_GNU_SOURCE"
+				},
+				{
+					"backtrace" : 4,
+					"define" : "gfx_texture_rgba=gfx_texture_rgba_bytes"
+				},
+				{
+					"backtrace" : 4,
+					"define" : "gfx_texture_rgba_ex=gfx_texture_rgba_ex_bytes"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 5,
+					"path" : "/home/claude/dragonsbeyond/src"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "/home/claude/dragonsbeyond/android/app/jni/src/../../../port"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "/home/claude/dragonsbeyond/android/app/jni/src/../SDL/include"
+				}
+			],
+			"language" : "C",
+			"sourceIndexes" : 
+			[
+				0
+			],
+			"sysroot" : 
+			{
+				"path" : "/opt/android/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+			}
+		}
+	],
+	"id" : "kkassets::@145eef247bfb46b6828c",
+	"name" : "kkassets",
+	"paths" : 
+	{
+		"build" : "src",
+		"source" : "src"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "/home/claude/dragonsbeyond/src/render/assets.c",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "OBJECT_LIBRARY"
+}

@@ -1,0 +1,1 @@
+/home/claude/dragonsbeyond/android/app/build/intermediates/cxx/RelWithDebInfo/6q58i2fj/obj/arm64-v8a

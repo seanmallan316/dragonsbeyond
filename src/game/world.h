@@ -20,7 +20,10 @@ enum { F_BERRY = 0, F_MUSHROOM, F_GRUB, F_FISH, F_N };   /* berries and mushroom
 
 typedef struct { int kind; float x, z, yaw, scale; } Prop;
 typedef struct { int kind, alive; float x, y, z, yaw, regrow, wander, phase; } Food;
-/* Kaine's Feather Drones: black robot birds. state 0 patrol, 1 dive at the dragon, 2 fleeing, 3 knocked down (respawn timer in t) */
+/* a dragon's attack this step: anything within r of (x, y, z) is hit (r = 0: no attack) */
+typedef struct { float x, y, z, r; } Attack;
+/* Kaine's Feather Drones: black robot birds. state 0 patrol, 4 winding up (hovers and flashes red: get ready), 1 dive at the dragon, 2 fleeing, 3 knocked down (respawn timer in t).
+   Shock Hounds: 0 roam, 1 stalk, 5 crouch (flashing: it is about to lunge), 6 lunge, 2 back off, 3 knocked out */
 typedef struct { int state; float x, y, z, yaw, t, hx, hz, flap; } Drone;   /* regrow: seconds until it is back; grubs wander */
 
 typedef struct {
@@ -50,11 +53,11 @@ int   world_in_pond(const World *w, float x, float z);
 void  world_update(World *w, float dt, float px, float pz);   /* regrowth, grubs wandering away from the player */
 int   world_nearest_food(const World *w, float x, float z, float reach);   /* index or -1 */
 /* drones: returns a bitmask: 1 a drone hit the dragon (take damage), 2 a drone was knocked down. whip = tail whip landing this frame, roar = roaring */
-int   world_drones(World *w, float dt, float px, float py, float pz, float reach, float whip, int roar);
-int   world_hounds(World *w, float dt, float px, float py, float pz, float reach, float whip, int roar, int in_air);   /* same bitmask as the drones */
+int   world_drones(World *w, float dt, float px, float py, float pz, float reach, Attack atk, int roar);
+int   world_hounds(World *w, float dt, float px, float py, float pz, float reach, Attack atk, int roar, int in_air);   /* same bitmask as the drones */
 /* a dragon's power hits Kaine's helpers: everything within range (and inside the cone ahead, cos_cone = -1 for all round) is knocked out. Returns how many. */
 /* Scale Thieves: returns 1 when one steals (amount in *stolen), 2 when one is caught (food back in *recovered) */
-int   world_thieves(World *w, float dt, float px, float py, float pz, float reach, float whip, float carry, float *stolen, float *recovered);
+int   world_thieves(World *w, float dt, float px, float py, float pz, float reach, Attack atk, float carry, float *stolen, float *recovered);
 int   world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone);
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */
