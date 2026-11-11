@@ -194,7 +194,7 @@ static const char *VS_POST_SRC =
 static const char *PS_POST_SRC =
     "#version 300 es\n"
     "precision highp float;\n"
-    "in vec2 v_uv; uniform sampler2D u_scene; uniform vec4 u_px; uniform vec4 u_k; out vec4 out_color;\n"
+    "in vec2 v_uv; uniform sampler2D u_scene; uniform sampler2D u_bloom; uniform vec4 u_px; uniform vec4 u_k; out vec4 out_color;\n"
     "float lu(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }\n"
     "vec3 at(vec2 o) { return texture(u_scene, v_uv + o * u_px.xy).rgb; }\n"
     "void main() {\n"
@@ -213,21 +213,44 @@ static const char *PS_POST_SRC =
     "  } else {\n"
     "    c = max(cM + (cM * 4.0 - cN - cS - cE - cW) * 0.25 * u_k.z, vec3(0.0));\n"
     "  }\n"
-    "  vec3 bl = vec3(0.0); float s = u_px.z;\n"
-    "  bl += max(at(vec2(6.0, 0.0) * s) - 0.72, 0.0) + max(at(vec2(-6.0, 0.0) * s) - 0.72, 0.0) + max(at(vec2(0.0, 6.0) * s) - 0.72, 0.0) + max(at(vec2(0.0, -6.0) * s) - 0.72, 0.0);\n"
-    "  bl += max(at(vec2(10.0, 10.0) * s) - 0.72, 0.0) + max(at(vec2(-10.0, 10.0) * s) - 0.72, 0.0) + max(at(vec2(10.0, -10.0) * s) - 0.72, 0.0) + max(at(vec2(-10.0, -10.0) * s) - 0.72, 0.0);\n"
-    "  bl += max(at(vec2(18.0, 0.0) * s) - 0.72, 0.0) + max(at(vec2(-18.0, 0.0) * s) - 0.72, 0.0) + max(at(vec2(0.0, 18.0) * s) - 0.72, 0.0) + max(at(vec2(0.0, -18.0) * s) - 0.72, 0.0);\n"
-    "  c += bl * (u_k.y / 12.0) * vec3(1.0, 0.95, 0.85);\n"
+    "  vec3 bl = texture(u_bloom, v_uv).rgb;\n"
+    "  c += bl * u_k.y * 0.9 * vec3(1.0, 0.95, 0.86);\n"
     "  vec2 d = v_uv - 0.5; c *= 1.0 - u_k.w * dot(d, d) * 1.2;\n"
     "  out_color = vec4(min(c, vec3(1.0)), 1.0);\n"
     "}\n";
+static const char *PS_BLOOM_SRC =
+    "#version 300 es\n"
+    "precision highp float;\n"
+    "in vec2 v_uv; uniform sampler2D u_src; uniform vec4 u_d; out vec4 out_color;\n"
+    "void main() {\n"
+    "  if (u_d.z > 0.5) {\n"   /* bright pass, 4 taps (a box down to a quarter size) */
+    "    vec3 c = vec3(0.0); for (int i = 0; i < 4; i++) { vec2 o = vec2(float(i & 1) - 0.5, float(i >> 1) - 0.5) * u_d.xy * 2.0;\n"
+    "      vec3 t = texture(u_src, v_uv + o).rgb; float l = dot(t, vec3(0.299, 0.587, 0.114)); c += t * smoothstep(0.62, 0.95, l); }\n"
+    "    out_color = vec4(c * 0.25, 1.0); return; }\n"
+    "  vec3 c = texture(u_src, v_uv).rgb * 0.2270270270;\n"   /* 9-tap gaussian in 5 reads (linear sampling) */
+    "  c += (texture(u_src, v_uv + u_d.xy * 1.3846153846).rgb + texture(u_src, v_uv - u_d.xy * 1.3846153846).rgb) * 0.3162162162;\n"
+    "  c += (texture(u_src, v_uv + u_d.xy * 3.2307692308).rgb + texture(u_src, v_uv - u_d.xy * 3.2307692308).rgb) * 0.0702702703;\n"
+    "  out_color = vec4(c, 1.0);\n"
+    "}\n";
 static GLuint g_post_prog, g_post_vao, g_post_vbo; static GLint g_post_px, g_post_k;
+static GLuint g_bloom_prog, g_bl_tex[2], g_bl_fbo[2]; static GLint g_bloom_d; static int g_bl_w, g_bl_h;
+static void bloom_targets(int w, int h) {
+    int bw = w / 4 > 1 ? w / 4 : 1, bh = h / 4 > 1 ? h / 4 : 1; if (g_bl_tex[0] && bw == g_bl_w && bh == g_bl_h) return;
+    if (!g_bl_tex[0]) { glGenTextures(2, g_bl_tex); glGenFramebuffers(2, g_bl_fbo); }
+    g_bl_w = bw; g_bl_h = bh;
+    for (int i = 0; i < 2; i++) { glBindTexture(GL_TEXTURE_2D, g_bl_tex[i]); glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, bw, bh, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindFramebuffer(GL_FRAMEBUFFER, g_bl_fbo[i]); glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_bl_tex[i], 0); }
+}
 static void post_init(void) {
     GLuint v = compile(GL_VERTEX_SHADER, VS_POST_SRC), f = compile(GL_FRAGMENT_SHADER, PS_POST_SRC); if (!v || !f) return;
     GLuint pr = glCreateProgram(); glAttachShader(pr, v); glAttachShader(pr, f); glLinkProgram(pr);
     GLint ok = 0; glGetProgramiv(pr, GL_LINK_STATUS, &ok); if (!ok) { gfx_log("finishing pass link failed"); return; }
     g_post_px = glGetUniformLocation(pr, "u_px"); g_post_k = glGetUniformLocation(pr, "u_k");
-    glUseProgram(pr); glUniform1i(glGetUniformLocation(pr, "u_scene"), 0);
+    glUseProgram(pr); glUniform1i(glGetUniformLocation(pr, "u_scene"), 0); glUniform1i(glGetUniformLocation(pr, "u_bloom"), 2);
+    { GLuint bf = compile(GL_FRAGMENT_SHADER, PS_BLOOM_SRC); if (bf) { GLuint b = glCreateProgram(); glAttachShader(b, v); glAttachShader(b, bf); glLinkProgram(b);
+        GLint bok = 0; glGetProgramiv(b, GL_LINK_STATUS, &bok); if (bok) { g_bloom_prog = b; g_bloom_d = glGetUniformLocation(b, "u_d"); glUseProgram(b); glUniform1i(glGetUniformLocation(b, "u_src"), 0); } } }
     static const float q[24] = {-1, -1, 0, 1,  1, -1, 1, 1,  1, 1, 1, 0,  -1, -1, 0, 1,  1, 1, 1, 0,  -1, 1, 0, 0};
     glGenVertexArrays(1, &g_post_vao); glBindVertexArray(g_post_vao); glGenBuffers(1, &g_post_vbo); glBindBuffer(GL_ARRAY_BUFFER, g_post_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof q, q, GL_STATIC_DRAW);
@@ -446,6 +469,18 @@ void gfx_post(int drc, float bloom, float sharpen, float vignette) {
     Texture *t = gfx_grab(drc); if (!t) return;
     gfx_viewport(drc, 0, 0, 1, 1);
     glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND); glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    if (g_bloom_prog) {   /* the glow: the bright parts at a quarter size, blurred across and down twice */
+        bloom_targets(g_w, g_h); glDisable(GL_SCISSOR_TEST); glViewport(0, 0, g_bl_w, g_bl_h);
+        glUseProgram(g_bloom_prog); glBindVertexArray(g_post_vao); glActiveTexture(GL_TEXTURE0);
+        float d0[4] = {1.0f / (float)t->w, 1.0f / (float)t->h, 1, 0}; glUniform4fv(g_bloom_d, 1, d0);
+        glBindFramebuffer(GL_FRAMEBUFFER, g_bl_fbo[0]); glBindTexture(GL_TEXTURE_2D, t->id); glDrawArrays(GL_TRIANGLES, 0, 6);
+        for (int it = 0; it < 2; it++) {
+            float dh[4] = {1.5f / (float)g_bl_w, 0, 0, 0}, dv[4] = {0, 1.5f / (float)g_bl_h, 0, 0};
+            glUniform4fv(g_bloom_d, 1, dh); glBindFramebuffer(GL_FRAMEBUFFER, g_bl_fbo[1]); glBindTexture(GL_TEXTURE_2D, g_bl_tex[0]); glDrawArrays(GL_TRIANGLES, 0, 6);
+            glUniform4fv(g_bloom_d, 1, dv); glBindFramebuffer(GL_FRAMEBUFFER, g_bl_fbo[0]); glBindTexture(GL_TEXTURE_2D, g_bl_tex[1]); glDrawArrays(GL_TRIANGLES, 0, 6); }
+        glBindFramebuffer(GL_FRAMEBUFFER, g_fbo); glEnable(GL_SCISSOR_TEST); gfx_viewport(drc, 0, 0, 1, 1);
+        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, g_bl_tex[0]); glActiveTexture(GL_TEXTURE0);
+    } else { glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, g_white->id); glActiveTexture(GL_TEXTURE0); }
     glUseProgram(g_post_prog);
     float sc = (float)g_h / 720.0f;   /* the glow reaches as far across the picture as on the TV, whatever the phone's resolution */
     { float px[4] = {1.0f / (float)t->w, 1.0f / (float)t->h, sc, 0}, k[4] = {1, bloom, sharpen, vignette}; glUniform4fv(g_post_px, 1, px); glUniform4fv(g_post_k, 1, k); }
@@ -484,17 +519,19 @@ static void flat_frame(const float *vp) {
     memcpy(F.fogcolor, z, 16); memcpy(F.speccolor, zz, 16); memcpy(F.shadowpx, zz, 16); memcpy(F.light, l, 16); memcpy(F.skyc, one, 16); memcpy(F.groundc, one, 16); memcpy(F.grade, gr, 16);
     F.ver++;
 }
+/* the game's words and panels are laid out for a 16:9 TV: on a wider phone they keep their shape in a 16:9 area in the middle */
+static float hud_k(void) { float a = (float)g_w / (float)g_h; return a > 16.0f / 9.0f ? (16.0f / 9.0f) / a : 1.0f; }
 void gfx_camera_2d(void) { gfx_camera_2d_virtual(1280.0f, 720.0f); }
 void gfx_camera_ui3d(float eye) { gfx_camera_ui3d_v(eye, 1280.0f, 720.0f); }
 void gfx_camera_ui3d_v(float eye, float vw, float vh) {
-    Mat4 m; memset(&m, 0, sizeof m);
-    m.m[0] = eye / (vw * 0.5f); m.m[12] = -eye; m.m[5] = -eye / (vh * 0.5f); m.m[13] = eye; m.m[11] = -1.0f; m.m[15] = eye;
+    Mat4 m; memset(&m, 0, sizeof m); float k = hud_k();
+    m.m[0] = k * eye / (vw * 0.5f); m.m[12] = -eye * k; m.m[5] = -eye / (vh * 0.5f); m.m[13] = eye; m.m[11] = -1.0f; m.m[15] = eye;
     flat_frame(m.m);
 }
 void gfx_camera_2d_virtual(float vw, float vh) {
-    Mat4 id = m4_identity();
+    Mat4 id = m4_identity(); float k = hud_k();
     float a = 1280.0f / vw, b = 720.0f / vh;
-    id.m[0] = a; id.m[5] = b; id.m[12] = a - 1.0f; id.m[13] = 1.0f - b;
+    id.m[0] = a * k; id.m[5] = b; id.m[12] = (a - 1.0f) * k; id.m[13] = 1.0f - b;
     flat_frame(id.m);
 }
 void gfx_bind(Texture *t) {

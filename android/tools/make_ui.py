@@ -75,6 +75,7 @@ BUTTONS = [  # file, word, controller letter, glow colour
     ("btn_ok", "OK", "A", (70, 200, 120)),
     ("btn_back", "BACK", "B", (200, 90, 70)),
     ("btn_erase", "ERASE", "X", (230, 170, 60)),
+    ("btn_share", "SHARE", "X", (230, 170, 60)),
 ]
 for name, word, letter, glow in BUTTONS:
     medallion(300, word, letter, glow).save(OUT + name + ".png")

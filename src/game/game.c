@@ -283,15 +283,23 @@ static void build_props(void) {
             tv_tri(q[0], q[1], q[2], nn, nn, nn, q[0].x * 0.1f, q[0].z * 0.1f, q[1].x * 0.1f, q[1].z * 0.1f, q[2].x * 0.1f, q[2].z * 0.1f, g * 0.9f, g, g * 0.85f);
             tv_tri(q[0], q[2], q[3], nn, nn, nn, q[0].x * 0.1f, q[0].z * 0.1f, q[2].x * 0.1f, q[2].z * 0.1f, q[3].x * 0.1f, q[3].z * 0.1f, g * 0.9f, g, g * 0.85f); } }
     m_apron = tv_mesh();
-    } else {   /* the Sky Kingdom: a rolling sea of cloud below the islands, out to the horizon */
-        const int N = 72; const float span = 1500; tv_begin((uint32_t)(N * N * 6));
-        for (int j = 0; j < N; j++) for (int i = 0; i < N; i++) { Vec3 q[4]; float col[4];
-            for (int k = 0; k < 4; k++) { float x = -span / 2 + span * (i + (k & 1)) / N, z = -span / 2 + span * (j + (k >> 1)) / N;
-                float n1 = world_fbm(x * 0.012f, z * 0.012f, 911), n2 = world_fbm(x * 0.05f, z * 0.05f, 912);
-                q[k] = v3(x, W_CLOUDS - 2 + (n1 - 0.5f) * 7 + (n2 - 0.5f) * 2, z); col[k] = 0.8f + 0.25f * n1 + 0.1f * n2; }
-            Vec3 nn = v3(0, 1, 0);
-            tv_push(q[0], nn, WHITE_U, WHITE_V, col[0], col[0], col[0] * 1.02f, 1); tv_push(q[2], nn, WHITE_U, WHITE_V, col[2], col[2], col[2] * 1.02f, 1); tv_push(q[1], nn, WHITE_U, WHITE_V, col[1], col[1], col[1] * 1.02f, 1);
-            tv_push(q[1], nn, WHITE_U, WHITE_V, col[1], col[1], col[1] * 1.02f, 1); tv_push(q[2], nn, WHITE_U, WHITE_V, col[2], col[2], col[2] * 1.02f, 1); tv_push(q[3], nn, WHITE_U, WHITE_V, col[3], col[3], col[3] * 1.02f, 1); }
+    } else {   /* the Sky Kingdom: a rolling sea of cloud below the islands, out to the horizon: billowing heaps lit by the sun,
+                  bright warm tops, cool blue-grey hollows */
+        const int N = 96; const float span = 1500; tv_begin((uint32_t)(N * N * 6));
+        static float H[97][97], C[97][97];
+        for (int j = 0; j <= N; j++) for (int i = 0; i <= N; i++) { float x = -span / 2 + span * i / N, z = -span / 2 + span * j / N;
+            float n1 = world_fbm(x * 0.010f, z * 0.010f, 911), n2 = world_fbm(x * 0.04f, z * 0.04f, 912), n3 = world_fbm(x * 0.022f + 7, z * 0.022f - 3, 913);
+            float heap = clampf((n3 - 0.45f) / 0.4f, 0, 1); heap = heap * heap * (3 - 2 * heap);   /* puffy rounded heaps, not a wavy sheet */
+            H[j][i] = W_CLOUDS - 5 + (n1 - 0.5f) * 8 + heap * 6.0f + (n2 - 0.5f) * 2.0f;
+            C[j][i] = clampf(0.45f + (n1 - 0.5f) * 1.0f + heap * 0.45f + (n2 - 0.5f) * 0.4f, 0, 1); }
+        for (int j = 0; j < N; j++) for (int i = 0; i < N; i++) { Vec3 q[4], nn[4]; float col[4][3];
+            for (int k = 0; k < 4; k++) { int ii = i + (k & 1), jj = j + (k >> 1); float x = -span / 2 + span * ii / N, z = -span / 2 + span * jj / N;
+                q[k] = v3(x, H[jj][ii], z);
+                float hx = H[jj][ii < N ? ii + 1 : ii] - H[jj][ii > 0 ? ii - 1 : ii], hz = H[jj < N ? jj + 1 : jj][ii] - H[jj > 0 ? jj - 1 : jj][ii];
+                nn[k] = v3_norm(v3(-hx, 2.0f * span / N, -hz));
+                float t = C[jj][ii]; col[k][0] = 0.70f + 0.36f * t; col[k][1] = 0.76f + 0.31f * t; col[k][2] = 0.90f + 0.20f * t; }
+            tv_push(q[0], nn[0], WHITE_U, WHITE_V, col[0][0], col[0][1], col[0][2], 1); tv_push(q[2], nn[2], WHITE_U, WHITE_V, col[2][0], col[2][1], col[2][2], 1); tv_push(q[1], nn[1], WHITE_U, WHITE_V, col[1][0], col[1][1], col[1][2], 1);
+            tv_push(q[1], nn[1], WHITE_U, WHITE_V, col[1][0], col[1][1], col[1][2], 1); tv_push(q[2], nn[2], WHITE_U, WHITE_V, col[2][0], col[2][1], col[2][2], 1); tv_push(q[3], nn[3], WHITE_U, WHITE_V, col[3][0], col[3][1], col[3][2], 1); }
         m_cloudsea = tv_mesh();
         /* far floating islands all round: rocky undersides hanging into the cloud (rock), grassy caps (grass) */
         unsigned fs = 5150; float FI[16][5]; int nf = 0;
@@ -675,7 +683,7 @@ static void draw_scene(int drc) {
     /* sky, around the camera, no depth */
     Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(g_sky_photo ? tx_sky : NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); }
     gfx_state(ST_DEPTH | ST_DEPTH_WRITE); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); }
-    if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
+    if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, 1, 1, 1, 1, 0, 0, 0, 0); }   /* lit: the sun shapes the billows */
     gfx_clear_depth(drc);
     gfx_state(ST_SOLID);
     gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1);
@@ -758,7 +766,8 @@ static void ui_embers(int n, float a) {
         float x = ui_hash(i * 3) * 1280 + 30 * sinf(g_time * (0.6f + ui_hash(i + 77)) + i), s = 10 + 18 * ui_hash(i + 33), fade = sinf(3.14159f * t / life) * (0.6f + 0.4f * sinf(g_time * 7 + i));
         ui_pic_c(&g_ua, UI_EMBER, x, y, s, s, 1, 0.55f + 0.3f * ui_hash(i + 5), 0.2f, a * fade); } }
 /* darken the picture, darkest at the edges */
-static void ui_shade(float a) { ui_rect(&g_ub, 0, 0, 1280, 720, 0.02f, 0.015f, 0.01f, 0.45f * a); ui_pic(&g_ub, UI_VIGNETTE, -80, -60, 1440, 840, 1, 1, 1, a); }
+static void ui_shade(float a) { ui_rect(&g_ub, 0, 0, 1280, 720, 0.02f, 0.015f, 0.01f, 0.45f * a); ui_pic(&g_ub, UI_VIGNETTE, -80, -60, 1440, 840, 1, 1, 1, a);
+    ui_rect(&g_ub, -700, 0, 700, 720, 0.02f, 0.015f, 0.01f, 0.8f * a); ui_rect(&g_ub, 1280, 0, 700, 720, 0.02f, 0.015f, 0.01f, 0.8f * a); }   /* past the edges: only seen on wide phone screens */
 static void ui_divider(float cx, float y, float w, float a) { ui_pic_c(&g_ub, UI_DIVIDER, cx, y, w, w / 8, 1, 1, 1, a); ui_pic_c(&g_ua, UI_GLOW, cx + sinf(g_time * 0.9f) * w * 0.4f, y, 60, 18, 1, 0.8f, 0.4f, 0.5f * a); }
 /* the gold title, with a band of light sweeping across the letters every few seconds */
 static void ui_logo(float cx, float y, float w, float a) {
@@ -818,7 +827,7 @@ static void draw_hud(int drc) {
     static const char *cams[3] = {"OVERHEAD VIEW", "RIDER VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST"}; char cl[120]; snprintf(cl, sizeof cl, "D-PAD UP : VIEW   A : JUMP/FLY   ZR : RUN   B : TAIL   Y : %s   + : SWAP", d->stage >= ST_DRAGON ? PW[g_kind] : "ROAR");
       batch_text(&g_b, cl, 640 - text_width(cl, 16) / 2, 692, 16, 1, 1, 1, 0.5f); }
-    if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, 0, 0, 1280, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }
+    if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, -700, 0, 2680, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }   /* wider than the TV for wide phone screens */
     if (g_tale_i >= 0) { char line[200]; snprintf(line, sizeof line, TALE[g_tale_w][g_tale_i], kind_name(CAPTIVE[g_tale_w])); float fade = clampf(g_tale_t * 2, 0, 1);
         ui_shade(fade); ui_embers(40, fade); ui_panel(90, 150, 1100, 440, 0.95f * fade, 0); ui_divider(640, 200, 520, fade); text_wrap_c(line, 250, 30, 960, 1, 0.95f, 0.82f, fade);
         char pg[16]; snprintf(pg, sizeof pg, "%d / 3", g_tale_i + 1); text_cg(pg, 556, 18, 0.7f * fade); text_c("A : NEXT", 620, 24, 1, 1, 1, 0.6f + 0.4f * sinf(g_time * 3)); }
@@ -1182,7 +1191,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         gfx_frame_begin(); gfx_shadow_none();
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
             gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620);
-            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(g_sky_photo ? tx_sky : NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); } gfx_state(ST_DEPTH | ST_DEPTH_WRITE); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, 1, 1, 1, 1, 0, 1, 0, 0); } gfx_clear_depth(0);
+            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(g_sky_photo ? tx_sky : NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); } gfx_state(ST_DEPTH | ST_DEPTH_WRITE); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, 1, 1, 1, 1, 0, 0, 0, 0); } gfx_clear_depth(0);
             gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); scenelayer_draw(&g_lay_tree, g_eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_palm, g_eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_fern, g_eye, LD_HI * 0.6f, 150); scenelayer_draw(&g_lay_bush, g_eye, LD_HI * 0.7f, 170);
             gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
             draw_title_dragons();

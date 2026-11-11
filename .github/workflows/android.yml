@@ -89,6 +89,7 @@ jobs:
           sudo apt-get install -y -qq libsdl2-dev xvfb libgl1-mesa-dri libegl1 libgles2 > /dev/null
           mkdir -p stage && cp -r content stage/content && mkdir -p stage/content/port_ui && cp android/port/ui/*.png stage/content/port_ui/
           OUT=$PWD/pc-tour bash android/port/build_pc.sh . /usr/include/SDL2 $PWD/stage/content -DDB_TOUR
+          pip install -q pillow || true
           mkdir -p shots
           KK_FRAMES=1500 KK_SHOTS=$PWD/shots KK_SHOT_EVERY=150 SDL_AUDIODRIVER=dummy timeout 2400 \
             xvfb-run -a -s "-screen 0 1600x800x24" ./pc-tour/dragonsbeyond 2>&1 | tee tour.log | grep -E "picture /|error|Error|failed" || true

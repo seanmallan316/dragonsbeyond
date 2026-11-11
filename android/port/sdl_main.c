@@ -26,7 +26,7 @@ static SDL_Window *g_win; static SDL_GLContext g_ctx;
 static int g_sw = 1280, g_sh = 720;           /* the screen */
 static int g_tw = 1280, g_th = 720;           /* the game's 16:9 picture */
 static int g_ox = 0, g_oy = 0;                /* where the picture sits on the screen */
-static int g_playing = 0, g_touch_mode = 1;   /* out in the world (not the menus); touch used last (else a controller) */
+static int g_playing = 0, g_swapmenu = 0, g_touch_mode = 1;   /* out in the world (not the menus); touch used last (else a controller) */
 static FILE *g_log;
 static int g_shot_now; static char g_shot_path[512];   /* test runs: save this frame's picture */
 
@@ -36,31 +36,34 @@ void port_log(const char *fmt, ...) {
 }
 
 /* ------------------------------------------------------------------ the picture's place on the screen */
+/* the whole screen is the game: the 3D world fills a wide phone edge to edge, and the game's words and panels (made for a
+   16:9 TV) stay in a 16:9 area in the middle (gfx_gles.c), so nothing is stretched */
 static void layout(void) {
     SDL_GL_GetDrawableSize(g_win, &g_sw, &g_sh);
-    if (g_sw * 9 > g_sh * 16) { g_th = g_sh; g_tw = g_sh * 16 / 9; } else { g_tw = g_sw; g_th = g_sw * 9 / 16; }
-    /* more than full HD costs battery for no visible gain on a phone */
-    if (g_th > 1080) { g_th = 1080; g_tw = 1920; }
-    int dw = g_sw * 9 > g_sh * 16 ? g_sh * 16 / 9 : g_sw, dh = dw * 9 / 16;
+    float asp = (float)g_sw / (float)(g_sh > 0 ? g_sh : 1); if (asp < 1.3f) asp = 1.3f; if (asp > 2.6f) asp = 2.6f;
+    g_th = g_sh > 1080 ? 1080 : g_sh;   /* more than full HD costs battery for no visible gain on a phone */
+    g_tw = (int)(g_th * asp + 0.5f);
+    int dh = g_sh, dw = (int)(dh * asp + 0.5f); if (dw > g_sw) { dw = g_sw; dh = (int)(dw / asp + 0.5f); }
     g_ox = (g_sw - dw) / 2; g_oy = (g_sh - dh) / 2;
 }
 void port_target_size(int *w, int *h) { *w = g_tw; *h = g_th; }
 
 /* ------------------------------------------------------------------ touch controls */
-typedef struct { const char *file, *menu_file; float cx, cy, r; int key; int in_menu; GLuint tex, menu_tex; int down; } TButton;   /* cx, cy, r: screen fractions (r of the height) */
+typedef struct { const char *file, *menu_file; float cx, cy, r; int key; int in_menu; float mx, my; GLuint tex, menu_tex; int down; } TButton;   /* mx, my: where it sits in the menus */   /* cx, cy, r: screen fractions (r of the height) */
 enum { K_A, K_B, K_X, K_Y, K_PLUS, K_CAM };
 /* laid out for a modern phone (about 20:9): the 16:9 picture sits in the middle and the right-hand buttons lean out into the
    carved side panel, so they cover as little of the game as possible. Pushing the move stick all the way runs (no RUN button). */
+/* laid out round the right thumb, above the game's message box at the bottom: FLY in the corner, the others in an arc above it */
 static TButton BTN[] = {
-    {"btn_fly", "btn_ok", 0.912f, 0.795f, 0.145f, K_A, 1},
-    {"btn_eat", "btn_erase", 0.790f, 0.875f, 0.088f, K_X, 1},
-    {"btn_tail", "btn_back", 0.775f, 0.640f, 0.082f, K_B, 1},
-    {"btn_roar", NULL, 0.935f, 0.495f, 0.082f, K_Y, 0},
+    {"btn_fly", "btn_ok", 0.928f, 0.790f, 0.145f, K_A, 1, 0.928f, 0.790f},
+    {"btn_eat", "btn_erase", 0.800f, 0.610f, 0.090f, K_X, 1, 0.950f, 0.300f},
+    {"btn_tail", "btn_back", 0.912f, 0.485f, 0.082f, K_B, 1, 0.950f, 0.530f},
+    {"btn_roar", NULL, 0.790f, 0.380f, 0.075f, K_Y, 0},
     {"btn_cam", NULL, 0.955f, 0.095f, 0.060f, K_CAM, 0},
-    {"btn_swap", NULL, 0.955f, 0.265f, 0.060f, K_PLUS, 0},
+    {"btn_swap", NULL, 0.955f, 0.260f, 0.060f, K_PLUS, 0},
 };
 #define NBTN (int)(sizeof BTN / sizeof BTN[0])
-static GLuint g_stick_base, g_stick_knob, g_panel_l, g_panel_r; static int g_stick_finger = -1, g_look_finger = -1; static float g_stick_x0, g_stick_y0, g_stick_dx, g_stick_dy, g_look_x0, g_look_dx;
+static GLuint g_stick_base, g_stick_knob, g_panel_l, g_panel_r, g_share_tex; static int g_stick_finger = -1, g_look_finger = -1; static float g_stick_x0, g_stick_y0, g_stick_dx, g_stick_dy, g_look_x0, g_look_dx;
 static SDL_FingerID g_fid[16]; static float g_fx[16], g_fy[16]; static int g_fdown[16];
 static GLuint g_ov_prog, g_ov_vao, g_ov_vbo; static GLint g_ov_tex, g_ov_alpha;
 
@@ -88,7 +91,7 @@ static void overlay_init(void) {
     glEnableVertexAttribArray(1); glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
     glBindVertexArray(0);
     for (int i = 0; i < NBTN; i++) { BTN[i].tex = load_png(BTN[i].file); BTN[i].menu_tex = BTN[i].menu_file ? load_png(BTN[i].menu_file) : BTN[i].tex; }
-    g_stick_base = load_png("stick_base"); g_stick_knob = load_png("stick_knob"); g_panel_l = load_png("panel_left"); g_panel_r = load_png("panel_right");
+    g_stick_base = load_png("stick_base"); g_stick_knob = load_png("stick_knob"); g_panel_l = load_png("panel_left"); g_panel_r = load_png("panel_right"); g_share_tex = load_png("btn_share");
 }
 static void quad(GLuint tex, float cx, float cy, float r, float alpha) {   /* screen pixels: centre and radius */
     if (!tex) return;
@@ -105,8 +108,8 @@ static void rect(GLuint tex, float x0p, float y0p, float x1p, float y1p, float a
     glBindTexture(GL_TEXTURE_2D, tex); glUniform1f(g_ov_alpha, alpha); glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 static int btn_visible(int i) { if (!g_touch_mode) return 0; return g_playing || BTN[i].in_menu; }
-static float bx(int i) { return BTN[i].cx * g_sw; }
-static float by(int i) { return BTN[i].cy * g_sh; }
+static float bx(int i) { return (g_playing ? BTN[i].cx : BTN[i].mx) * g_sw; }
+static float by(int i) { return (g_playing ? BTN[i].cy : BTN[i].my) * g_sh; }
 static float br(int i) { return BTN[i].r * g_sh; }
 
 void port_present(unsigned tex, int w, int h) {
@@ -124,10 +127,10 @@ void port_present(unsigned tex, int w, int h) {
     glUseProgram(g_ov_prog); glUniform1i(g_ov_tex, 0); glActiveTexture(GL_TEXTURE0); glBindVertexArray(g_ov_vao);
     if (g_ox > 8) { float pw = g_sh * 0.25f; if (pw < g_ox + 6) pw = g_ox + 6;   /* carved panels in the bars beside the picture, their gold edge just over it */
         rect(g_panel_l, g_ox + 6 - pw, 0, g_ox + 6, g_sh, 1); rect(g_panel_r, g_sw - g_ox - 6, 0, g_sw - g_ox - 6 + pw, g_sh, 1); }
-    for (int i = 0; i < NBTN; i++) if (btn_visible(i)) quad(g_playing ? BTN[i].tex : BTN[i].menu_tex, bx(i), by(i), br(i) * (BTN[i].down ? 0.94f : 1.0f), BTN[i].down ? 1.0f : 0.8f);
+    for (int i = 0; i < NBTN; i++) if (btn_visible(i)) quad(g_playing ? BTN[i].tex : (g_swapmenu && BTN[i].key == K_X && g_share_tex ? g_share_tex : BTN[i].menu_tex), bx(i), by(i), br(i) * (BTN[i].down ? 0.94f : 1.0f), BTN[i].down ? 1.0f : 0.8f);
     if (g_touch_mode) {
-        float R = 0.16f * g_sh, sx = g_stick_finger >= 0 ? g_stick_x0 : 0.14f * g_sw, sy = g_stick_finger >= 0 ? g_stick_y0 : 0.72f * g_sh;
-        quad(g_stick_base, sx, sy, R, g_stick_finger >= 0 ? 0.85f : 0.6f); quad(g_stick_knob, sx + g_stick_dx * R, sy + g_stick_dy * R, R * 0.5f, 0.95f);
+        float R = 0.16f * g_sh, sx = g_stick_finger >= 0 ? g_stick_x0 : 0.12f * g_sw, sy = g_stick_finger >= 0 ? g_stick_y0 : 0.62f * g_sh;
+        quad(g_stick_base, sx, sy, R, g_stick_finger >= 0 ? 0.85f : 0.45f); quad(g_stick_knob, sx + g_stick_dx * R, sy + g_stick_dy * R, R * 0.5f, 0.95f);
     }
     glBindVertexArray(0);
     if (g_shot_now) {   /* a test run: save the whole screen as shown (the game's picture and the touch controls) */
@@ -336,7 +339,7 @@ int main(int argc, char **argv) {
         { static int was_back; const Uint8 *ks = SDL_GetKeyboardState(NULL); int bk = ks[SDL_SCANCODE_AC_BACK] || ks[SDL_SCANCODE_ESCAPE];   /* the phone's back key: BACK in the menus, SWAP while playing */
           if (bk) { if (g_playing) pads[0].plus = pads[0].plus || !was_back; else pads[0].b = 1; } was_back = bk; }
         for (int k = 0; k < 4; k++) controller_pad(k, &pads[1 + k]);
-        const char *where = game_where(); g_playing = !strncmp(where, "playing", 7);
+        const char *where = game_where(); g_swapmenu = !strncmp(where, "playing", 7) && strstr(where, " swap 1 ") != NULL; g_playing = !strncmp(where, "playing", 7) && !g_swapmenu;   /* the Dragon Swap menu counts as a menu */
         g_shot_now = shots && (frame + 1) % shot_every == 0;
         if (g_shot_now) snprintf(g_shot_path, sizeof g_shot_path, "%s/frame_%06ld.ppm", shots, frame + 1);
         game_frame(pads, KK_PADS, dt);
