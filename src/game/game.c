@@ -767,7 +767,7 @@ static void ui_embers(int n, float a) {
         ui_pic_c(&g_ua, UI_EMBER, x, y, s, s, 1, 0.55f + 0.3f * ui_hash(i + 5), 0.2f, a * fade); } }
 /* darken the picture, darkest at the edges */
 static void ui_shade(float a) { ui_rect(&g_ub, 0, 0, 1280, 720, 0.02f, 0.015f, 0.01f, 0.45f * a); ui_pic(&g_ub, UI_VIGNETTE, -80, -60, 1440, 840, 1, 1, 1, a);
-    ui_rect(&g_ub, -700, 0, 700, 720, 0.02f, 0.015f, 0.01f, 0.8f * a); ui_rect(&g_ub, 1280, 0, 700, 720, 0.02f, 0.015f, 0.01f, 0.8f * a); }   /* past the edges: only seen on wide phone screens */
+    ui_rect(&g_ub, -700, 0, 620, 720, 0.01f, 0.012f, 0.02f, 0.97f * a); ui_rect(&g_ub, 1360, 0, 620, 720, 0.01f, 0.012f, 0.02f, 0.97f * a); }   /* past the edges: only seen on wide phone screens */
 static void ui_divider(float cx, float y, float w, float a) { ui_pic_c(&g_ub, UI_DIVIDER, cx, y, w, w / 8, 1, 1, 1, a); ui_pic_c(&g_ua, UI_GLOW, cx + sinf(g_time * 0.9f) * w * 0.4f, y, 60, 18, 1, 0.8f, 0.4f, 0.5f * a); }
 /* the gold title, with a band of light sweeping across the letters every few seconds */
 static void ui_logo(float cx, float y, float w, float a) {

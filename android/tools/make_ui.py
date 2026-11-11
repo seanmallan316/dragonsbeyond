@@ -146,3 +146,36 @@ d.ellipse([cx - R * 0.55, cy - R * 0.7, cx - R * 0.1, cy - R * 0.35], fill=(255,
 pan = pan.resize((256, 1024), Image.LANCZOS)
 pan.save(OUT + "panel_left.png")
 print("panels drawn")
+
+# the loading picture shown while the game starts: the three Forest dragon stages on a deep forest glow, gold title
+import numpy as np
+from scipy import ndimage
+src = Image.open("assets/splash_tv.png").convert("RGB")
+hsv = np.array(src.convert("HSV")).astype(int)
+fg = hsv[:, :, 1] > 40
+fg[:190, :940] = False; fg[:112, :] = False; fg[:142, :1035] = False   # leave out the old title words
+big = ndimage.binary_fill_holes(ndimage.binary_closing(fg, structure=np.ones((3, 3)), iterations=10))
+keep = big & (hsv[:, :, 1] > 22)
+keep = ndimage.binary_fill_holes(ndimage.binary_closing(keep, iterations=4)); keep = ndimage.binary_opening(keep, iterations=2)
+keep &= ~((hsv[:, :, 1] < 20) & (hsv[:, :, 2] > 140))   # grey backdrop showing between legs and wings
+keep = ndimage.binary_opening(keep, iterations=1)
+lab, n = ndimage.label(keep); sizes = ndimage.sum(keep, lab, range(1, n + 1)); keep = np.isin(lab, 1 + np.where(sizes > 4000)[0])
+m = Image.fromarray((keep * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.5))
+cut = src.convert("RGBA"); cut.putalpha(m)
+W, H = 1280, 720
+sp = Image.new("RGBA", (W, H), (0, 0, 0, 255)); d = ImageDraw.Draw(sp)
+for i in range(200):
+    t = i / 199; rx, ry = W * 0.9 * (1 - t), H * 0.95 * (1 - t)
+    d.ellipse([W / 2 - rx, H * 0.62 - ry, W / 2 + rx, H * 0.62 + ry], fill=(int(4 + 40 * t ** 1.6), int(12 + 70 * t ** 1.6), int(8 + 34 * t ** 1.6), 255))
+glow = Image.new("RGBA", (W, H)); ImageDraw.Draw(glow).ellipse([340, 300, 940, 560], fill=(255, 210, 120, 70)); sp.alpha_composite(glow.filter(ImageFilter.GaussianBlur(70)))
+sh = Image.new("RGBA", (W, H)); ImageDraw.Draw(sh).ellipse([90, 610, 1210, 660], fill=(0, 0, 0, 150)); sp.alpha_composite(sh.filter(ImageFilter.GaussianBlur(14)))
+sp.alpha_composite(cut, (0, 20))
+d = ImageDraw.Draw(sp)
+ft = font(92); title = "DRAGONS BEYOND"; tw = d.textlength(title, font=ft)
+d.text((W / 2 - tw / 2 + 4, 34 + 5), title, font=ft, fill=(0, 0, 0, 200))
+d.text((W / 2 - tw / 2, 34), title, font=ft, fill=(246, 214, 140, 255), stroke_width=2, stroke_fill=GOLD_DARK + (255,))
+fs2 = font(30); sub = "EVERLEAF WILDS"; sw2 = d.textlength(sub, font=fs2)
+d.line([(W / 2 - 260, 158), (W / 2 - sw2 / 2 - 20, 158)], fill=GOLD + (200,), width=2); d.line([(W / 2 + sw2 / 2 + 20, 158), (W / 2 + 260, 158)], fill=GOLD + (200,), width=2)
+d.text((W / 2 - sw2 / 2, 140), sub, font=fs2, fill=(230, 220, 190, 255))
+sp.convert("RGB").save(OUT + "splash.png")
+print("splash drawn")

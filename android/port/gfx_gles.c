@@ -225,7 +225,7 @@ static const char *PS_BLOOM_SRC =
     "void main() {\n"
     "  if (u_d.z > 0.5) {\n"   /* bright pass, 4 taps (a box down to a quarter size) */
     "    vec3 c = vec3(0.0); for (int i = 0; i < 4; i++) { vec2 o = vec2(float(i & 1) - 0.5, float(i >> 1) - 0.5) * u_d.xy * 2.0;\n"
-    "      vec3 t = texture(u_src, v_uv + o).rgb; float l = dot(t, vec3(0.299, 0.587, 0.114)); c += t * smoothstep(0.62, 0.95, l); }\n"
+    "      vec3 t = texture(u_src, v_uv + o).rgb; float l = dot(t, vec3(0.299, 0.587, 0.114)); c += t * smoothstep(0.74, 1.0, l); }\n"
     "    out_color = vec4(c * 0.25, 1.0); return; }\n"
     "  vec3 c = texture(u_src, v_uv).rgb * 0.2270270270;\n"   /* 9-tap gaussian in 5 reads (linear sampling) */
     "  c += (texture(u_src, v_uv + u_d.xy * 1.3846153846).rgb + texture(u_src, v_uv - u_d.xy * 1.3846153846).rgb) * 0.3162162162;\n"

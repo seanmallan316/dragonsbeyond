@@ -331,6 +331,16 @@ int main(int argc, char **argv) {
     kk_files_init(); remove_old_copy();
 #endif
     overlay_init();
+    {   /* the loading picture while the game reads its models and music (a few seconds the first time) */
+        GLuint sp = load_png("splash");
+        for (int k = 0; k < 2 && sp; k++) {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0); glViewport(0, 0, g_sw, g_sh); glClearColor(0.016f, 0.047f, 0.031f, 1); glClear(GL_COLOR_BUFFER_BIT);
+            glEnable(GL_BLEND); glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA); glUseProgram(g_ov_prog); glUniform1i(g_ov_tex, 0); glActiveTexture(GL_TEXTURE0); glBindVertexArray(g_ov_vao);
+            float h = (float)g_sh, w = h * 16.0f / 9.0f; if (w > g_sw) { w = (float)g_sw; h = w * 9.0f / 16.0f; }
+            rect(sp, (g_sw - w) / 2, (g_sh - h) / 2, (g_sw + w) / 2, (g_sh + h) / 2, 1); glBindVertexArray(0);
+            SDL_GL_SwapWindow(g_win); }
+        if (sp) glDeleteTextures(1, &sp);
+    }
     gfx_log("Dragons Beyond %s starting on %s", KK_VERSION, SDL_GetPlatform());
     int status = gfx_init();
     game_init(status);
