@@ -19,7 +19,7 @@ int main(void) {
         if (t < 4) pads[0].a = (fr % 40) < 4;                        /* title, slot 1 (continues the save) */
         else if (arrived < 0) {                                       /* walk to the wind column at the clearing's middle (-62, 60) */
             float x = 0, y = 0, z = 0; const char *q = strstr(w, " at "); if (q) sscanf(q + 4, "%f,%f,%f", &x, &y, &z); float dx = -62 - x, dz = 60 - z;
-            float ang = atan2f(dx, dz); pads[0].sx = sinf(ang - num_after(w, "camyaw ")); pads[0].sy = cosf(ang - num_after(w, "camyaw ")); }
+            float ang = atan2f(dx, dz); pads[0].sx = -sinf(ang - num_after(w, "camyaw ")); pads[0].sy = cosf(ang - num_after(w, "camyaw ")); }
         else if (fr == arrived + 60) pads[0].y = 1;                    /* use the power next to the wind column (the sparkle buffer must hold both) */
         else if (t - arrived / 60.0f > 6 && !fell) { pads[0].sy = 1; pads[0].zr = 1; }   /* run straight off the edge of the first island */
         game_frame(pads, KK_PADS, 1.0f / 60);

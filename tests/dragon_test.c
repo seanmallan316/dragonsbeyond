@@ -19,7 +19,7 @@ int main(void) {
         int near = world_nearest_food(&w, d.x, d.z, 400); CHECK(near >= 0);
         Food *f = &w.food[near]; float dx = f->x - d.x, dz = f->z - d.z, dist = sqrtf(dx * dx + dz * dz);
         DragonInput in = {0}; float ang = atan2f(dx, dz);
-        if (dist > 0.9f) { in.sx = sinf(ang); in.sy = cosf(ang); in.zr = 1; } else if (d.act_t <= 0) in.x_press = 1;
+        if (dist > 0.9f) { in.sx = -sinf(ang); in.sy = cosf(ang); in.zr = 1; } else if (d.act_t <= 0) in.x_press = 1;
         int ev = dragon_update(&d, &w, &in, 0, dt);
         if (ev & 1) ate++;
         if (ev & 2) grew++;

@@ -40,7 +40,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         return ev; }
     /* steering: the stick is relative to the camera */
     float mag = sqrtf(in->sx * in->sx + in->sy * in->sy); if (mag > 1) mag = 1;
-    float want_yaw = d->yaw; if (mag > 0.1f) want_yaw = cam_yaw + atan2f(in->sx, in->sy);
+    float want_yaw = d->yaw; if (mag > 0.1f) want_yaw = cam_yaw + atan2f(-in->sx, in->sy);   /* the camera's right is -yaw: stick right turns right */
     if (d->mode == DM_GROUND || d->mode == DM_SWIM) {
         float top = (in->zr ? RUN[d->stage] : WALK[d->stage]) * mag; if (d->mode == DM_SWIM) top *= 0.55f;
         float turn = 6.0f * dt; d->yaw += clampf(wrapa(want_yaw - d->yaw), -turn, turn);

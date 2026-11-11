@@ -160,7 +160,7 @@ if has_wings:
     def sstep(a, b, x): u = np.clip((x - a) / max(b - a, 1e-9), 0, 1); return u * u * (3 - 2 * u)
     wing_ids = [i for i, nm in enumerate(names) if nm.startswith('wing')]
     wing_share = Wt[:, wing_ids].sum(1) / np.maximum(Wt.sum(1), 1e-9)   # how much of each vertex the plain distance weights already gave the wings
-    ax = np.abs(P[:, 0]); wingzone = (ax > 0.88 * wing_root[0]) & (P[:, 2] > body_bot + 0.3 * (body_top - body_bot)) & (wing_share > 0.3)
+    ax = np.abs(P[:, 0]); wingzone = (ax > 0.88 * wing_root[0]) & (P[:, 2] > body_bot + 0.3 * (body_top - body_bot)) & (wing_share > 0.3) & (P[:, 1] > y_neck0)   # never the head: a wide chibi head's cheeks and eyes are out past the wing roots
     u = (ax - wing_root[0]) / max(wing_tip[0] - wing_root[0], 1e-6)
     w1 = 1 - sstep(0.28, 0.5, u); w3 = sstep(0.62, 0.86, u); w2 = np.clip(1 - w1 - w3, 0, 1)
     rootmix = sstep(0.88 * wing_root[0], 0.98 * wing_root[0], ax)   # the wing is all shoulder bone from where it leaves the body: it pivots at the body, not out on the wing
@@ -185,7 +185,7 @@ def chain_param(Pts):
 u, dchain = chain_param(P)
 strongest0 = np.argmax(Wt, 1)
 is_leg = np.array([names[i].startswith('leg') for i in strongest0])
-is_wing = np.array([names[i].startswith('wing') for i in strongest0])
+is_wing = np.array([names[i].startswith('wing') for i in strongest0]) & (P[:, 1] > y_neck0)   # anything ahead of the shoulders is head or neck, whatever the distance weights said
 front = (P[:, 1] < y_neck0 + 0.04 * L) & ~is_leg & ~is_wing
 crown = (P[:, 2] > z_head_c + 0.03 * H) & (P[:, 1] < y_neck0 + 0.02 * L) & ~is_wing     # horns, crown, frills above the head centre
 front |= crown

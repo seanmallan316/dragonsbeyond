@@ -472,7 +472,7 @@ static void camera_update(float dt) {
     float k = 1 - expf(-dt * (d->mode == DM_AIR ? 2.2f : 3.5f));
     /* the camera turns to look where the dragon goes */
     float dy = d->yaw - g_cam_yaw; while (dy > 3.14159f) dy -= 6.2831853f; while (dy < -3.14159f) dy += 6.2831853f;
-    if (fabsf(g_look_x) > 0.15f) { g_cam_yaw += g_look_x * 2.6f * dt; g_look_hold = 1.2f; }
+    if (fabsf(g_look_x) > 0.15f) { g_cam_yaw -= g_look_x * 2.6f * dt; g_look_hold = 1.2f; }
     else { g_look_hold -= dt; if (g_look_hold <= 0) g_cam_yaw += dy * k * (fabsf(d->speed) > 0.3f || d->mode == DM_AIR ? 1.0f : 0.35f); }
     Vec3 want, at;
     if (g_cam_mode == 0) {        /* overhead: behind and above, the whole dragon in view */
@@ -875,23 +875,23 @@ static void tour_input_base(Pad *p, float t) {
             float u = clampf(((d->x - ax) * ex + (d->z - az) * ez) / L2 + 0.1f, 0, 1); tx = ax + ex * u; tz = az + ez * u; if (d->x * d->x + d->z * d->z < 25) reached = 1; }
         else { tx = -12; tz = 7; }
         float dx = tx - d->x, dz = tz - d->z;
-        float ang = atan2f(dx, dz) - g_cam_yaw; p->sx = sinf(ang); p->sy = cosf(ang); p->zr = 1; }
+        float ang = atan2f(dx, dz) - g_cam_yaw; p->sx = -sinf(ang); p->sy = cosf(ang); p->zr = 1; }
     else if (d->stage == ST_DRAGONET) {   /* eat until grown */
         int near = world_nearest_food(&g_world, d->x, d->z, 400);
         if (near >= 0) { const Food *f = &g_world.food[near]; float dx = f->x - d->x, dz = f->z - d->z, dist = sqrtf(dx * dx + dz * dz);
-            float ang = atan2f(dx, dz) - g_cam_yaw; if (dist > 1.0f) { p->sx = sinf(ang); p->sy = cosf(ang); p->zr = dist > 6; } else if (d->act_t <= 0 && t - last_eat > 0.5f) { p->x = 1; last_eat = t; } } }
+            float ang = atan2f(dx, dz) - g_cam_yaw; if (dist > 1.0f) { p->sx = -sinf(ang); p->sy = cosf(ang); p->zr = dist > 6; } else if (d->act_t <= 0 && t - last_eat > 0.5f) { p->x = 1; last_eat = t; } } }
     else if (!g_rescued && g_boss.state != B_DOWN) {
         if (d->mode == DM_AIR) {   /* fly to the clearing, then glide down into it */
-            if (adist > 14) { float ang = atan2f(ax, az) - g_cam_yaw; p->sx = 0.35f * sinf(ang); p->sy = 0.35f * cosf(ang); p->a = d->y - world_height(&g_world, d->x, d->z) < 14 || fmodf(t, 2.0f) < 1.0f; } }
+            if (adist > 14) { float ang = atan2f(ax, az) - g_cam_yaw; p->sx = -0.35f * sinf(ang); p->sy = 0.35f * cosf(ang); p->a = d->y - world_height(&g_world, d->x, d->z) < 14 || fmodf(t, 2.0f) < 1.0f; } }
         else if (adist > 40) { if (d->evolve_t <= 0 && d->act_t <= 0) { p->a = fmodf(t, 1.0f) < 0.5f; p->sy = 1; } }   /* take off toward it */
         else {   /* the fight: lure a charge in front of a tree, sidestep, whip the core when it is stuck */
             const Boss *b = &g_boss; float tx, tz;
             if (b->state == B_CHARGE) { float sx = -b->cz, sz = b->cx; float mx = g_world.arena_x - d->x, mz = g_world.arena_z - d->z; if (sx * mx + sz * mz < 0) { sx = -sx; sz = -sz; } tx = d->x + sx * 5; tz = d->z + sz * 5; p->zr = 1; }   /* sidestep, toward the middle */
             else if (boss_vulnerable(b)) { Vec3 c = boss_core(b); tx = c.x; tz = c.z; float dx = c.x - d->x, dz = c.z - d->z; if (dx * dx + dz * dz < 2.6f * 2.6f && d->act_t <= 0 && t - last_whip > 0.9f) { p->b = 1; last_whip = t; } }
             else { const Prop *tr = &g_world.prop[g_world.arena_tree[2]]; tx = tr->x + (g_world.arena_x - tr->x) * 0.18f; tz = tr->z + (g_world.arena_z - tr->z) * 0.18f; }
-            float dx = tx - d->x, dz = tz - d->z, dist = sqrtf(dx * dx + dz * dz); if (dist > 0.6f && !p->b) { float ang = atan2f(dx, dz) - g_cam_yaw; p->sx = sinf(ang); p->sy = cosf(ang); p->zr |= dist > 4; } } }
+            float dx = tx - d->x, dz = tz - d->z, dist = sqrtf(dx * dx + dz * dz); if (dist > 0.6f && !p->b) { float ang = atan2f(dx, dz) - g_cam_yaw; p->sx = -sinf(ang); p->sy = cosf(ang); p->zr |= dist > 4; } } }
     else if (!g_rescued || g_friend.anim_t < 0) { float dx = g_world.cage_x - d->x, dz = g_world.cage_z - d->z, dist = sqrtf(dx * dx + dz * dz);   /* watch the cage open */
-        if (dist > 5) { float ang = atan2f(dx, dz) - g_cam_yaw; p->sx = sinf(ang); p->sy = cosf(ang); } }
+        if (dist > 5) { float ang = atan2f(dx, dz) - g_cam_yaw; p->sx = -sinf(ang); p->sy = cosf(ang); } }
     else if (t - g_tour_rescue_t < 4) { if (fmodf(t, 2.0f) < 0.1f) p->y = 1; }   /* a happy roar */
     else if (t - g_tour_rescue_t < 8) { static int step; float u = t - g_tour_rescue_t;   /* show the Dragon Swap menu and become the friend */
         if (step == 0 && u > 4.5f) { p->plus = 1; step = 1; } else if (step == 1 && u > 5.8f) { p->left = 1; step = 2; }   /* left wraps round to the newest friend */ else if (step == 2 && u > 7.0f) { p->a = 1; step = 3; } }
