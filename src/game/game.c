@@ -62,7 +62,7 @@ static int g_kind, g_swap_open, g_swap_sel; static Dragon g_team[K_N]; static in
 #define g_other (g_team[g_fk])
 static int team_size(void) { int n = 0; for (int k = 0; k < K_N; k++) n += g_has[k]; return n; }
 /* co-op: a second controller (Wii Remote, Nunchuk, Classic or Pro) takes over the friend dragon. g_p2 = its pad slot, -1 = nobody */
-static int g_p2 = -1; static float g_gp_last = -100, g_p2_gone;
+static int g_p2 = -1, g_p1pad = 0;   /* g_p1pad: the pad player 1 used last */ static float g_gp_last = -100, g_p2_gone;
 /* the storyteller's cards after the rescue (the game waits while they show) */
 static const char *TALE[WK_N][3] = {
   { "AND SO IRONHORN FELL, AND THE IRON CAGE SWUNG OPEN. %s, DRAGONET OF THE SKY, WAS FREE AT LAST.",
@@ -1282,7 +1282,7 @@ static void coop_frame(const Pad *pads, int npads, float dt) {
     if (team_size() < 2 || !g_friend.on) return;
     if (g_p2 < 0) {
         if (g_time - g_gp_last > 20) return;   /* player 1 is on a Wii controller, so that controller is not a second player */
-        for (int i = 1; i < npads && i < KK_PADS; i++) if (pads[i].source && pads[i].a && !g_prev[i].a) {
+        for (int i = 1; i < npads && i < KK_PADS; i++) if (i != g_p1pad && pads[i].source && pads[i].a && !g_prev[i].a) {
             g_p2 = i; g_p2_gone = 0; g_swap_open = 0; g_other.speed = 0; g_other.act_t = 0; g_other.anim = DA_IDLE;
             float gy = world_height(&g_world, g_other.x, g_other.z); if (g_other.y <= gy + 0.3f) { g_other.y = gy; g_other.mode = DM_GROUND; } else { g_other.mode = DM_AIR; g_other.vy = 0; }
             snprintf(g_msg, sizeof g_msg, "PLAYER 2 JOINED AS %s! PRESS + ON THAT CONTROLLER TO LEAVE", kind_name(g_fk)); g_msg_t = 6;
@@ -1322,7 +1322,14 @@ void game_frame(const Pad *pads, int npads, float dt) {
 #endif
     const Pad *p = &pads[0]; const Pad *q = &g_prev[0];
     if (pads[0].source && (fabsf(pads[0].sx) > 0.2f || fabsf(pads[0].sy) > 0.2f || pads[0].a || pads[0].b || pads[0].x || pads[0].y || pads[0].zr)) g_gp_last = g_time;
-    for (int i = 1; i < npads && i < KK_PADS; i++) if (g_p2 < 0 && pads[i].source && (fabsf(pads[i].sx) > 0.2f || fabsf(pads[i].sy) > 0.2f || pads[i].a || pads[i].x) && fabsf(p->sx) < 0.2f && fabsf(p->sy) < 0.2f && !p->a && !p->x) { p = &pads[i]; q = &g_prev[i]; }
+    {   /* player 1 plays on whichever controller was used last: the GamePad / touch screen, or a Bluetooth / Pro controller (every button counts) */
+        int p1 = g_p1pad;
+#define PAD_BUSY(P) ((P).source && (fabsf((P).sx) > 0.2f || fabsf((P).sy) > 0.2f || fabsf((P).rx) > 0.2f || fabsf((P).ry) > 0.2f || (P).a || (P).b || (P).x || (P).y || (P).zl || (P).zr || (P).plus || (P).up || (P).down || (P).left || (P).right))
+        if (PAD_BUSY(pads[0])) p1 = 0;
+        else for (int i = 1; i < npads && i < KK_PADS; i++) if (i != g_p2 && PAD_BUSY(pads[i]) && (p1 == 0 || !PAD_BUSY(pads[p1]))) { p1 = i; break; }
+#undef PAD_BUSY
+        if (p1 >= npads || p1 == g_p2 || !pads[p1].source) p1 = 0;
+        g_p1pad = p1; if (p1) { p = &pads[p1]; q = &g_prev[p1]; } }
     DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl;
     g_state_t += dt;
     if (g_state != G_PLAY) {

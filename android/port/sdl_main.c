@@ -246,7 +246,7 @@ static void controller_pad(int k, Pad *w) {
     static int was[4]; int st = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_START); w->plus = st && !was[k]; was[k] = st;
     w->rx = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f; if (fabsf(w->rx) < 0.15f) w->rx = 0;
     w->ry = -SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f; if (fabsf(w->ry) < 0.15f) w->ry = 0;
-    w->up = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_UP); w->down = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+    w->up = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_UP) || SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_BACK); /* Select / View also changes the camera */ w->down = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
     w->left = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_LEFT); w->right = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
     w->source = 2;   /* a Pro Controller */
     if (w->a || w->b || w->x || w->y || w->zr || w->zl || w->plus || w->sx || w->sy || w->rx) g_touch_mode = 0;
@@ -411,7 +411,8 @@ int main(int argc, char **argv) {
 #endif
         memset(pads, 0, sizeof pads);
         touch_pad(&pads[0]);
-        { static int was_back; const Uint8 *ks = SDL_GetKeyboardState(NULL); int bk = ks[SDL_SCANCODE_AC_BACK] || ks[SDL_SCANCODE_ESCAPE];   /* the phone's back key: BACK in the menus, SWAP while playing */
+        { static int was_back; const Uint8 *ks = SDL_GetKeyboardState(NULL); int bk = ks[SDL_SCANCODE_AC_BACK] || ks[SDL_SCANCODE_ESCAPE];
+          for (int k = 0; k < 4; k++) if (g_gc[k] && SDL_GameControllerGetAttached(g_gc[k]) && SDL_GameControllerGetButton(g_gc[k], SDL_CONTROLLER_BUTTON_B)) bk = 0;   /* some Bluetooth pads also send BACK for their B button: that is a tail whip, not the swap menu */   /* the phone's back key: BACK in the menus, SWAP while playing */
           if (bk) { if (g_playing) pads[0].plus = pads[0].plus || !was_back; else pads[0].b = 1; } was_back = bk; }
         for (int k = 0; k < 4; k++) controller_pad(k, &pads[1 + k]);
         const char *where = game_where(); g_swapmenu = !strncmp(where, "playing", 7) && strstr(where, " swap 1 ") != NULL; g_playing = !strncmp(where, "playing", 7) && !g_swapmenu;   /* the Dragon Swap menu counts as a menu */
