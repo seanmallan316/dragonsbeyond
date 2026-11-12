@@ -415,7 +415,7 @@ int main(int argc, char **argv) {
           if (bk) { if (g_playing) pads[0].plus = pads[0].plus || !was_back; else pads[0].b = 1; } was_back = bk; }
         for (int k = 0; k < 4; k++) controller_pad(k, &pads[1 + k]);
         const char *where = game_where(); g_swapmenu = !strncmp(where, "playing", 7) && strstr(where, " swap 1 ") != NULL; g_playing = !strncmp(where, "playing", 7) && !g_swapmenu;   /* the Dragon Swap menu counts as a menu */
-        g_shot_now = shots && (frame + 1) % shot_every == 0;
+        g_shot_now = shots && (frame + 1) % shot_every == 0 && frame + 1 >= (getenv("KK_SHOT_FROM") ? atol(getenv("KK_SHOT_FROM")) : 0);
         if (g_shot_now) snprintf(g_shot_path, sizeof g_shot_path, "%s/frame_%06ld.ppm", shots, frame + 1);
 #ifndef __ANDROID__
         if (getenv("KK_TOUCHTEST") && frame % 25 == 0) port_log("touch %ld: sx %.2f sy %.2f rx %.2f a%d b%d x%d y%d zr%d up%d | %.90s", frame, pads[0].sx, pads[0].sy, pads[0].rx, pads[0].a, pads[0].b, pads[0].x, pads[0].y, pads[0].zr, pads[0].up, game_where());
