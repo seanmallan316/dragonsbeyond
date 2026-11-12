@@ -928,7 +928,7 @@ static void map_disc(float cx, float cy, float rad, int seg, float r, float g, f
 /* the tracker: a round radar on the left of the screen, turned with the camera (up = the way the camera looks). Blue = the baby dragon
    in the cage (on the rim with an arrow when it is far), red = robots, gold = food, the white arrow in the middle = you. */
 static void draw_radar(void) {
-    const Dragon *d = &g_dragon; const float CX = 132, CY = 262, R = 74, RANGE = 110;
+    const Dragon *d = &g_dragon; const float CX = 130, CY = 246, R = 80, RANGE = 110;
     map_disc(CX, CY, R + 4, 32, 0.85f, 0.68f, 0.3f, 0.85f); map_disc(CX, CY, R, 32, 0.05f, 0.1f, 0.06f, 0.72f); map_disc(CX, CY, R * 0.5f, 24, 0.1f, 0.17f, 0.1f, 0.6f); map_disc(CX, CY, R * 0.47f, 24, 0.05f, 0.1f, 0.06f, 0.72f);
     float cy = cosf(g_cam_yaw), sy = sinf(g_cam_yaw);
 #define RPOS(wx, wz, OX, OY, LIM) float _dx = (wx) - d->x, _dz = (wz) - d->z; float _f = _dx * sy + _dz * cy, _r = _dx * cy - _dz * sy; float _k = R / RANGE; float OX = -_r * _k, OY = -_f * _k; float _l = sqrtf(OX * OX + OY * OY); int LIM = _l > R - 6; if (LIM) { OX *= (R - 6) / _l; OY *= (R - 6) / _l; }
@@ -941,7 +941,7 @@ static void draw_radar(void) {
             map_tri2d(tx + ux * 12, ty + uy * 12, tx - ux * 6 - uy * 11, ty - uy * 6 + ux * 11, tx - ux * 6 + uy * 11, ty - uy * 6 - ux * 11, 0.35f, 0.75f, 1.0f, pulse); }
         map_disc(CX + ox, CY + oy, 7 * pulse + 2, 12, 0.35f, 0.75f, 1.0f, 1);
         float dist = sqrtf((g_world.cage_x - d->x) * (g_world.cage_x - d->x) + (g_world.cage_z - d->z) * (g_world.cage_z - d->z)); char lb[40]; snprintf(lb, sizeof lb, "BABY DRAGON %d M", (int)dist);
-        batch_text(&g_b, lb, CX - text_width(lb, 16) / 2, CY + R + 30, 16, 0.55f, 0.85f, 1.0f, 1); }
+        batch_text(&g_b, lb, CX + R + 14, CY + 6, 18, 0.55f, 0.85f, 1.0f, 1); }
 #undef RPOS
     { float a = d->yaw - g_cam_yaw; float fx = -sinf(a), fy = -cosf(a); float rx = -fy, ry = fx;   /* you */
       map_tri2d(CX + fx * 11, CY + fy * 11, CX - fx * 7 + rx * 7, CY - fy * 7 + ry * 7, CX - fx * 7 - rx * 7, CY - fy * 7 - ry * 7, 1, 1, 1, 1); } }
