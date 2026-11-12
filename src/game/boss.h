@@ -14,6 +14,8 @@ typedef struct {
     int woke;                 /* has seen the player (the fight has started) */
     float cage_open;          /* 0 closed .. 1 lowered and open (after the win) */
     float core_fwd, core_h;   /* where its glowing core sits: metres forward (negative = on its back) and up */
+    float max_speed;          /* top charge speed (m/s): slower on easier settings */
+    int tired;                /* charges that hit the dragon; each one leaves it dizzy so it can be hit anyway */
 } Boss;
 #define BOSS_HP 3
 void boss_init(Boss *b, const World *w);

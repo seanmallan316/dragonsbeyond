@@ -33,7 +33,7 @@ enum { PM_OAK = 0, PM_PALM, PM_FERN, PM_BUSH, PM_MUSH, PM_IRON, PM_STORM, PM_ROC
 static const char *PM_NAMES[PM_N] = {"oak", "palm", "fern", "berrybush", "mushroom", "ironhorn", "stormtalon", "boulder", "rock_spire", "grub", "dragon_cage"};
 static const char *BOSS_NAME[2] = {"IRONHORN", "STORMTALON"};
 static const char *BOSS_GUARD[2] = {"IRONHORN GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A TREE", "STORMTALON GUARDS THE CAGE! DODGE ITS SWOOP SO IT HITS A ROCK SPIRE"};
-static const char *BOSS_STUCK[2] = {"ITS ANTLERS ARE STUCK! WHIP THE GLOWING CORE ON ITS BACK (B)", "ITS TALONS ARE STUCK IN THE ROCK! WHIP THE GLOWING CORE ON ITS CHEST (B)"};
+static const char *BOSS_STUCK[2] = {"ITS ANTLERS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "ITS TALONS ARE STUCK IN THE ROCK! HIT IT NOW: TAIL (B) OR CLAW"};
 /* Ironhorn guards the cage that holds the Sky dragonet; once freed, she follows the player everywhere */
 static Boss g_boss;
 /* the team: kind 0 forest (always), 1 sky (freed in Everleaf Wilds), 2 snow (freed in the Sky Kingdom) */
@@ -80,7 +80,7 @@ static Pad g_prev[KK_PADS];
 static char g_save_path[256], g_save_base[256]; static float g_save_t;
 /* three save slots and the difficulty: Easy halves the damage and Ironhorn needs 2 hits; Hard takes 1.5x damage and 4 hits */
 static int g_slot = 0, g_diff = 1, g_slot_sel = 0, g_slot_erase = -1;
-static const float DMG[3] = {0.5f, 1.0f, 1.5f}; static const int BOSS_HITS[3] = {2, 3, 4}; static const char *DIFF_NAMES[3] = {"EASY", "NORMAL", "HARD"};
+static const float DMG[3] = {0.5f, 1.0f, 1.5f}; static const int BOSS_HITS[3] = {2, 3, 4}; static const float BOSS_SPEED[3] = {9, 12, 15}; static const char *DIFF_NAMES[3] = {"EASY", "NORMAL", "HARD"};
 typedef struct { int used, name, stage, rescued, diff, wk; } SlotInfo;   /* rescued: how many friends are on the team */ static SlotInfo g_slots[3];
 static int load_progress(void); static void save_progress(void);
 static char g_msg[128]; static float g_msg_t; static float g_title_t = 4.0f;
@@ -361,7 +361,7 @@ int game_init(int gfx_status) {
     g_gfx_status = gfx_status;
     world_make(&g_world, 2026);
     dragon_init(&g_dragon, &g_world, 0, 0); boss_init(&g_boss, &g_world); g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
-    g_boss.hp = BOSS_HITS[g_diff];
+    g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff];
     if (gfx_status != GFX_OK) return 0;
     tx_grass = asset_texture("grass", 1, NULL, NULL); tx_dirt = asset_texture("dirt", 1, NULL, NULL); tx_bark = asset_texture("bark", 1, NULL, NULL);
     tx_leaves = asset_texture("leaves", 1, NULL, NULL); tx_fern = asset_texture("fern", 0, NULL, NULL); tx_bush = asset_texture("bush", 0, NULL, NULL);
@@ -437,7 +437,7 @@ static void slot_summary(FILE *f, SlotInfo *si) { SaveData sd; if (!parse_save(f
 static void new_game(void) {   /* a fresh adventure: just the forest dragonet, in Everleaf Wilds */
     for (int k = 0; k < K_N; k++) g_has[k] = k == 0; for (int w = 0; w < WK_N; w++) { g_wrescued[w] = 0; g_wcrystal[w] = 0; }
     g_kind = 0; g_fk = 1; g_p2 = -1; g_friend.on = 0; dragon_init(&g_dragon, &g_world, 0, 0);
-    if (g_wk != WK_FOREST || g_world.kind != WK_FOREST) enter_world(WK_FOREST, 0, 0, 0); else { boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE; }
+    if (g_wk != WK_FOREST || g_world.kind != WK_FOREST) enter_world(WK_FOREST, 0, 0, 0); else { boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE; }
     g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); }
 static int load_progress(void) {
     if (!g_save_path[0]) return 0; FILE *f = fopen(g_save_path, "r"); if (!f) return 0;
@@ -1203,7 +1203,7 @@ static void enter_world(int wk, float x, float z, float yaw) {
         scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f);
         scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f); scenelayer_build(&g_lay_rock, &g_pm[PM_ROCK], &g_world, P_ROCK, 1.0f, 0.3f); scenelayer_build(&g_lay_spire, &g_pm[PM_SPIRE], &g_world, P_SPIRE, 1.0f, 0.6f); }
     ensure_kind(CAPTIVE[wk], ST_DRAGONET); for (int k = 1; k < K_N; k++) if (g_has[k]) ensure_kind(k, ST_BEYONDER);
-    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; if (wk == WK_SKY) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
+    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; if (wk == WK_SKY) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
     if (g_wrescued[wk]) { g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_boss.t = 10; }
     float sx, sz; world_safe_spot(&g_world, clampf(x, -110, 110), clampf(z, -110, 110), &sx, &sz);
     g_dragon.x = sx; g_dragon.z = sz; g_dragon.y = world_height(&g_world, sx, sz); g_dragon.yaw = yaw; g_dragon.mode = DM_GROUND; g_dragon.vy = 0; g_dragon.speed = 0; g_dragon.act_t = 0; g_dragon.anim = DA_IDLE;
@@ -1248,10 +1248,10 @@ static void boss_frame(float dt) {
     int bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar);
     if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_GUARD[g_wk]); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
-    if (bev & 2) { hurt_dragon(1.0f, g_wk == WK_SKY ? "STORMTALON HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : "IRONHORN RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES");
+    if (bev & 2) { hurt_dragon(0.5f, g_wk == WK_SKY ? "STORMTALON HIT YOU, BUT IT IS DIZZY! HIT IT NOW: TAIL (B) OR CLAW" : "IRONHORN RAMMED YOU, BUT IT IS DIZZY! HIT IT NOW: TAIL (B) OR CLAW");
         g_dragon.x += g_boss.cx * 3; g_dragon.z += g_boss.cz * 3; }
     if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_STUCK[g_wk]); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
-    if (bev & 32) { snprintf(g_msg, sizeof g_msg, "STUNNED! QUICK, WHIP ITS CORE (B)"); g_msg_t = 3; }
+    if (bev & 32) { snprintf(g_msg, sizeof g_msg, "IT IS DIZZY! QUICK, HIT IT: TAIL (B) OR CLAW"); g_msg_t = 3; }
     if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
     if (bev & 8) { snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", BOSS_NAME[g_wk]); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
     if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
@@ -1336,7 +1336,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
                 if (g_slot_erase == g_slot_sel) { char path[300]; slot_path(g_slot_sel, path, sizeof path); remove(path); scan_slots(); g_slot_erase = -1; sfx_play(SFX_CRUMBLE, 0.6f, 0); }
                 else { g_slot_erase = g_slot_sel; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } }
             else if (in.a_press && g_state_t > 0.3f) { use_slot(g_slot_sel); sfx_play(SFX_MENU_OK, 0.5f, 0); g_state_t = 0;
-                if (g_slots[g_slot_sel].used && load_progress()) { g_state = G_PLAY; g_title_t = 4.0f; if (!g_rescued) g_boss.hp = BOSS_HITS[g_diff];
+                if (g_slots[g_slot_sel].used && load_progress()) { g_state = G_PLAY; g_title_t = 4.0f; if (!g_rescued) g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff];
                     snprintf(g_msg, sizeof g_msg, "WELCOME BACK, %s!", active_name()); g_msg_t = 4; }
                 else { g_state = G_DIFF; g_diff = 1; } } }
         else if (g_state == G_DIFF) {

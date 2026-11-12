@@ -9,6 +9,10 @@ int main(void) {
     if (w.narena_tree < 5) { printf("FAIL: ring trees\n"); return 1; }
     for (int i = 0; i < w.nprop; i++) { int ring = 0; for (int k = 0; k < w.narena_tree; k++) ring |= w.arena_tree[k] == i;
         float dx = w.prop[i].x - w.arena_x, dz = w.prop[i].z - w.arena_z; if (!ring && dx * dx + dz * dz < w.arena_r * w.arena_r) { printf("FAIL: prop %d inside the clearing\n", i); return 1; } }
+    {   /* a young player who never dodges: stands in the clearing and keeps attacking. It must still win (the boss gets dizzy). */
+        Boss k; boss_init(&k, &w); float px = w.arena_x - 3, pz = w.arena_z - 3, py = world_height(&w, px, pz); int hits_taken = 0, won = 0;
+        for (int i = 0; i < 60 * 240 && !won; i++) { int ev = boss_update(&k, &w, 1.0f / 60, px, py, pz, 1.4f, (i % 30) == 0, 0); if (ev & 2) hits_taken++; if (ev & 8) won = 1; }
+        printf("clumsy player: won %d after %d hits taken\n", won, hits_taken); if (!won) { printf("FAIL: a player who never dodges can never win\n"); return 1; } }
     Boss b; boss_init(&b, &w);
     /* the player stands in front of a ring tree; when Ironhorn charges, step aside; when it is stuck, walk to its core and whip */
     const Prop *tree = &w.prop[w.arena_tree[2]]; float tx = tree->x + (w.arena_x - tree->x) * 0.15f, tz = tree->z + (w.arena_z - tree->z) * 0.15f;
