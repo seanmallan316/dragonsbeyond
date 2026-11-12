@@ -1198,7 +1198,7 @@ static void draw_title_hud(void) {
         text_c("UP / DOWN : CHOOSE    A : PLAY    X : ERASE    B : BACK", 606, 18, 1, 0.95f, 0.85f, 0.85f); }
     if (g_state == G_DIFF) {
         ui_shade(1); ui_embers(30, 0.8f); ui_panel(320, 90, 640, 530, 0.97f, 0); text_cg("HOW HARD?", 136, 44, 1); ui_divider(640, 200, 440, 1);
-        static const char *desc[3] = {"FEWER OUCHES, IRONHORN NEEDS 2 HITS", "THE WAY IT WAS DESIGNED", "BIGGER OUCHES, IRONHORN NEEDS 4 HITS"};
+        static const char *desc[3] = {"FEWER OUCHES, SLOWER BOSSES (3 HITS)", "THE WAY IT WAS DESIGNED (4 HITS)", "BIGGER OUCHES, FAST BOSSES (5 HITS)"};
         for (int k = 0; k < 3; k++) { float y = 222 + k * 114; int sel = k == g_diff;
             ui_panel(390, y, 500, 106, 1, sel);
             batch_text_g(&g_b, DIFF_NAMES[k], 640 - text_width(DIFF_NAMES[k], 28) / 2, y + 28, 28, 1, 1, 1, sel ? 1 : 0.7f, 1);
