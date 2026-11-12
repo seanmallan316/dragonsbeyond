@@ -18,5 +18,9 @@ typedef struct { float x, y, z, yaw, s; } SceneInst;
 typedef struct { PropModel *model; int n; SceneInst inst[SC_MAX]; } SceneLayer;
 void scenelayer_build(SceneLayer *L, PropModel *model, const World *w, int kind, float height_scale, float sink);
 void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist, float skip_dist);
-void scenelayer_view(float fx, float fz);   /* camera's flat forward direction: instances behind it are skipped; (0, 0) turns that off */
+void scenelayer_view(float fx, float fz);
+/* see-through scenery: between the camera (eye) and what it watches (focus), instances are not drawn by scenelayer_draw but kept;
+   scenelayer_draw_faded then draws them see-through (call it last, after the characters). on = 0 turns it off. */
+void scenelayer_focus(int on, Vec3 eye, Vec3 focus);
+void scenelayer_draw_faded(void);   /* camera's flat forward direction: instances behind it are skipped; (0, 0) turns that off */
 #endif

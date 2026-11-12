@@ -36,9 +36,27 @@ void scenelayer_build(SceneLayer *L, PropModel *model, const World *w, int kind,
         SceneInst *I = &L->inst[L->n++]; I->x = p->x; I->z = p->z; I->y = world_height(w, p->x, p->z) - sink * p->scale; I->yaw = p->yaw; I->s = p->scale * height_scale; } }
 static float g_vfx, g_vfz; static int g_vcull;
 void scenelayer_view(float fx, float fz) { float l = sqrtf(fx * fx + fz * fz); g_vcull = l > 1e-3f; if (g_vcull) { g_vfx = fx / l; g_vfz = fz / l; } }
+static int g_foc; static Vec3 g_fe, g_ff;
+typedef struct { const SceneLayer *L; int i; float a; } Faded; static Faded g_fade[24]; static int g_nfade;
+void scenelayer_focus(int on, Vec3 eye, Vec3 focus) { g_foc = on; g_fe = eye; g_ff = focus; g_nfade = 0; }
+/* how see-through an instance should be: 1 = solid; it fades when the line from the camera to the focus passes through it */
+static float occlude(const SceneLayer *L, const SceneInst *I) {
+    if (!g_foc) return 1; float r = L->model->radius * I->s * 0.62f; Vec3 c = {I->x, I->y + r * 0.9f, I->z};
+    Vec3 d = {g_ff.x - g_fe.x, g_ff.y - g_fe.y, g_ff.z - g_fe.z}; float dd = d.x * d.x + d.y * d.y + d.z * d.z; if (dd < 1e-4f) return 1;
+    float t = ((c.x - g_fe.x) * d.x + (c.y - g_fe.y) * d.y + (c.z - g_fe.z) * d.z) / dd; float len = sqrtf(dd);
+    if (t * len < -r || t > 1 - 1.0f / len) return 1;   /* behind the camera, or past the focus */
+    if (t < 0) t = 0; float px = g_fe.x + d.x * t - c.x, py = g_fe.y + d.y * t - c.y, pz = g_fe.z + d.z * t - c.z; float dist = sqrtf(px * px + py * py + pz * pz);
+    if (dist > r * 1.15f) return 1; float k = (dist - r * 0.75f) / (r * 0.4f); if (k < 0) k = 0; return 0.28f + 0.72f * k * k; }
 void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist, float skip_dist) {
     if (!L->model || !L->model->ok) return; gfx_bind(L->model->tex);
     for (int i = 0; i < L->n; i++) { const SceneInst *I = &L->inst[i]; float dx = I->x - eye.x, dz = I->z - eye.z; float d2 = dx * dx + dz * dz;
         if (skip_dist > 0 && d2 > skip_dist * skip_dist) continue;
         if (g_vcull && dx * g_vfx + dz * g_vfz < -12 * I->s - 4) continue;   /* behind the camera (with room for big canopies) */
+        float a = occlude(L, I); if (a < 0.999f && g_nfade < 24) { Faded *f = &g_fade[g_nfade++]; f->L = L; f->i = i; f->a = a; continue; }
         Mat4 mm = m4_mul(m4_mul(m4_translate(I->x, I->y, I->z), m4_rotate_y(I->yaw)), m4_scale(I->s, I->s, I->s)); gfx_draw(L->model->mesh[d2 < hi_dist * hi_dist ? 0 : 1], &mm, 1, 1, 1, 1); } }
+void scenelayer_draw_faded(void) {
+    if (!g_nfade) { g_foc = 0; return; }
+    gfx_state(ST_DEPTH | ST_BLEND | ST_CULL);
+    for (int k = 0; k < g_nfade; k++) { const SceneLayer *L = g_fade[k].L; const SceneInst *I = &L->inst[g_fade[k].i]; gfx_bind(L->model->tex);
+        Mat4 mm = m4_mul(m4_mul(m4_translate(I->x, I->y, I->z), m4_rotate_y(I->yaw)), m4_scale(I->s, I->s, I->s)); gfx_draw(L->model->mesh[0], &mm, 1, 1, 1, g_fade[k].a); }
+    g_nfade = 0; g_foc = 0; gfx_state(ST_SOLID); }
