@@ -29,8 +29,8 @@ enum { RB_DRONE = 0, RB_HOUND, RB_THIEF, RB_N }; static Anim3D g_robot[RB_N]; st
 #define LD_HI 70.0f
 #define LD_SKIP 0.0f
 #endif
-enum { PM_OAK = 0, PM_PALM, PM_FERN, PM_BUSH, PM_MUSH, PM_IRON, PM_STORM, PM_ROCK, PM_SPIRE, PM_GRUB, PM_N }; static PropModel g_pm[PM_N]; static SceneLayer g_lay_tree, g_lay_palm, g_lay_fern, g_lay_bush, g_lay_rock, g_lay_spire;
-static const char *PM_NAMES[PM_N] = {"oak", "palm", "fern", "berrybush", "mushroom", "ironhorn", "stormtalon", "boulder", "rock_spire", "grub"};
+enum { PM_OAK = 0, PM_PALM, PM_FERN, PM_BUSH, PM_MUSH, PM_IRON, PM_STORM, PM_ROCK, PM_SPIRE, PM_GRUB, PM_CAGE, PM_N }; static PropModel g_pm[PM_N]; static SceneLayer g_lay_tree, g_lay_palm, g_lay_fern, g_lay_bush, g_lay_rock, g_lay_spire;
+static const char *PM_NAMES[PM_N] = {"oak", "palm", "fern", "berrybush", "mushroom", "ironhorn", "stormtalon", "boulder", "rock_spire", "grub", "dragon_cage"};
 static const char *BOSS_NAME[2] = {"IRONHORN", "STORMTALON"};
 static const char *BOSS_GUARD[2] = {"IRONHORN GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A TREE", "STORMTALON GUARDS THE CAGE! DODGE ITS SWOOP SO IT HITS A ROCK SPIRE"};
 static const char *BOSS_STUCK[2] = {"ITS ANTLERS ARE STUCK! WHIP THE GLOWING CORE ON ITS BACK (B)", "ITS TALONS ARE STUCK IN THE ROCK! WHIP THE GLOWING CORE ON ITS CHEST (B)"};
@@ -641,6 +641,11 @@ static void draw_food3d(Vec3 eye) {
       float open = g_boss.cage_open, ground = g_world.arena_y + 0.1f; float cy = g_world.cage_y - open * (g_world.cage_y - ground);
       float dx = g_world.cage_x - eye.x, dz = g_world.cage_z - eye.z;
       if (dx * dx + dz * dz < 140 * 140) {
+        if (g_pm[PM_CAGE].ok) {   /* the iron cage model, door toward the arena; when it opens the cage lifts off the dragonet */
+            float facing = atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z); float lift = open > 0.6f ? (open - 0.6f) / 0.4f * 3.5f : 0;
+            batch_cyl(v3(g_world.cage_x, cy + lift + 2.3f, g_world.cage_z), v3(g_world.cage_x, g_world.cage_y + 4.0f, g_world.cage_z), 0.05f, 0.05f, 5, 0.35f, 0.33f, 0.3f);   /* chain */
+            gfx_state(ST_SOLID); propmodel_draw(&g_pm[PM_CAGE], dx * dx + dz * dz > 45 * 45, g_world.cage_x, cy - 0.05f + lift, g_world.cage_z, facing, 1.0f, 1.15f, 1.12f, 1.1f); }
+        else {
         Vec3 c = v3(g_world.cage_x, cy, g_world.cage_z); float R = 1.0f, H = 1.7f; float iron = 0.28f;
         batch_cyl(v3(c.x, cy + H, c.z), v3(c.x, g_world.cage_y + 4.0f, c.z), 0.05f, 0.05f, 5, 0.35f, 0.33f, 0.3f);   /* chain */
         batch_ball(v3(c.x, cy, c.z), R + 0.1f, 0.07f, R + 0.1f, 3, 12, iron, iron, iron * 1.1f, 0);             /* floor */
@@ -648,7 +653,7 @@ static void draw_food3d(Vec3 eye) {
         float facing = atan2f(g_world.arena_x - c.x, g_world.arena_z - c.z);
         for (int i = 0; i < 12; i++) { float a = i * 6.2831853f / 12; float off = fabsf(fmodf(a - facing + 9.42478f, 6.2831853f) - 3.14159f);
             if (open > 0.6f && off < 0.6f) continue;   /* the door bars are gone */
-            batch_cyl(v3(c.x + sinf(a) * R, cy, c.z + cosf(a) * R), v3(c.x + sinf(a) * R, cy + H, c.z + cosf(a) * R), 0.045f, 0.045f, 4, iron, iron, iron * 1.1f); } } }
+            batch_cyl(v3(c.x + sinf(a) * R, cy, c.z + cosf(a) * R), v3(c.x + sinf(a) * R, cy + H, c.z + cosf(a) * R), 0.045f, 0.045f, 4, iron, iron, iron * 1.1f); } }  } }
     if (g_boss.state != B_DOWN || g_boss.t < 1.0f) {   /* Ironhorn's core: pulses, flares bright when it is open to a hit */
       Vec3 c = boss_core(&g_boss); int vul = boss_vulnerable(&g_boss); float p = 0.5f + 0.5f * sinf(g_time * (vul ? 14 : 5));
       float r = vul ? 0.42f + 0.1f * p : 0.3f + 0.04f * p;
@@ -1448,6 +1453,8 @@ void game_frame(const Pad *pads, int npads, float dt) {
         float fx = sinf(g_dragon.yaw), fz = cosf(g_dragon.yaw); Drone *dr = &g_world.drone[0], *h = &g_world.hound[0];
         dr->x = g_dragon.x + fx * 5 - fz * 1.5f; dr->z = g_dragon.z + fz * 5 + fx * 1.5f; dr->y = g_dragon.y + 2.2f; dr->hx = dr->x; dr->hz = dr->z; dr->state = (int)(g_time / 3) % 2 ? 4 : 0; dr->yaw = g_dragon.yaw + 3.14159f;
         h->x = g_dragon.x + fx * 4 + fz * 1.6f; h->z = g_dragon.z + fz * 4 - fx * 1.6f; h->y = world_height(&g_world, h->x, h->z); h->state = (int)(g_time / 3) % 2 ? 5 : 1; h->yaw = g_dragon.yaw + 2.6f; h->flap += 0.2f; }
+    if (getenv("DB_OCCLTEST") && g_lay_tree.n > 0) {   /* PC look check: a tree kept between the camera and the dragon (it should turn see-through) */
+        SceneInst *I = &g_lay_tree.inst[0]; I->x = (g_eye.x * 0.6f + g_dragon.x * 0.4f); I->z = (g_eye.z * 0.6f + g_dragon.z * 0.4f); I->y = world_height(&g_world, I->x, I->z) - 0.2f; I->s = 1.0f; }
 #endif
     {   /* milestones on the way to the next stage: a quarter, half and three quarters grown */
         static int last_q = -1, last_stage = -1; int st = g_dragon.stage;
