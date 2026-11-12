@@ -282,7 +282,7 @@ int world_push_out(const World *w, float *x, float *y, float *z, float r, int ai
         case P_TREE: hit |= push_post(x, y, z, p->x, p->z, gy, gy + 5.5f * s, 0.55f * s, r);
                      if (air) hit |= push_ball(x, y, z, p->x, gy + 6.3f * s, p->z, 3.4f * s, 2.4f * s, 3.4f * s, r, 1); break;
         case P_PALM: hit |= push_post(x, y, z, p->x, p->z, gy, gy + 8.5f * s, 0.4f * s, r); break;
-        case P_ROCK: hit |= push_ball(x, y, z, p->x, gy - 0.3f * s, p->z, 1.3f * s, 0.9f * s, 1.0f * s, r, air); break;
+        case P_ROCK: hit |= push_ball(x, y, z, p->x, gy - 0.3f * s, p->z, 1.3f * s, 1.35f * s, 1.1f * s, r, air); break;
         case P_SPIRE: { float H = 9.0f * s; hit |= push_ball(x, y, z, p->x, gy + H * 0.45f, p->z, 2.0f * s, H, 1.8f * s, r, air); } break;
         default: break; } }
     return hit; }

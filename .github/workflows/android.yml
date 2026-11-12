@@ -37,7 +37,7 @@ jobs:
           mkdir -p $A/content
           cp -r content/* $A/content/
           # phones get the more detailed dragons (12000 triangles instead of the Wii U's 7000)
-          cp content_hd/models/*.kka $A/content/models/
+          cp content_hd/models/* $A/content/models/
           mkdir -p $A/content/port_ui && cp android/port/ui/*.png $A/content/port_ui/
           echo "files: $(find $A/content -type f | wc -l), size: $(du -sh $A/content | cut -f1)"
 
