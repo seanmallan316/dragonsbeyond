@@ -35,7 +35,7 @@ static const char *BOSS_NAME[2] = {"IRONHORN", "STORMTALON"};
 static const char *BOSS_GUARD[2] = {"IRONHORN GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A TREE", "STORMTALON GUARDS THE CAGE! DODGE ITS SWOOP SO IT HITS A ROCK SPIRE"};
 static const char *BOSS_STUCK[2] = {"ITS ANTLERS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "ITS TALONS ARE STUCK IN THE ROCK! HIT IT NOW: TAIL (B) OR CLAW"};
 /* Ironhorn guards the cage that holds the Sky dragonet; once freed, she follows the player everywhere */
-static Boss g_boss;
+static Boss g_boss; static Anim3D g_bossa[2]; static int g_bossa_ok[2];   /* the bosses with moving legs and wings (fallback: the still models) */
 /* the team: kind 0 forest (always), 1 sky (freed in Everleaf Wilds), 2 snow (freed in the Sky Kingdom) */
 #define K_N 3
 static int g_has[K_N] = {1, 0, 0}, g_wrescued[WK_N];   /* who is on the team; whether each world's captive is free */
@@ -80,7 +80,7 @@ static Pad g_prev[KK_PADS];
 static char g_save_path[256], g_save_base[256]; static float g_save_t;
 /* three save slots and the difficulty: Easy halves the damage and Ironhorn needs 2 hits; Hard takes 1.5x damage and 4 hits */
 static int g_slot = 0, g_diff = 1, g_slot_sel = 0, g_slot_erase = -1;
-static const float DMG[3] = {0.5f, 1.0f, 1.5f}; static const int BOSS_HITS[3] = {2, 3, 4}; static const float BOSS_SPEED[3] = {9, 12, 15}; static const char *DIFF_NAMES[3] = {"EASY", "NORMAL", "HARD"};
+static const float DMG[3] = {0.5f, 1.0f, 1.5f}; static const int BOSS_HITS[3] = {3, 4, 5}; static const float BOSS_SPEED[3] = {12, 15, 18}; static const int BOSS_TIRED[3] = {1, 2, 3}; static const char *DIFF_NAMES[3] = {"EASY", "NORMAL", "HARD"};
 typedef struct { int used, name, stage, rescued, diff, wk; } SlotInfo;   /* rescued: how many friends are on the team */ static SlotInfo g_slots[3];
 static int load_progress(void); static void save_progress(void);
 static char g_msg[128]; static float g_msg_t; static float g_title_t = 4.0f;
@@ -361,7 +361,7 @@ int game_init(int gfx_status) {
     g_gfx_status = gfx_status;
     world_make(&g_world, 2026);
     dragon_init(&g_dragon, &g_world, 0, 0); boss_init(&g_boss, &g_world); g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
-    g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff];
+    g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff];
     if (gfx_status != GFX_OK) return 0;
     tx_grass = asset_texture("grass", 1, NULL, NULL); tx_dirt = asset_texture("dirt", 1, NULL, NULL); tx_bark = asset_texture("bark", 1, NULL, NULL);
     tx_leaves = asset_texture("leaves", 1, NULL, NULL); tx_fern = asset_texture("fern", 0, NULL, NULL); tx_bush = asset_texture("bush", 0, NULL, NULL);
@@ -380,6 +380,7 @@ int game_init(int gfx_status) {
     static const char *names[ST_N] = {"forest_dragonet", "forest_dragon", "forest_beyonder"};
     for (int s = 0; s < ST_N; s++) g_model_ok[s] = anim3d_load(&g_model[s], names[s]);
     { static const char *RN[RB_N] = {"robot_drone", "robot_hound", "scale_thief"}; for (int r = 0; r < RB_N; r++) g_robot_ok[r] = anim3d_load(&g_robot[r], RN[r]); }
+    g_bossa_ok[0] = anim3d_load(&g_bossa[0], "ironhorn"); g_bossa_ok[1] = anim3d_load(&g_bossa[1], "stormtalon");
     /* the other dragons load when they are needed (their world, their rescue, a save that has them): a quicker start */
     ensure_kind(CAPTIVE[WK_FOREST], ST_DRAGONET);   /* the forest cage holds the sky dragonet */
     gfx_log("Dragons Beyond ready: %d props, %d food, models %d %d %d", g_world.nprop, g_world.nfood, g_model_ok[0], g_model_ok[1], g_model_ok[2]);
@@ -437,7 +438,7 @@ static void slot_summary(FILE *f, SlotInfo *si) { SaveData sd; if (!parse_save(f
 static void new_game(void) {   /* a fresh adventure: just the forest dragonet, in Everleaf Wilds */
     for (int k = 0; k < K_N; k++) g_has[k] = k == 0; for (int w = 0; w < WK_N; w++) { g_wrescued[w] = 0; g_wcrystal[w] = 0; }
     g_kind = 0; g_fk = 1; g_p2 = -1; g_friend.on = 0; dragon_init(&g_dragon, &g_world, 0, 0);
-    if (g_wk != WK_FOREST || g_world.kind != WK_FOREST) enter_world(WK_FOREST, 0, 0, 0); else { boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE; }
+    if (g_wk != WK_FOREST || g_world.kind != WK_FOREST) enter_world(WK_FOREST, 0, 0, 0); else { boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff]; g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE; }
     g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); }
 static int load_progress(void) {
     if (!g_save_path[0]) return 0; FILE *f = fopen(g_save_path, "r"); if (!f) return 0;
@@ -758,6 +759,7 @@ static void draw_sparkles(const Dragon *d, Vec3 eye) {
             batch_quad(&g_b, c, v3(rt2.x * sz, 0, rt2.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, r, g, b, al); } }
     gfx_mesh_update(m_dynspark, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_spark); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_draw_ex(m_dynspark, &id, 1, 1, 1, 1, 0, 1, 0, 0); }
 
+static const float BOSSA_SCALE[2] = {2.47f, 2.61f};      /* the animated models are baked at a smaller size than the still ones */
 static void draw_ironhorn(Vec3 eye) {
     const PropModel *m = &g_pm[g_wk == WK_SKY ? PM_STORM : PM_IRON]; if (!m->ok) return; const Boss *b = &g_boss;
     float dx = b->x - eye.x, dz = b->z - eye.z; int lod = dx * dx + dz * dz > 45 * 45;
@@ -770,6 +772,23 @@ static void draw_ironhorn(Vec3 eye) {
     else if (b->state == B_DOWN) { float k = fminf(1, b->t / 0.8f); roll = 1.35f * k; y -= 0.6f * k; }
     Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(b->x, y, b->z), m4_rotate_y(yaw)), m4_rotate_x(pitch)), m4_rotate_z(roll));
     mm = m4_mul(mm, m4_scale(BOSS_SCALE, BOSS_SCALE, BOSS_SCALE));
+    int bk = g_wk == WK_SKY; Anim3D *ba = g_bossa_ok[bk] ? &g_bossa[bk] : NULL;
+    if (ba) {   /* walk / run / paw / swoop with real moving legs and wings; the clip's time runs with its speed */
+        static float at, last_time; static int last_clip = -1; const char *cn; float g_dt = g_time - last_time; last_time = g_time; if (g_dt < 0 || g_dt > 0.1f) g_dt = 0.016f;
+        float sp = fabsf(b->speed);
+        if (!bk) cn = b->state == B_CHARGE ? (b->t < 0.3f ? "crouch" : "run") : b->state == B_STALK ? (sp > 6 ? "run" : sp > 0.8f ? "walk" : (b->t > b->prowl ? "crouch" : "idle")) : "idle";
+        else cn = b->state == B_CHARGE ? (b->t < 0.3f ? "fly" : "dive") : b->state == B_STALK ? (sp > 0.8f || b->t > b->prowl ? "fly" : "glide") : "glide";
+        int c = anim3d_clip(ba, cn); if (c < 0) c = 0; float rate = !bk && (c == anim3d_clip(ba, "walk")) ? sp / 4.5f : (!bk && c == anim3d_clip(ba, "run") ? fmaxf(0.8f, sp / 11) : 1);
+        if (c != last_clip) { at = 0; last_clip = c; } at += g_dt * rate;
+        if (b->state == B_STUCK || b->state == B_STUNNED || b->state == B_HURT || b->state == B_DOWN) at -= g_dt * rate * 0.7f;   /* slow, dazed */
+        float k = BOSSA_SCALE[bk] * BOSS_SCALE; Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
+        gfx_state(ST_SOLID); anim3d_draw(ba, c, at, &am, 1.1f, 1.1f, 1.15f, 1);
+        Texture *glow = bk ? tx_storm_glow : tx_iron_glow;
+        if (glow && b->state != B_DOWN) { float pulse = 0.65f + 0.35f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4)); Texture *keep = ba->tex; ba->tex = glow;   /* eyes, core and vents glowing on top (same pose, reused) */
+            gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse * 0.6f); ba->tex = keep; }
+        if (m_bossring && b->woke && b->state != B_DOWN) { float rp = 0.5f + 0.5f * sinf(g_time * 5); Mat4 rm = m4_mul(m4_translate(b->x, world_height(&g_world, b->x, b->z) + 0.12f, b->z), m4_scale(BOSS_SCALE, 1, BOSS_SCALE));
+            gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_bind(tx_font); gfx_draw_ex(m_bossring, &rm, 1, 0.25f, 0.1f, 0.35f + 0.35f * rp, 0, 1, 0, 0); }
+        gfx_state(ST_SOLID); gfx_bind(NULL); return; }
     /* polished steel that catches the sun, then its eyes, core and vents glowing on top, brighter while it charges */
     gfx_state(ST_SOLID); gfx_bind(m->tex); gfx_draw_ex(m->mesh[lod], &mm, 1.1f, 1.1f, 1.15f, 1, 0.9f, 0, 0, 0);
     Texture *glow = g_wk == WK_SKY ? tx_storm_glow : tx_iron_glow;
@@ -1203,7 +1222,7 @@ static void enter_world(int wk, float x, float z, float yaw) {
         scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f);
         scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f); scenelayer_build(&g_lay_rock, &g_pm[PM_ROCK], &g_world, P_ROCK, 1.0f, 0.3f); scenelayer_build(&g_lay_spire, &g_pm[PM_SPIRE], &g_world, P_SPIRE, 1.0f, 0.6f); }
     ensure_kind(CAPTIVE[wk], ST_DRAGONET); for (int k = 1; k < K_N; k++) if (g_has[k]) ensure_kind(k, ST_BEYONDER);
-    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; if (wk == WK_SKY) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
+    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff]; if (wk == WK_SKY) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
     if (g_wrescued[wk]) { g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_boss.t = 10; }
     float sx, sz; world_safe_spot(&g_world, clampf(x, -110, 110), clampf(z, -110, 110), &sx, &sz);
     g_dragon.x = sx; g_dragon.z = sz; g_dragon.y = world_height(&g_world, sx, sz); g_dragon.yaw = yaw; g_dragon.mode = DM_GROUND; g_dragon.vy = 0; g_dragon.speed = 0; g_dragon.act_t = 0; g_dragon.anim = DA_IDLE;
@@ -1248,7 +1267,7 @@ static void boss_frame(float dt) {
     int bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar);
     if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_GUARD[g_wk]); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
-    if (bev & 2) { hurt_dragon(0.5f, g_wk == WK_SKY ? "STORMTALON HIT YOU, BUT IT IS DIZZY! HIT IT NOW: TAIL (B) OR CLAW" : "IRONHORN RAMMED YOU, BUT IT IS DIZZY! HIT IT NOW: TAIL (B) OR CLAW");
+    if (bev & 2) { hurt_dragon(0.75f, g_wk == WK_SKY ? "STORMTALON HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : "IRONHORN RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES");
         g_dragon.x += g_boss.cx * 3; g_dragon.z += g_boss.cz * 3; }
     if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_STUCK[g_wk]); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
     if (bev & 32) { snprintf(g_msg, sizeof g_msg, "IT IS DIZZY! QUICK, HIT IT: TAIL (B) OR CLAW"); g_msg_t = 3; }
@@ -1265,8 +1284,8 @@ static void boss_frame(float dt) {
         int air = d->mode == DM_AIR || g_friend.y > world_height(&g_world, g_friend.x, g_friend.z) + 0.6f || (g_world.kind == WK_SKY && (world_is_void(&g_world, g_friend.x, g_friend.z) || world_is_void(&g_world, tx, tz)));
         float ty = d->mode == DM_AIR ? d->y + 0.8f : (g_world.kind == WK_SKY && gy < W_CLOUDS + 4 ? d->y + 1.5f : gy);
         float dx = tx - g_friend.x, dz = tz - g_friend.z, dy = ty - g_friend.y, dist = sqrtf(dx * dx + dz * dz);
-        float want = dist > 0.3f ? fminf(dist * 1.6f, d->mode == DM_AIR ? 22.0f : 11.0f) : 0; g_friend.speed += (want - g_friend.speed) * (1 - expf(-dt * 4));
-        if (dist > 40) { g_friend.x = tx; g_friend.z = tz; g_friend.y = ty; }   /* fell far behind: catch up */
+        float cap = fmaxf(d->mode == DM_AIR ? 22.0f : 11.0f, fabsf(d->speed) * 1.3f + 3); float want = dist > 0.3f ? fminf(dist * 1.8f, cap) : 0;   /* always fast enough to keep up */ g_friend.speed += (want - g_friend.speed) * (1 - expf(-dt * 4));
+        if (dist > 28) { g_friend.x = tx; g_friend.z = tz; g_friend.y = ty; }   /* fell far behind: catch up */
         else if (dist > 0.01f) { g_friend.x += dx / dist * g_friend.speed * dt; g_friend.z += dz / dist * g_friend.speed * dt; }
         g_friend.y += dy * (1 - expf(-dt * (air ? 3 : 10))); if (!air) g_friend.y = fmaxf(g_friend.y, world_height(&g_world, g_friend.x, g_friend.z));
         float fyaw = g_friend.speed > 0.5f ? atan2f(dx, dz) : d->yaw; float dyaw = fyaw - g_friend.yaw; while (dyaw > 3.14159f) dyaw -= 6.28318f; while (dyaw < -3.14159f) dyaw += 6.28318f; g_friend.yaw += dyaw * (1 - expf(-dt * 5));
@@ -1343,7 +1362,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
                 if (g_slot_erase == g_slot_sel) { char path[300]; slot_path(g_slot_sel, path, sizeof path); remove(path); scan_slots(); g_slot_erase = -1; sfx_play(SFX_CRUMBLE, 0.6f, 0); }
                 else { g_slot_erase = g_slot_sel; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } }
             else if (in.a_press && g_state_t > 0.3f) { use_slot(g_slot_sel); sfx_play(SFX_MENU_OK, 0.5f, 0); g_state_t = 0;
-                if (g_slots[g_slot_sel].used && load_progress()) { g_state = G_PLAY; g_title_t = 4.0f; if (!g_rescued) g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff];
+                if (g_slots[g_slot_sel].used && load_progress()) { g_state = G_PLAY; g_title_t = 4.0f; if (!g_rescued) g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff];
                     snprintf(g_msg, sizeof g_msg, "WELCOME BACK, %s!", active_name()); g_msg_t = 4; }
                 else { g_state = G_DIFF; g_diff = 1; } } }
         else if (g_state == G_DIFF) {

@@ -15,7 +15,9 @@ typedef struct {
     float cage_open;          /* 0 closed .. 1 lowered and open (after the win) */
     float core_fwd, core_h;   /* where its glowing core sits: metres forward (negative = on its back) and up */
     float max_speed;          /* top charge speed (m/s): slower on easier settings */
-    int tired;                /* charges that hit the dragon; each one leaves it dizzy so it can be hit anyway */
+    int tired, tired_need;    /* charges that hit the dragon in a row; after tired_need of them it gets dizzy anyway (fewer on easier settings) */
+    float orbit, prowl;       /* prowling: which way it circles the dragon (+1/-1) and for how long before it lines up a charge */
+    float vx, vz;             /* its velocity on the ground (smooth starts, turns and stops) */
 } Boss;
 #define BOSS_HP 3
 void boss_init(Boss *b, const World *w);
