@@ -1568,7 +1568,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
             if (g_wk == WK_SKY && !g_wrescued[WK_SKY] && !g_kaine_done) { g_kaine_done = 1; g_kaine_t = 0; } }
         if (g_travel_t > 1.8f) g_travel_t = -1; }
     { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
-      float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4));
+      float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4)); { const char *ft = getenv("DB_FORCETURN"); if (ft) g_turn = (float)atof(ft); }
       float want_bank = g_dragon.mode == DM_AIR ? clampf(-g_turn * 0.6f, -0.95f, 0.95f) : 0; g_bank += (want_bank - g_bank) * (1 - expf(-dt * 3));
       float spd = g_dragon.mode == DM_AIR ? 5.5f : 2.0f + g_dragon.speed * 1.2f; g_bodyph = fmodf(g_bodyph + dt * spd, 6.28318f * 100); }
 #ifdef DB_TOUR

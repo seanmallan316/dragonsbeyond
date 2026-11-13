@@ -48,10 +48,16 @@ void anim3d_draw(Anim3D *a, int c, float t, const Mat4 *base, float r, float g, 
     for (int k = 0; k < a->nt * 3; k++) { uint32_t v = a->idx[k]; const uint8_t *p0 = f0 + v * 10, *p1 = f1 + v * 10; Vertex *o = &a->vb[k];
         o->px = (rd16(p0) + (rd16(p1) - rd16(p0)) * w) * (1.0f / 4000); o->py = (rd16(p0 + 2) + (rd16(p1 + 2) - rd16(p0 + 2)) * w) * (1.0f / 4000); o->pz = (rd16(p0 + 4) + (rd16(p1 + 4) - rd16(p0 + 4)) * w) * (1.0f / 4000);
         o->nx = ((int8_t)p0[6] + ((int8_t)p1[6] - (int8_t)p0[6]) * w) * (1.0f / 127); o->ny = ((int8_t)p0[7] + ((int8_t)p1[7] - (int8_t)p0[7]) * w) * (1.0f / 127); o->nz = ((int8_t)p0[8] + ((int8_t)p1[8] - (int8_t)p0[8]) * w) * (1.0f / 127);
-        if (bend) {   /* u: -1 at the tail tip .. +1 at the snout; the middle of the body stays put, the ends swing */
-            float u = o->pz * (1.0f / 0.95f), au = fabsf(u), env = 0.25f + 0.75f * au; float wv = sinf(g_phase - u * 2.6f), wc = cosf(g_phase - u * 2.6f);
-            o->px += g_arc * u * u * 0.5f + g_side * wv * 0.16f * env;
-            o->py += g_up * sinf(g_phase - u * 2.6f + 1.2f) * 0.14f * env;
-            float slope = g_arc * 2.0f * u * 0.5f + g_side * -2.6f * wc * 0.16f * env; o->nx -= slope * o->nz; }   /* tilt the normals with the curve */
+        if (bend) {   /* u: -1 at the tail tip .. +1 at the snout. The spine bends; each slice turns with it (no shear), and the head ahead of the neck moves as one rigid piece */
+            const float U0 = 0.38f; float u = o->pz * (1.0f / 0.95f), uc = u > U0 ? U0 : u, au = fabsf(uc), env = 0.25f + 0.75f * au;
+            float ph = g_phase - uc * 2.6f, wv = sinf(ph), wc = cosf(ph);
+            float f = g_arc * uc * uc * 0.5f + g_side * wv * 0.16f * env;                       /* sideways offset of the spine */
+            float df = (g_arc * uc + g_side * (-2.6f * wc * 0.16f * env + wv * 0.16f * 0.75f * (uc < 0 ? -1.0f : 1.0f))) * (1.0f / 0.95f);   /* its slope per metre */
+            if (df > 1.2f) df = 1.2f; if (df < -1.2f) df = -1.2f;
+            float cs = 1.0f / sqrtf(1 + df * df), sn = df * cs;                                 /* turn angle of this slice */
+            float zc = uc * 0.95f, lx = o->px, lz = o->pz - zc;                                 /* position relative to the spine point */
+            o->px = f + lx * cs + lz * sn; o->pz = zc - lx * sn + lz * cs;
+            o->py += g_up * sinf(ph + 1.2f) * 0.14f * env;
+            float nx = o->nx, nz = o->nz; o->nx = nx * cs + nz * sn; o->nz = -nx * sn + nz * cs; }
         o->u = a->uv[v * 2]; o->v = a->uv[v * 2 + 1]; o->r = o->g = o->b = o->a = 1; }
     gfx_mesh_update(a->mesh, a->vb, (uint32_t)(3 * a->nt)); gfx_bind(a->tex); gfx_draw_ex(a->mesh, base, r, g, b, alpha, 0.25f, 0, 0, 0); }

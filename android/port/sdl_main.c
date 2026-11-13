@@ -299,6 +299,7 @@ static void view_frame(const char *spec) {
         gfx_light(v3(1.05f, 0.98f, 0.86f), v3(0.62f, 0.72f, 0.86f), v3(0.42f, 0.44f, 0.32f), eye); gfx_camera(&vp, L, 0.44f, 0.7f, 0.8f, 0.9f, 140, 620);
     } else { gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye); gfx_camera(&vp, L, 0.34f, 0.7f, 0.8f, 0.9f, 140, 620); }
     bump = bump % 10;
+    { const char *bs = getenv("KK_BEND"); float b0 = 0, b1 = 0, b2 = 0, b3 = 0; if (bs) { sscanf(bs, "%f %f %f %f", &b0, &b1, &b2, &b3); anim3d_set_bend(b0, b1, b2, b3); } }
     Mat4 id = m4_identity(); gfx_state(ST_SOLID); gfx_bump(bump); anim3d_draw(&a, c, tt, &id, 1.12f, 1.12f, 1.1f, 1); gfx_bump(0);
     gfx_post(0, 0.9f, 0.3f, 0.3f);
     gfx_view_end(0); gfx_frame_end();
