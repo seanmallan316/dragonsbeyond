@@ -52,8 +52,8 @@ static void ensure_kind(int k, int upto) {   /* load dragon k's models up to sta
     static const char *kn[K_N] = {"forest", "sky", "snow", "crystal", "sand", "water", "lava"}, *sn[ST_N] = {"dragonet", "dragon", "beyonder"};
     if (k <= 0 || k >= K_N || g_gfx_status != GFX_OK) return;
     for (int st = 0; st <= upto && st < ST_N; st++) if (!g_km_tried[k][st]) { g_km_tried[k][st] = 1; char nm[40]; snprintf(nm, sizeof nm, "%s_%s", kn[k], sn[st]);
-        g_km_ok[k][st] = k >= 3 ? (g_model_ok[st] && anim3d_skin(&g_km[k][st], &g_model[st], nm))   /* the newer dragons: the forest dragon's body and moves, their own colours */
-                                : anim3d_load(&g_km[k][st], nm); } }
+        g_km_ok[k][st] = anim3d_load(&g_km[k][st], nm);   /* its own model when there is one, */
+        if (!g_km_ok[k][st] && k >= 3) g_km_ok[k][st] = g_model_ok[st] && anim3d_skin(&g_km[k][st], &g_model[st], nm); } }   /* else the forest dragon's body in its colours */
 static float kind_scale(int k, int st) { if (k == 0) return dragon_scale(st); while (st > 0 && !g_km_ok[k][st]) st--; return st == ST_DRAGONET ? dragon_scale(ST_DRAGONET) * 0.85f : dragon_scale(st); }
 static struct { int on, mode, anim; float x, y, z, yaw, speed, anim_t; } g_friend;
 static const char *SKY_NAMES[2] = {"SCARLET", "WINDSLY"}, *SNOW_NAMES[2] = {"SNOWFALL", "SNOWSTORM"};
