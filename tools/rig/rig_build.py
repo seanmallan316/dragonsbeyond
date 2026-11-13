@@ -37,10 +37,27 @@ for i, a in enumerate(C):
         if a[0] * b[0] < 0 and abs(a[1] - b[1]) < 0.08 * L and abs(abs(a[0]) - abs(b[0])) < 0.08 * W:
             pairs.append((0.5 * (a[1] + b[1]), 0.5 * (abs(a[0]) + abs(b[0]))))
 pairs.sort()
-if len(pairs) < 2: raise SystemExit(f'could not find two leg pairs: {pairs} from {C}')
-# the two pairs farthest apart in y
-(yf, xf), (yb, xb) = pairs[0], pairs[-1]
-front = [(-xf, yf), (xf, yf)]; back = [(-xb, yb), (xb, yb)]
+# feet groups along the body: low points split into runs along y (a stride pose puts one foot ahead of the other, so the
+# mirrored-pair test above can miss a pair); the front group is the first run with feet on both sides, the back group the next
+fp = feet_pts[np.abs(feet_pts[:, 0]) > 0.04 * W]
+ordy = np.sort(fp[:, 1]); runs = []; start = ordy[0]; prev = ordy[0]
+for v in ordy[1:]:
+    if v - prev > 0.06 * L: runs.append((start, prev)); start = v
+    prev = v
+runs.append((start, prev))
+groups = []
+for a, b in runs:
+    g = fp[(fp[:, 1] >= a) & (fp[:, 1] <= b)]; lft = g[g[:, 0] < 0]; rgt = g[g[:, 0] > 0]
+    if len(lft) >= 5 and len(rgt) >= 5 and min(np.abs(lft[:, 0]).mean(), rgt[:, 0].mean()) > 0.06 * W:
+        groups.append(((lft[:, 0].mean(), lft[:, 1].mean()), (rgt[:, 0].mean(), rgt[:, 1].mean())))
+groups.sort(key=lambda g: g[0][1] + g[1][1])
+if len(groups) >= 2 and (groups[1][0][1] + groups[1][1][1]) * 0.5 - (groups[0][0][1] + groups[0][1][1]) * 0.5 > 0.15 * L:
+    front = [groups[0][0], groups[0][1]]; back = [groups[1][0], groups[1][1]]
+    print('feet by runs: front', front, 'back', back)
+else:
+    if len(pairs) < 2: raise SystemExit(f'could not find two leg pairs: {pairs} from {C}')
+    (yf, xf), (yb, xb) = pairs[0], pairs[-1]   # the two pairs farthest apart in y
+    front = [(-xf, yf), (xf, yf)]; back = [(-xb, yb), (xb, yb)]
 # ---- medial axis along y (body centre line), using the core of each slice (|x| small, excluding wings)
 n = 40; ys = np.linspace(lo[1], hi[1], n + 1); axis = []
 for i in range(n):
