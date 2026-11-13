@@ -54,7 +54,7 @@ static void ensure_kind(int k, int upto) {   /* load dragon k's models up to sta
     for (int st = 0; st <= upto && st < ST_N; st++) if (!g_km_tried[k][st]) { g_km_tried[k][st] = 1; char nm[40]; snprintf(nm, sizeof nm, "%s_%s", kn[k], sn[st]);
         g_km_ok[k][st] = anim3d_load(&g_km[k][st], nm);   /* its own model when there is one, */
         if (!g_km_ok[k][st] && k >= 3) g_km_ok[k][st] = g_model_ok[st] && anim3d_skin(&g_km[k][st], &g_model[st], nm); } }   /* else the forest dragon's body in its colours */
-static float kind_scale(int k, int st) { if (k == 0) return dragon_scale(st); while (st > 0 && !g_km_ok[k][st]) st--; return st == ST_DRAGONET ? dragon_scale(ST_DRAGONET) * 0.85f : dragon_scale(st); }
+static float kind_scale(int k, int st) { if (k == 0) return dragon_scale(st) * (st == ST_DRAGONET ? 1.3f : 1);   /* the new dragonets are long and low: drawn a bit bigger */ while (st > 0 && !g_km_ok[k][st]) st--; return st == ST_DRAGONET ? dragon_scale(ST_DRAGONET) * (k == 1 ? 0.85f : 1.3f) : dragon_scale(st); }
 static struct { int on, mode, anim; float x, y, z, yaw, speed, anim_t; } g_friend;
 static const char *SKY_NAMES[2] = {"SCARLET", "WINDSLY"}, *SNOW_NAMES[2] = {"SNOWFALL", "SNOWSTORM"};
 static const char *MORE_NAMES[4][2] = {{"DIAMOND FEATHER", "DIAMOND FEATHER"}, {"SAND STORM", "SAND STORM"}, {"TSUNAMI", "RIPTIDE"}, {"LAVA BREATHER", "LAVA BREATHER"}};
@@ -673,9 +673,9 @@ static void draw_food3d(Vec3 eye) {
     draw_robots(eye); }
 
 static void draw_dragon(const Dragon *d) {
-    int st = d->stage; float sc = dragon_scale(st);
+    int st = d->stage; float sc = kind_scale(0, st);
     if (d->evolve_t > 0) {   /* grows from the old size to the new in the first second, with a glow */
-        float t = clampf(1 - d->evolve_t / 2.0f, 0, 1); float from = dragon_scale(st - 1 >= 0 ? st - 1 : 0); sc = from + (sc - from) * clampf(t * 1.6f, 0, 1); }
+        float t = clampf(1 - d->evolve_t / 2.0f, 0, 1); float from = kind_scale(0, st - 1 >= 0 ? st - 1 : 0); sc = from + (sc - from) * clampf(t * 1.6f, 0, 1); }
     Anim3D *m = &g_model[st]; if (!m->ok) m = g_model_ok[0] ? &g_model[0] : NULL;
     if (g_kind != 0) { m = kind_model(g_kind, st); sc = kind_scale(g_kind, st); if (d->evolve_t > 0) { float t = clampf(1 - d->evolve_t / 2.0f, 0, 1); float from = kind_scale(g_kind, st > 0 ? st - 1 : 0); sc = from + (sc - from) * clampf(t * 1.6f, 0, 1); } }
     if (!m) return;
