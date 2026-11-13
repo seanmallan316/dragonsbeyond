@@ -52,7 +52,9 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         return ev; }
     /* steering: the stick is relative to the camera */
     float mag = sqrtf(in->sx * in->sx + in->sy * in->sy); if (mag > 1) mag = 1;
-    float want_yaw = d->yaw; if (mag > 0.1f) want_yaw = cam_yaw + atan2f(-in->sx, in->sy);   /* the camera's right is -yaw: stick right turns right */
+    float want_yaw = d->yaw;
+    if (in->side) { mag = fabsf(in->sx); if (mag > 1) mag = 1; if (mag > 0.15f) want_yaw = cam_yaw + (in->sx > 0 ? -1.5707963f : 1.5707963f); else mag = 0; }   /* along the lane only */
+    else if (mag > 0.1f) want_yaw = cam_yaw + atan2f(-in->sx, d->mode == DM_AIR ? fmaxf(in->sy, 0.25f) : in->sy);   /* the camera's right is -yaw: stick right turns right; in the air, down is a dive, not a U-turn */
     if (d->mode == DM_GROUND || d->mode == DM_SWIM) {
         float top = (in->zr ? RUN[d->stage] : WALK[d->stage]) * mag; if (d->mode == DM_SWIM) top *= 0.55f;
         float turn = 6.0f * dt; d->yaw += clampf(wrapa(want_yaw - d->yaw), -turn, turn);
@@ -94,27 +96,32 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
                 float side = d->roll_dir * 9.0f * (1 - u); d->x += cosf(d->yaw) * side * dt; d->z -= sinf(d->yaw) * side * dt;   /* slides to the dragon's right (or left) */
                 if (u > 0.1f && u < 0.9f) hitbox(d, ATK_ROLL, 0, 0, fmaxf(3.0f, 0.8f * La + 1.5f)); }
             if (d->air_act <= 0) { d->air_act = 0; if (d->air_kind == ATK_TALON) set_anim(d, DA_GLIDE); } }
-        float turn = 2.6f * dt; d->yaw += clampf(wrapa(want_yaw - d->yaw), -turn, turn) * (mag > 0.1f ? 1 : 0);
+        float turn = (in->side ? 7.0f : 2.6f) * dt; d->yaw += clampf(wrapa(want_yaw - d->yaw), -turn, turn) * (mag > 0.1f ? 1 : 0);
         if (canfly) {
             /* hold A: flap and climb; stick up/down pitches; speed builds when diving */
-            float wantp = clampf(-in->sy * 0.6f, -0.7f, 0.7f); d->pitch = lerp(d->pitch, wantp, 1 - expf(-dt * 3));
-            float top = FLY[d->stage] * (1.0f - 0.5f * fmaxf(0, d->pitch)) * (1.0f + 0.6f * fmaxf(0, -d->pitch));
-            d->speed = lerp(d->speed, top, 1 - expf(-dt * 1.5f));
-            float lift = in->a ? 5.0f : 0.5f; if (in->a) d->stamina = fmaxf(0, d->stamina - dt * 0.12f); else d->stamina = fminf(1, d->stamina + dt * 0.2f);
+            /* stick up: nose up and climb; a little down: nose down and sink faster; hard down (or ZL): tuck the wings and DIVE */
+            int diving = in->sy < -0.55f || in->zl; d->dive += ((diving ? 1.0f : 0.0f) - d->dive) * (1 - expf(-dt * (diving ? 4.0f : 3.0f)));
+            float wantp = diving ? -1.1f : clampf(in->sy * 0.6f, -0.7f, 0.7f); d->pitch = lerp(d->pitch, wantp, 1 - expf(-dt * (diving ? 5 : 3)));
+            float top = FLY[d->stage] * (1.0f - 0.5f * fmaxf(0, d->pitch)) * (1.0f + 0.6f * fmaxf(0, -d->pitch)) * (1.0f + 0.5f * d->dive);
+            if (in->side) top *= fminf(1, fabsf(in->sx) * 1.3f);   /* side levels: the stick decides how fast you fly along */
+            d->speed = lerp(d->speed, top, 1 - expf(-dt * (diving ? 3.0f : 1.5f)));
+            float lift = in->a && !diving ? 5.0f : 0.5f; if (in->a) d->stamina = fmaxf(0, d->stamina - dt * 0.12f); else d->stamina = fminf(1, d->stamina + dt * 0.2f);
             if (d->stamina <= 0.01f) lift = 0.5f;
-            d->vy += (lift - 3.5f - d->pitch * 6.0f) * dt; d->vy = clampf(d->vy, -12, 6);
+            if (d->dive > 0.3f) { d->vy = lerp(d->vy, -30.0f * d->dive, 1 - expf(-dt * 3)); if (d->vy < -12) d->slam = 1; }   /* a dive that hits the ground lands as a crashing pounce */
+            else { d->vy += (lift - 3.5f + d->pitch * 6.0f) * dt; d->vy = clampf(d->vy, -12, 6); d->slam = 0; }
             d->x += sinf(d->yaw) * d->speed * dt; d->z += cosf(d->yaw) * d->speed * dt; d->y += d->vy * dt;
-            if (!(d->air_act > 0 && d->air_kind == ATK_TALON)) set_anim(d, in->a && d->stamina > 0.01f ? DA_FLY : DA_GLIDE);
+            if (!(d->air_act > 0 && d->air_kind == ATK_TALON)) set_anim(d, in->a && d->stamina > 0.01f && !diving ? DA_FLY : DA_GLIDE);
             float ceiling = 70; if (d->y > ceiling) { d->y = ceiling; d->vy = fminf(d->vy, 0); }
         } else {   /* a dragonet only hops and glides a little */
             d->vy -= 11.0f * dt; d->x += d->vx * dt; d->z += d->vz * dt; d->y += d->vy * dt;
             if (in->a && d->vy < 0 && !d->slam) d->vy += 7.0f * dt;   /* flutter: falls slower */
+            if (in->sy < -0.55f || in->zl) d->vy -= 9.0f * dt;   /* stick down: drop faster */
             d->speed = sqrtf(d->vx * d->vx + d->vz * d->vz); }
         float lim = W_SIZE / 2 - 6; d->x = clampf(d->x, -lim, lim); d->z = clampf(d->z, -lim, lim);
         gy = world_height(w, d->x, d->z); inpond = world_in_pond(w, d->x, d->z); waterline = inpond ? w->pond_y : -1e9f;
         float floor_y = fmaxf(gy, waterline - 0.25f * L);
         if (d->y <= floor_y) { d->y = floor_y; d->mode = (gy < waterline - 0.3f * L) ? DM_SWIM : DM_GROUND; d->vy = 0; d->land_t = 0.3f; d->pitch = 0; ev |= 8; set_anim(d, DA_IDLE);
-            d->air_act = 0; d->roll = 0;
+            d->air_act = 0; d->roll = 0; d->dive = 0;
             if (d->slam) { d->slam = 0; d->act_t = 0.45f; set_anim(d, DA_POUNCE); d->speed = 0; ev |= 32; hitbox(d, ATK_SLAM, 0.2f * L, 0.2f, 3.2f + 0.4f * L); } }
     }
     if (d->growth >= NEED[d->stage] && d->stage < ST_BEYONDER && d->mode == DM_GROUND) { d->stage++; d->growth = 0; d->max_hearts += 2; d->hearts = d->max_hearts; d->evolve_t = 2.0f; ev |= 2; }

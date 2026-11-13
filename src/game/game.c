@@ -823,7 +823,7 @@ static void draw_scene(int drc) {
     if (g_shake_t > 0) { float a = g_shake_t * 0.6f; Vec3 o = v3(sinf(g_time * 71) * a, sinf(g_time * 83 + 1) * a, cosf(g_time * 67) * a); eye = v3(eye.x + o.x, eye.y + o.y, eye.z + o.z); at = v3(at.x + o.x * 0.5f, at.y + o.y * 0.5f, at.z + o.z * 0.5f); }
     float cr = g_dragon.mode == DM_AIR ? g_bank * (g_cam_mode == 0 ? 0.3f : 0.85f) : 0;   /* the camera leans into a banked turn with the dragon */
     Vec3 up = v3(-sinf(cr) * cosf(g_cam_yaw), cosf(cr), sinf(cr) * sinf(g_cam_yaw));
-    Mat4 proj = m4_perspective(g_cam_mode == 2 ? 1.25f : 1.05f, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
+    Mat4 proj = m4_perspective((g_cam_mode == 2 ? 1.25f : 1.05f) + 0.28f * g_dragon.dive, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir();
     gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye);
     gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620);   /* fog fades into the sky picture's horizon */ gfx_shadow_use(0);
@@ -969,6 +969,16 @@ static void draw_radar(void) {
 #undef RPOS
     { float a = d->yaw - g_cam_yaw; float fx = -sinf(a), fy = -cosf(a); float rx = -fy, ry = fx;   /* you */
       map_tri2d(CX + fx * 11, CY + fy * 11, CX - fx * 7 + rx * 7, CY - fy * 7 + ry * 7, CX - fx * 7 - rx * 7, CY - fy * 7 - ry * 7, 1, 1, 1, 1); } }
+/* diving: streaks of rushing air from the edges of the screen toward the middle, and a dark edge, so the speed is felt */
+static void draw_speedlines(void) {
+    float a = g_dragon.dive; if (a < 0.15f) return; a = (a - 0.15f) / 0.85f;
+    for (int i = 0; i < 46; i++) { float h1 = ui_hash(i * 3 + 1), h2 = ui_hash(i * 7 + 5), h3 = ui_hash(i * 11 + 2);
+        float ang = h1 * 6.2831853f, ph = fmodf(g_time * (2.2f + 1.6f * h2) + h3, 1.0f);   /* each streak rushes outward and starts again */
+        float r0 = 170 + 520 * ph, len = 90 + 160 * h2 * (0.5f + ph), wdt = 1.2f + 2.4f * h3;
+        float ux = cosf(ang), uy = sinf(ang) * 0.62f, l = sqrtf(ux * ux + uy * uy); ux /= l; uy /= l; float nx = -uy, ny = ux;
+        float x0 = 640 + ux * r0, y0 = 360 + uy * r0, x1 = x0 + ux * len, y1 = y0 + uy * len; float al = a * 0.5f * (1 - ph) * (0.4f + 0.6f * h2);
+        map_tri2d(x0, y0, x1 + nx * wdt, y1 + ny * wdt, x1 - nx * wdt, y1 - ny * wdt, 0.92f, 0.96f, 1.0f, al); }
+    ui_rect(&g_ub, 0, 0, 1280, 70, 0.02f, 0.03f, 0.05f, 0.25f * a); ui_rect(&g_ub, 0, 650, 1280, 70, 0.02f, 0.03f, 0.05f, 0.25f * a); }
 static void draw_hud(int drc) {
     const Dragon *d = &g_dragon; batch_clear(&g_b); ui_begin();
 #ifdef DB_TOUR
@@ -993,7 +1003,7 @@ static void draw_hud(int drc) {
     ui_bar(42, 82, 356, 16, gf, 0.25f, 0.8f, 0.2f);
     { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", active_name(), dragon_stage_name(d->stage)); batch_text_g(&g_b, nm, 42, 112, 24, 1, 1, 1, 1, 1); }
     if (need < 1e8f) { char s[32]; snprintf(s, sizeof s, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, s, 414, 78, 20, 0.9f, 1, 0.8f, 0.9f); }
-    draw_radar();
+    draw_speedlines(); draw_radar();
     /* stamina while flying */
     if (d->mode == DM_AIR && d->stage >= ST_DRAGON) { ui_bar(42, 156, 196, 9, d->stamina, 0.35f, 0.65f, 1.0f); }
     /* prompts */
@@ -1038,6 +1048,7 @@ static float g_tour_rescue_t = 1e9f;
 static void tour_input_base(Pad *p, float t);
 static void tour_input(Pad *p, float t) {   /* the base script, plus the dragon's power on diving drones and now and then to show it off */
     tour_input_base(p, t); const Dragon *d = &g_dragon; if (g_state != G_PLAY || g_tale_i >= 0 || g_swap_open) return;
+    if (d->mode == DM_AIR && p->sy < 0) { p->sx = p->sx >= 0 ? 1 : -1; p->sy = 0.3f; }   /* in the air stick-down dives: turn round with the stick sideways instead */
     int diving = 0; for (int i = 0; i < g_world.ndrone; i++) if (g_world.drone[i].state == 1) { float dx = g_world.drone[i].x - d->x, dz = g_world.drone[i].z - d->z; if (dx * dx + dz * dz < 14 * 14) diving = 1; }
     static float last; if ((diving || t - last > 12) && d->stage >= ST_DRAGON && g_power_cd <= 0 && !p->b) { p->y = 1; last = t; } }
 static void tour_input_base(Pad *p, float t) {
@@ -1469,6 +1480,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (in.b_press && g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.9f) sfx_play(SFX_TAIL, 0.6f, 0);
     if (in.x_press && g_dragon.anim == DA_CLAW && g_dragon.act_t > 0.55f) sfx_play(SFX_TAIL, 0.45f, 0);
     if ((in.x_press || in.b_press) && g_dragon.air_act > 0.55f) sfx_play(SFX_FLAP, 0.7f, 0);
+    { static float last_dive; if (g_dragon.dive > 0.3f && last_dive <= 0.3f) { sfx_play(SFX_FLAP, 1.0f, 0); platform_rumble(0.4f, 0.4f); } last_dive = g_dragon.dive; }   /* the whoosh of tucked wings */
     if (ev & 32) { sfx_play(SFX_LAND, 1.0f, 0); sfx_play(SFX_BLOCK, 0.4f, 0); platform_rumble(0.8f, 0.25f); g_shake_t = 0.25f; }
     if (g_dragon.mode == DM_AIR && g_dragon.anim == DA_FLY) {   /* the whoosh lands on each downstroke of the 0.8 s wingbeat */
         float ph = fmodf(g_dragon.anim_t, 0.8f), was = fmodf(fmaxf(g_dragon.anim_t - dt, 0), 0.8f); if (was < 0.26f && ph >= 0.26f) sfx_play(SFX_FLAP, 0.45f, 0); }

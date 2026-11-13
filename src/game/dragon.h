@@ -32,9 +32,11 @@ typedef struct {
     float roll, roll_dir;       /* barrel roll angle (radians) for drawing, and which way */
     float invuln_t;             /* can't be hurt (rolling) */
     float chirp_cd;             /* the dragonet's spark chirp needs a breath between uses */
+    float dive;                 /* 0..1: wings tucked, diving at the ground (stick down in flight) */
 } Dragon;
 
-typedef struct { float sx, sy; int a, a_press, b_press, x_press, zr, zl, y_press; } DragonInput;
+typedef struct { float sx, sy; int a, a_press, b_press, x_press, zr, zl, y_press;
+    int side;   /* side-view levels: sx walks left/right along the lane, sy is only up/down (climb, dive) */ } DragonInput;
 
 /* sizes and speeds per stage: model length (m), walk, run, fly speeds */
 float dragon_length(int stage);
