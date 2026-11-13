@@ -102,7 +102,7 @@ static float g_safe_x, g_safe_z;   /* the last solid ground the player stood on 
 /* dragon powers (Y, once grown): forest Leafnado whirls round, sky breathes fire, snow breathes frost */
 static float g_power_t, g_power_cd; static int g_power_kind;
 /* Kaine Blackfeather sweeps over the Sky Kingdom on his black mech dragon the first time you arrive */
-static float g_kaine_t = -1; static int g_kaine_done;
+static float g_kaine_t = -1; static int g_kaine_done; static Anim3D g_mech; static int g_mech_ok = -1;   /* his own mech dragon model, loaded the first time he shows up */
 /* the wind column between worlds: in the forest it rises from the boss clearing once its captive is free; in the sky it waits on the first island */
 static float g_travel_t = -1; static int g_travel_to; static float g_travel_cd;
 static int column_at(float *cx, float *cz) {
@@ -836,13 +836,16 @@ static void draw_kind_dragon(int k, int st, float x, float y, float z, float yaw
     if (g_kd_speed >= 0) { anim_t = gait_time(1, m, clip, anim, g_kd_speed, dragon_length(st) * scale / dragon_scale(st), anim_t); g_kd_speed = -1; }
     gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(m, clip, anim_t, &mm, 1.1f, 1.1f, 1.1f, 1); gfx_bump(0); gfx_bind(NULL); }
 static void draw_kaine(void) {
-    if (g_kaine_t < 1.5f || g_kaine_t > 13 || !g_model_ok[ST_BEYONDER]) return;
-    if ((g_kind == 0 && g_dragon.stage == ST_BEYONDER) || (g_friend.on && g_fk == 0 && g_other.stage == ST_BEYONDER)) return;   /* that model is busy being a player's dragon */ float u = (g_kaine_t - 1.5f) / 11.5f;
+    if (g_kaine_t < 1.5f || g_kaine_t > 13) return;
+    if (g_mech_ok < 0) g_mech_ok = anim3d_load(&g_mech, "kaine_mech");
+    if (!g_mech_ok && !g_model_ok[ST_BEYONDER]) return;
+    if (!g_mech_ok && ((g_kind == 0 && g_dragon.stage == ST_BEYONDER) || (g_friend.on && g_fk == 0 && g_other.stage == ST_BEYONDER))) return;   /* the stand-in model is busy being a player's dragon */ float u = (g_kaine_t - 1.5f) / 11.5f;
     float a = -2.2f + u * 3.4f; float r = 70 - 30 * sinf(u * 3.14159f); Vec3 c = v3(g_dragon.x + sinf(a) * r, g_dragon.y + 16 + 10 * sinf(u * 3.14159f), g_dragon.z + cosf(a) * r);
     float yaw = a + 1.5708f; float sc = dragon_scale(ST_BEYONDER) * 1.25f;
     Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(c.x, c.y, c.z), m4_rotate_y(yaw)), m4_rotate_z(-0.35f)), m4_scale(sc, sc, sc));
-    Anim3D *m = &g_model[ST_BEYONDER]; int clip = anim3d_clip(m, "fly"); anim3d_set_bend(0.3f, 0.35f, 0.3f, g_time * 5.5f);
-    gfx_state(ST_SOLID); anim3d_draw(m, clip < 0 ? 0 : clip, g_time * 1.3f, &mm, 0.16f, 0.15f, 0.2f, 1); gfx_bind(NULL); }
+    Anim3D *m = g_mech_ok ? &g_mech : &g_model[ST_BEYONDER]; int clip = anim3d_clip(m, "fly"); anim3d_set_bend(0.3f, g_mech_ok ? 0.15f : 0.35f, 0.3f, g_time * 5.5f);
+    float tint = g_mech_ok ? 1.0f : 0.16f;
+    gfx_state(ST_SOLID); anim3d_draw(m, clip < 0 ? 0 : clip, g_time * 1.3f, &mm, tint, tint * 0.95f, tint * 1.2f, 1); gfx_bind(NULL); }
 static void draw_arena(Vec3 eye) {
     draw_ironhorn(eye); draw_kaine();
     if (!g_rescued) { float open = g_boss.cage_open, ground = g_world.arena_y + 0.1f; float cy = g_world.cage_y - open * (g_world.cage_y - ground);
