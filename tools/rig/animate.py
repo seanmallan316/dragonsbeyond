@@ -96,14 +96,14 @@ def idle(t):
         rots['head'] = (2 * S(t, 2.0), 12 * S(0.5 * t, 0.7), 6 * S(0.5 * t, 1.0)); rots['hips'] = (0, 0, 3 * S(0.5 * t))
     return rots, {'hips': (0, 0, 0.004 * H * S(t))}
 def walk(t):
-    rots = legs_walk(t)
+    rots = legs_walk(t, swing=34, lift=30)
     bob = 0.01 * H * S(2 * t, 0.3) + (0.03 * H * max(0.0, S(2 * t, 0.3)) if CH < 1 else 0)   # chibi: a springy hop in every step
     rots.update({'spine1': (0, 0, 4 * S(t)), 'spine2': (0, 0, 3 * S(t)), 'chest': (2 * S(2 * t), 0, -3 * S(t)),
                  'neck1': (-3 * S(2 * t), 0, 0), 'head': (3 * S(2 * t, 1.0), 0, 0)})
     rots.update(tail(t, 14, 0.5)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, bob)}
 def run(t):
-    rots = legs_walk(t, swing=42, lift=35)
+    rots = legs_walk(t, swing=50, lift=44)
     rots.update({'spine1': (6 * S(2 * t), 0, 0), 'spine2': (6 * S(2 * t, 0.5), 0, 0), 'chest': (-5 * S(2 * t), 0, 0),
                  'neck1': (-8 - 4 * S(2 * t), 0, 0), 'neck2': (-4, 0, 0), 'head': (12 + 3 * S(2 * t, 1.0), 0, 0)})
     rots.update(tail(t, 18, 0.5, nod=-5)); rots.update(wings_folded())
@@ -172,10 +172,15 @@ def chirp(t):   # a dragonet's chirp, 0.8 s: head up and tilted, two quick snaps
     rots.update(tail(t, 14, 0, nod=-4 * up)); rots.update(wings_folded())
     if has_wings: rots.update({'wingL_1': (-35 + 12 * up, 0, -25), 'wingR_1': (-35 + 12 * up, 0, 25)})   # a little flutter of happiness
     return rots, {'hips': (0, 0, 0.02 * H * up)}
-def tailwhip(t):   # wind up left, whip right, recover
-    w = -40 * min(1, t / 0.3) if t < 0.3 else (-40 + 110 * (t - 0.3) / 0.25 if t < 0.55 else 70 * max(0, 1 - (t - 0.55) / 0.45))
-    rots = {f'tail{i+1}': (0, 0, w * (0.4 + 0.2 * i)) for i in range(5)}
-    rots.update({'hips': (0, 0, -w * 0.25), 'spine1': (0, 0, -w * 0.15), 'chest': (0, 0, w * 0.1), 'neck1': (0, 0, w * 0.2), 'head': (0, 0, w * 0.15)})
+def tailwhip(t):   # the WHOLE tail swings from its root: cocked to one side, then a full sweep across behind the body, the tip lagging
+    def W(u):          # how far round the tail is (degrees at the root): wind up, fast sweep, overshoot, settle
+        if u < 0.28: return -55 * math.sin(0.5 * math.pi * u / 0.28)
+        if u < 0.5: return -55 + 145 * (0.5 - 0.5 * math.cos(math.pi * (u - 0.28) / 0.22))
+        return 90 * max(0.0, 1 - (u - 0.5) / 0.5) ** 1.5
+    share = (0.8, 0.16, 0.14, 0.12, 0.1)   # most of the turn is at the root, so the tail stays long and straight like a club
+    rots = {f'tail{i+1}': (-4, 0, W(max(0.0, t - 0.025 * i)) * share[i]) for i in range(5)}
+    w = W(t)
+    rots.update({'hips': (0, 0, -w * 0.08), 'spine1': (0, 0, -w * 0.1), 'spine2': (0, 0, -w * 0.05), 'chest': (0, 0, w * 0.08), 'neck1': (0, 0, w * 0.2), 'head': (0, 0, w * 0.15)})   # the body leans into the swing a little; the tail does the work
     rots.update(wings_folded())
     return rots, {'hips': (0, 0, 0)}
 def claw(t):   # 0.6 s: rear up a little, the right front paw lifts high and slashes down and across, head lunges with the jaw open

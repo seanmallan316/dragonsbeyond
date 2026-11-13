@@ -70,7 +70,7 @@ BUTTONS = [  # file, word, controller letter, glow colour
     ("btn_tail", "TAIL", "B", (200, 90, 70)),
     ("btn_roar", "ROAR", "Y", (240, 110, 40)),
     ("btn_run", "RUN", "R", (90, 160, 230)),
-    ("btn_swap", "SWAP", "+", (170, 120, 230)),
+    ("btn_swap", "MENU", "+", (170, 120, 230)),
     ("btn_cam", "VIEW", "", (120, 190, 220)),
     ("btn_ok", "OK", "A", (70, 200, 120)),
     ("btn_back", "BACK", "B", (200, 90, 70)),

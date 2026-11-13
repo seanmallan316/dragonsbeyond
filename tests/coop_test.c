@@ -30,6 +30,10 @@ int main(void) {
             printf("player 1 moved %.1f m, player 2 moved %.1f m, lane z %.1f / %.1f / %.1f\n", fabsf(x1 - x1a), fabsf(x2 - x2a), z1a, z1, z2);
             if (fabsf(x1 - x1a) < 15 || fabsf(x2 - x2a) < 15) { printf("FAIL: the players did not move along the lane: %s\n", w); return 1; }
             if (fabsf(z1 - z1a) > 0.6f || fabsf(z2 - z1a) > 0.6f) { printf("FAIL: left the lane: %s\n", w); return 1; } } }
+    {   /* the pause menu: + then MAIN MENU goes back to the title */
+        for (int fr = 0; fr < 60; fr++) { memset(pads, 0, sizeof pads); pads[0].source = 1; pads[1].source = 4;
+            if (fr == 5) pads[0].plus = 1; if (fr == 20) pads[0].down = 1; if (fr == 35) pads[0].a = 1; game_frame(pads, KK_PADS, 1.0f / 60); }
+        if (strncmp(game_where(), "title", 5)) { printf("FAIL: pause > MAIN MENU did not return to the title: %s\n", game_where()); return 1; } printf("pause menu back to title OK\n"); }
     FILE *f = fopen("coop_test_save.txt", "r"); if (f) { fclose(f); printf("FAIL: multiplayer wrote a story save\n"); return 1; }
     f = fopen("coop_test_save1.txt", "r"); if (f) { fclose(f); printf("FAIL: multiplayer wrote a story save\n"); return 1; }
     printf("coop test OK\n"); return 0; }
