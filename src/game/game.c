@@ -62,7 +62,11 @@ static int g_kind, g_swap_open, g_swap_sel; static Dragon g_team[K_N]; static in
 #define g_other (g_team[g_fk])
 static int team_size(void) { int n = 0; for (int k = 0; k < K_N; k++) n += g_has[k]; return n; }
 /* co-op: a second controller (Wii Remote, Nunchuk, Classic or Pro) takes over the friend dragon. g_p2 = its pad slot, -1 = nobody */
-static int g_p2 = -1, g_p1pad = 0;   /* g_p1pad: the pad player 1 used last */ static float g_gp_last = -100, g_p2_gone;
+static int g_p2 = -1, g_p1pad = 0;   /* g_p1pad: the pad player 1 used last; g_p2: player 2's pad (multiplayer only) */
+/* multiplayer (side-view levels): on, how many players, which level; the lane every one walks along and which way it runs (+1 toward +x) */
+static int g_side, g_side_n = 1, g_lv; static float g_lv_t, g_lv_done_t = -1, g_lane_z, g_lane_dir = -1;
+static int g_mode_sel, g_pick[2] = {0, 1}, g_ready[2];   /* title menus: story or multiplayer; each player's dragon and whether they are ready */
+static void side_clear_lane(void); static void side_camera(float dt); static void side_draw_goal(void); static void side_hud(void); static void dragon_respawn(Dragon *d); static float g_gp_last = -100, g_p2_gone;
 /* the storyteller's cards after the rescue (the game waits while they show) */
 static const char *TALE[WK_N][3] = {
   { "AND SO IRONHORN FELL, AND THE IRON CAGE SWUNG OPEN. %s, DRAGONET OF THE SKY, WAS FREE AT LAST.",
@@ -84,7 +88,7 @@ static const float DMG[3] = {0.5f, 1.0f, 1.5f}; static const int BOSS_HITS[3] = 
 typedef struct { int used, name, stage, rescued, diff, wk; } SlotInfo;   /* rescued: how many friends are on the team */ static SlotInfo g_slots[3];
 static int load_progress(void); static void save_progress(void);
 static char g_msg[128]; static float g_msg_t; static float g_title_t = 4.0f;
-enum { G_TITLE = 0, G_NAME, G_STORY, G_PLAY, G_SLOT, G_DIFF }; static int g_state = G_TITLE; static int g_name = 0; static float g_state_t;   /* g_name: 0 Flo-Rida, 1 Leaf Blower */
+enum { G_TITLE = 0, G_NAME, G_STORY, G_PLAY, G_SLOT, G_DIFF, G_MODE, G_MPICK }; static int g_state = G_TITLE; static int g_name = 0; static float g_state_t;   /* g_name: 0 Flo-Rida, 1 Leaf Blower */
 static const char *NAMES[2] = {"FLO-RIDA", "LEAF BLOWER"};
 
 /* textures and meshes */
@@ -387,7 +391,7 @@ int game_init(int gfx_status) {
     snprintf(g_msg, sizeof g_msg, "WALK TO THE BERRIES. PRESS X TO EAT"); g_msg_t = 8;
     return 1; }
 void game_shutdown(void) {}
-const char *game_where(void) { static char s[500]; static const char *st[] = {"title", "name pick", "story", "playing", "slots", "difficulty"}; static const char *md[] = {"ground", "air", "swim"}; snprintf(s, sizeof s, "%s: %s, %s, growth %.0f, cam %d, %s at %.0f,%.0f,%.0f anim %d act %.1f evo %.1f hearts %.1f | boss %d hp %d at %.0f,%.0f kind %d swap %d p2 %d at %.0f,%.0f camyaw %.3f msg %s", st[g_state], g_wk == WK_SKY ? "Sky Kingdom" : "Everleaf Wilds", dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode, md[g_dragon.mode], g_dragon.x, g_dragon.y, g_dragon.z, g_dragon.anim, g_dragon.act_t, g_dragon.evolve_t, g_dragon.hearts, g_boss.state, g_boss.hp, g_boss.x, g_boss.z, g_kind, g_swap_open, g_p2, g_other.x, g_other.z, g_cam_yaw, g_msg_t > 0 ? g_msg : "-"); return s; }
+const char *game_where(void) { static char s[500]; static const char *st[] = {"title", "name pick", "story", "playing", "slots", "difficulty", "mode", "multiplayer pick"}; static const char *md[] = {"ground", "air", "swim"}; snprintf(s, sizeof s, "%s: %s, %s, growth %.0f, cam %d, %s at %.0f,%.0f,%.0f anim %d act %.1f evo %.1f hearts %.1f | boss %d hp %d at %.0f,%.0f kind %d swap %d p2 %d at %.0f,%.0f camyaw %.3f msg %s", st[g_state], g_wk == WK_SKY ? "Sky Kingdom" : "Everleaf Wilds", dragon_stage_name(g_dragon.stage), g_dragon.growth, g_cam_mode, md[g_dragon.mode], g_dragon.x, g_dragon.y, g_dragon.z, g_dragon.anim, g_dragon.act_t, g_dragon.evolve_t, g_dragon.hearts, g_boss.state, g_boss.hp, g_boss.x, g_boss.z, g_kind, g_swap_open, g_p2, g_other.x, g_other.z, g_cam_yaw, g_msg_t > 0 ? g_msg : "-"); return s; }
 
 
 /* ---------- progress: one small text line on the SD card ---------- */
@@ -409,6 +413,7 @@ static void use_slot(int k) { g_slot = k; if (g_save_base[0]) slot_path(k, g_sav
 static int g_wcrystal[WK_N];   /* each world's egg crystal found */
 static void enter_world(int wk, float x, float z, float yaw);
 static void save_progress(void) {
+    if (g_side) return;   /* multiplayer runs are not saved: the story slots stay as they are */
     if (!g_save_path[0]) return; FILE *f = fopen(g_save_path, "w"); if (!f) return;
     g_wcrystal[g_wk] = g_world.crystal_found;
     fprintf(f, "DB2 %d %d %d %d %d %.2f %.2f %.3f %d %d %d %d", g_name, g_diff, g_wk, g_kind, g_fk, g_dragon.x, g_dragon.z, g_dragon.yaw, g_wrescued[0], g_wrescued[1], g_wcrystal[0], g_wcrystal[1]);
@@ -475,6 +480,7 @@ static Mat4 dragon_matrix(const Dragon *d, float scale) {
     return m4_mul(m, m4_scale(scale, scale, scale)); }
 static void camera_update(float dt) {
     if (g_shake_t > 0) g_shake_t -= dt; if (g_growpulse_t > 0) g_growpulse_t -= dt;
+    if (g_side) { side_camera(dt); return; }
     const Dragon *d = &g_dragon; float L = dragon_length(d->stage);
     float k = 1 - expf(-dt * (d->mode == DM_AIR ? 2.2f : 3.5f));
     /* the camera turns to look where the dragon goes */
@@ -655,6 +661,7 @@ static void draw_food3d(Vec3 eye) {
         for (int i = 0; i < 12; i++) { float a = i * 6.2831853f / 12; float off = fabsf(fmodf(a - facing + 9.42478f, 6.2831853f) - 3.14159f);
             if (open > 0.6f && off < 0.6f) continue;   /* the door bars are gone */
             batch_cyl(v3(c.x + sinf(a) * R, cy, c.z + cosf(a) * R), v3(c.x + sinf(a) * R, cy + H, c.z + cosf(a) * R), 0.045f, 0.045f, 4, iron, iron, iron * 1.1f); } }  } }
+    if (g_side) side_draw_goal();
     if (g_boss.state != B_DOWN || g_boss.t < 1.0f) {   /* Ironhorn's core: pulses, flares bright when it is open to a hit */
       Vec3 c = boss_core(&g_boss); int vul = boss_vulnerable(&g_boss); float p = 0.5f + 0.5f * sinf(g_time * (vul ? 14 : 5));
       float r = vul ? 0.42f + 0.1f * p : 0.3f + 0.04f * p;
@@ -823,7 +830,7 @@ static void draw_scene(int drc) {
     if (g_shake_t > 0) { float a = g_shake_t * 0.6f; Vec3 o = v3(sinf(g_time * 71) * a, sinf(g_time * 83 + 1) * a, cosf(g_time * 67) * a); eye = v3(eye.x + o.x, eye.y + o.y, eye.z + o.z); at = v3(at.x + o.x * 0.5f, at.y + o.y * 0.5f, at.z + o.z * 0.5f); }
     float cr = g_dragon.mode == DM_AIR ? g_bank * (g_cam_mode == 0 ? 0.3f : 0.85f) : 0;   /* the camera leans into a banked turn with the dragon */
     Vec3 up = v3(-sinf(cr) * cosf(g_cam_yaw), cosf(cr), sinf(cr) * sinf(g_cam_yaw));
-    Mat4 proj = m4_perspective((g_cam_mode == 2 ? 1.25f : 1.05f) + 0.28f * g_dragon.dive, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
+    Mat4 proj = m4_perspective((g_side ? 0.85f : g_cam_mode == 2 ? 1.25f : 1.05f) + 0.28f * g_dragon.dive, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir();
     gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye);
     gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620);   /* fog fades into the sky picture's horizon */ gfx_shadow_use(0);
@@ -992,8 +999,6 @@ static void draw_hud(int drc) {
         batch_text(&g_b, lab, 1240 - text_width(lab, 22), 78, 22, 1, 0.8f, 0.8f, 1);
         for (int i = 0; i < (int)o->max_hearts; i++) { float full = clampf(o->hearts - i, 0, 1); float hx = 1240 - (o->max_hearts - i) * 30; ui_heart(hx + 12, 122, 30, full); }
         if (o->stage < ST_BEYONDER) { float k = clampf(o->growth / dragon_need(o->stage), 0, 1); ui_bar(1040, 144, 200, 10, k, 0.2f, 0.85f, 0.35f); } }
-    else if (team_size() > 1 && g_friend.on && g_time - g_gp_last < 20 && fmodf(g_time, 30.0f) < 4) {   /* invite a second player now and then */
-        const char *inv = "PLAYER 2: PRESS A ON A WII REMOTE TO JOIN"; batch_text(&g_b, inv, 1240 - text_width(inv, 12), 64, 12, 1, 1, 1, 0.75f); }
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
         if (dx * dx + dz * dz < 60 * 60) { ui_panel(440, 132, 400, 90, 0.9f, 0); text_cg(BOSS_NAME[g_wk], 150, 26, 1);
@@ -1003,7 +1008,7 @@ static void draw_hud(int drc) {
     ui_bar(42, 82, 356, 16, gf, 0.25f, 0.8f, 0.2f);
     { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", active_name(), dragon_stage_name(d->stage)); batch_text_g(&g_b, nm, 42, 112, 24, 1, 1, 1, 1, 1); }
     if (need < 1e8f) { char s[32]; snprintf(s, sizeof s, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, s, 414, 78, 20, 0.9f, 1, 0.8f, 0.9f); }
-    draw_speedlines(); draw_radar();
+    draw_speedlines(); if (g_side) side_hud(); else draw_radar();
     /* stamina while flying */
     if (d->mode == DM_AIR && d->stage >= ST_DRAGON) { ui_bar(42, 156, 196, 9, d->stamina, 0.35f, 0.65f, 1.0f); }
     /* prompts */
@@ -1197,6 +1202,27 @@ static void draw_title_hud(void) {
             batch_text(&g_b, i == 0 ? "GIRL" : "BOY", x + 180 - text_width(i == 0 ? "GIRL" : "BOY", 26) / 2, y + 116, 26, 0.85f, 1, 0.8f, 0.9f);
             batch_text(&g_b, "LEAFNADO + LEAF TAIL", x + 180 - text_width("LEAFNADO + LEAF TAIL", 18) / 2, y + 172, 18, 1, 0.95f, 0.85f, 0.75f); }
         text_c("LEFT / RIGHT : CHOOSE     A : START", 560, 22, 1, 0.95f, 0.85f, 0.85f); }
+    if (g_state == G_MODE) {
+        ui_shade(1); ui_embers(30, 0.8f); ui_panel(270, 80, 740, 560, 0.97f, 0); text_cg("HOW DO YOU WANT TO PLAY?", 126, 40, 1); ui_divider(640, 190, 520, 1);
+        static const char *MN[2] = {"STORY MODE", "MULTIPLAYER"};
+        static const char *MD[2] = {"THE BIG ADVENTURE: EXPLORE THE WORLDS, GROW UP AND FREE THE DRAGONS", "1 OR 2 PLAYERS, SIDE VIEW LEVELS: START AS BABY DRAGONS AND GROW UP TOGETHER"};
+        for (int k = 0; k < 2; k++) { float y = 222 + k * 170; int sel = k == g_mode_sel; ui_panel(340, y, 600, 150, 1, sel);
+            batch_text_g(&g_b, MN[k], 640 - text_width(MN[k], 34) / 2, y + 40, 34, 1, 1, 1, sel ? 1 : 0.7f, 1);
+            text_wrap_c(MD[k], y + 92, 15, 520, 1, 0.95f, 0.85f, 0.85f); }
+        text_c("UP / DOWN : CHOOSE    A : OK    B : BACK", 600, 20, 1, 0.95f, 0.85f, 0.85f); }
+    if (g_state == G_MPICK) {
+        ui_shade(1); ui_embers(30, 0.8f); ui_panel(90, 60, 1100, 600, 0.97f, 0); text_cg("MULTIPLAYER: PICK YOUR DRAGONS", 104, 38, 1); ui_divider(640, 160, 560, 1);
+        static const char *KD[K_N] = {"FOREST  -  LEAFNADO", "SKY  -  FIRE BREATH", "SNOW  -  FROST BREATH"};
+        for (int pl = 0; pl < 2; pl++) { float x = 150 + pl * 520, y = 190; int joined = pl == 0 || g_p2 >= 0; ui_panel(x, y, 460, 330, 1, joined && !g_ready[pl]);
+            char t[32]; snprintf(t, sizeof t, "PLAYER %d", pl + 1); batch_text_g(&g_b, t, x + 230 - text_width(t, 30) / 2, y + 30, 30, 1, 1, 1, 1, 1);
+            if (!joined) { const char *j1 = "PRESS A ON ANOTHER", *j2 = "CONTROLLER TO JOIN"; batch_text(&g_b, j1, x + 230 - text_width(j1, 22) / 2, y + 130, 22, 1, 0.95f, 0.85f, 0.6f + 0.4f * pulse); batch_text(&g_b, j2, x + 230 - text_width(j2, 22) / 2, y + 162, 22, 1, 0.95f, 0.85f, 0.6f + 0.4f * pulse);
+                batch_text(&g_b, "(OR PLAY ALONE)", x + 230 - text_width("(OR PLAY ALONE)", 16) / 2, y + 220, 16, 1, 0.95f, 0.85f, 0.6f); continue; }
+            const char *nm = kind_name(g_pick[pl]); float ns = 36; while (ns > 18 && text_width(nm, ns) > 400) ns -= 2;
+            batch_text_g(&g_b, nm, x + 230 - text_width(nm, ns) / 2, y + 110, ns, 1, 1, 1, 1, 1);
+            batch_text(&g_b, KD[g_pick[pl]], x + 230 - text_width(KD[g_pick[pl]], 18) / 2, y + 170, 18, 0.85f, 1, 0.8f, 0.9f);
+            if (!g_ready[pl]) { batch_text(&g_b, "<", x + 30, y + 112, 36, 1, 0.85f, 0.4f, pulse); batch_text(&g_b, ">", x + 410, y + 112, 36, 1, 0.85f, 0.4f, pulse); }
+            const char *rd = g_ready[pl] ? "READY!" : "A : READY"; batch_text_g(&g_b, rd, x + 230 - text_width(rd, 26) / 2, y + 250, 26, 1, 1, 1, g_ready[pl] ? 1 : 0.6f + 0.4f * pulse, 1); }
+        text_c("LEFT / RIGHT : CHOOSE    A : READY    B : BACK", 600, 20, 1, 0.95f, 0.85f, 0.85f); }
     if (g_state == G_SLOT) {
         ui_shade(1); ui_embers(30, 0.8f); ui_panel(200, 50, 880, 640, 0.97f, 0); text_cg("CHOOSE A SAVE", 100, 44, 1); ui_divider(640, 172, 520, 1);
         for (int k = 0; k < 3; k++) { const SlotInfo *si = &g_slots[k]; float y = 196 + k * 132; int sel = k == g_slot_sel;
@@ -1224,7 +1250,7 @@ static void draw_title_hud(void) {
 
 /* go to a world: make it, rebuild its meshes (waiting for the GPU first), set up its boss and cage, put the team at (x, z) */
 static void enter_world(int wk, float x, float z, float yaw) {
-    g_wk = wk; world_make_kind(&g_world, 2026 + wk * 101, wk); g_world.crystal_found = g_wcrystal[wk];
+    g_wk = wk; world_make_kind(&g_world, 2026 + wk * 101, wk); g_world.crystal_found = g_wcrystal[wk]; if (g_side) side_clear_lane();
     if (g_gfx_status == GFX_OK) {
         gfx_sync();
         Mesh **ms[] = {&m_ground, &m_ground_dirt, &m_ground_rock, &m_water, &m_bark, &m_leaves, &m_fern, &m_bushes, &m_rock, &m_tufts, &m_flowers, &m_clouds, &m_mountains, &m_apron, &m_cloudsea, &m_sky, &m_sun};
@@ -1267,29 +1293,32 @@ static void solid_body(Dragon *d) {
     if (g_boss.state != B_DOWN && g_boss.state != B_STUCK && g_boss.state != B_STUNNED && g_boss.state != B_HURT) { float bx = d->x - g_boss.x, bz = d->z - g_boss.z, R = r + (g_wk == WK_SKY ? 1.6f : 1.5f) * BOSS_SCALE, d2 = bx * bx + bz * bz;
         if (d2 < R * R && d->y < g_boss.y + (g_wk == WK_SKY ? 4.5f : 3.5f) * BOSS_SCALE) { float dd = sqrtf(d2) + 1e-4f; d->x = g_boss.x + bx / dd * R; d->z = g_boss.z + bz / dd * R; } } }
 /* ---------- Ironhorn, the cage and the rescued friend ---------- */
-static void hurt_dragon(float amount, const char *msg) {
-    if (g_dragon.evolve_t > 0) return;
-    g_dragon.hearts -= amount * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.7f, 0); platform_rumble(0.9f, 0.4f);
+static void hurt_dragon(Dragon *D, float amount, const char *msg) {
+    if (D->evolve_t > 0) return;
+    D->hearts -= amount * DMG[g_diff]; D->act_t = 0.77f; D->anim = DA_HIT; D->anim_t = 0; sfx_play(SFX_HIT, 0.7f, 0); platform_rumble(0.9f, 0.4f);
     snprintf(g_msg, sizeof g_msg, "%s", msg); g_msg_t = 3;
-    if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
+    if (D->hearts <= 0) { D->hearts = 1; dragon_respawn(D); snprintf(g_msg, sizeof g_msg, g_side ? "OUCH! BACK IN THE GAME: EAT TO GET HEARTS BACK" : "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
 static void boss_frame(float dt) {
-    const Dragon *d = &g_dragon; float L = dragon_length(d->stage);
+    Dragon *d = &g_dragon;   /* multiplayer: the boss goes for whichever player is nearer */
+    if (g_side && g_side_n > 1 && g_other.hearts > 0 && fabsf(g_other.x - g_boss.x) < fabsf(g_dragon.x - g_boss.x)) d = &g_other;
+    float L = dragon_length(d->stage);
     int whip = d->atk_r > 0; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
     int bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar);
     if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_GUARD[g_wk]); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
-    if (bev & 2) { hurt_dragon(0.75f, g_wk == WK_SKY ? "STORMTALON HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : "IRONHORN RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES");
-        g_dragon.x += g_boss.cx * 3; g_dragon.z += g_boss.cz * 3; }
+    if (bev & 2) { hurt_dragon(d, 0.75f, g_wk == WK_SKY ? "STORMTALON HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : (g_side ? "IRONHORN RAMMED YOU! JUMP (A) OVER IT WHEN IT CHARGES" : "IRONHORN RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES"));
+        d->x += g_boss.cx * 3; d->z += g_boss.cz * 3; }
     if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_STUCK[g_wk]); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
     if (bev & 32) { snprintf(g_msg, sizeof g_msg, "IT IS DIZZY! QUICK, HIT IT: TAIL (B) OR CLAW"); g_msg_t = 3; }
     if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
     if (bev & 8) { snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", BOSS_NAME[g_wk]); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
-    if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
+    if (g_side && g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) { g_rescued = 1; sfx_play(SFX_CHIRP, 1.0f, 0); }   /* multiplayer: freeing it ends the level */
+    else if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
         int c = CAPTIVE[g_wk]; ensure_kind(c, ST_BEYONDER); g_rescued = 1; g_has[c] = 1; g_fk = c; g_friend.on = 1; g_friend.x = g_world.cage_x; g_friend.y = g_world.arena_y + 1.2f; g_friend.z = g_world.cage_z; g_friend.yaw = 0;
         dragon_init(&g_other, &g_world, g_friend.x, g_friend.z);
         snprintf(g_msg, sizeof g_msg, "%s IS FREE AND JOINS YOUR TEAM! PRESS + TO SWAP DRAGONS", kind_name(c)); g_msg_t = 8; g_tale_i = 0; g_tale_t = 0; g_tale_w = g_wk; sfx_play(SFX_CHIRP, 1.0f, 0); save_progress(); }
     /* the friend: keeps to the player's side, a little behind; flies when the player flies (unless player 2 is steering it) */
-    if (g_friend.on && g_p2 < 0) {
+    if (g_friend.on && g_p2 < 0 && !g_side) {
         float fx = sinf(d->yaw), fz = cosf(d->yaw); float back = 2.5f + L, side = 1.8f + 0.5f * L;
         float tx = d->x - fx * back + fz * side, tz = d->z - fz * back - fx * side; float gy = world_height(&g_world, tx, tz);
         int air = d->mode == DM_AIR || g_friend.y > world_height(&g_world, g_friend.x, g_friend.z) + 0.6f || (g_world.kind == WK_SKY && (world_is_void(&g_world, g_friend.x, g_friend.z) || world_is_void(&g_world, tx, tz)));
@@ -1308,35 +1337,49 @@ static void boss_frame(float dt) {
         g_other.x = g_friend.x; g_other.z = g_friend.z; g_other.y = g_friend.y; g_other.yaw = g_friend.yaw; g_other.mode = air ? DM_AIR : DM_GROUND; } }
 
 /* co-op: join with A on a Wii controller while player 1 is on the GamePad; + on that controller (or putting it down for a while) leaves */
+/* multiplayer: player 2 steers the second dragon (story mode is one player, with the friend following) */
 static void coop_frame(const Pad *pads, int npads, float dt) {
-    if (team_size() < 2 || !g_friend.on) return;
-    if (g_p2 < 0) {
-        if (g_time - g_gp_last > 20) return;   /* player 1 is on a Wii controller, so that controller is not a second player */
-        for (int i = 1; i < npads && i < KK_PADS; i++) if (i != g_p1pad && pads[i].source && pads[i].a && !g_prev[i].a) {
-            g_p2 = i; g_p2_gone = 0; g_swap_open = 0; g_other.speed = 0; g_other.act_t = 0; g_other.anim = DA_IDLE;
-            float gy = world_height(&g_world, g_other.x, g_other.z); if (g_other.y <= gy + 0.3f) { g_other.y = gy; g_other.mode = DM_GROUND; } else { g_other.mode = DM_AIR; g_other.vy = 0; }
-            snprintf(g_msg, sizeof g_msg, "PLAYER 2 JOINED AS %s! PRESS + ON THAT CONTROLLER TO LEAVE", kind_name(g_fk)); g_msg_t = 6;
-            sfx_play(SFX_CHIRP, 0.9f, 0); return; }
-        return; }
+    if (!g_side || g_p2 < 0 || g_p2 >= npads) return;
     const Pad *p = &pads[g_p2], *q = &g_prev[g_p2];
-    if (!p->source) { g_p2_gone += dt; if (g_p2_gone > 3) { g_p2 = -1; snprintf(g_msg, sizeof g_msg, "PLAYER 2 LEFT. YOUR FRIEND FOLLOWS YOU AGAIN"); g_msg_t = 4; } return; }
+    if (!p->source) { g_p2_gone += dt; if (g_p2_gone > 3) { g_p2 = -1; g_side_n = 1; g_friend.on = 0; snprintf(g_msg, sizeof g_msg, "PLAYER 2 LEFT: KEEP GOING, PLAYER 1!"); g_msg_t = 4; } return; }
     g_p2_gone = 0;
-    if (p->plus && !q->plus) { g_p2 = -1; snprintf(g_msg, sizeof g_msg, "PLAYER 2 LEFT. YOUR FRIEND FOLLOWS YOU AGAIN"); g_msg_t = 4; sfx_play(SFX_MENU_BACK, 0.6f, 0); return; }
-    DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl;
+    DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl; in.side = 1;
     int ev = dragon_update(&g_other, &g_world, &in, g_cam_yaw, dt); solid_body(&g_other);
     kind_quirks(&g_other, g_fk, &in, dt, &ev);   /* player 2 plays the friend */
     { static float p2x, p2z; static int init; if (!init) { init = 1; p2x = g_dragon.x; p2z = g_dragon.z; } if (sky_fall(&g_other, &p2x, &p2z)) { snprintf(g_msg, sizeof g_msg, "PLAYER 2: LOST IN THE CLOUDS!"); g_msg_t = 3; } }
-    float dx = g_other.x - g_dragon.x, dz = g_other.z - g_dragon.z;
-    if (dx * dx + dz * dz > 55 * 55) {   /* too far from player 1: pop back beside them */
+    /* (multiplayer keeps the two together in side_frame) */
+    if (0) {
         g_other.x = g_dragon.x - sinf(g_dragon.yaw) * 4 + cosf(g_dragon.yaw) * 3; g_other.z = g_dragon.z - cosf(g_dragon.yaw) * 4 - sinf(g_dragon.yaw) * 3;
         g_other.y = world_height(&g_world, g_other.x, g_other.z); g_other.mode = DM_GROUND; g_other.vy = 0;
         snprintf(g_msg, sizeof g_msg, "PLAYER 2: STAY CLOSE TO YOUR FRIEND!"); g_msg_t = 3; }
     if (ev & 1) sfx_play(SFX_MUNCH, 0.5f, 0.4f);
-    if (ev & 2) { snprintf(g_msg, sizeof g_msg, "PLAYER 2 GREW INTO A %s!", dragon_stage_name(g_other.stage)); g_msg_t = 5; sfx_play(SFX_GROW, 0.8f, 0); save_progress(); }
+    if (ev & 2) { snprintf(g_msg, sizeof g_msg, "PLAYER 2 GREW INTO A %s!", dragon_stage_name(g_other.stage)); g_msg_t = 5; sfx_play(SFX_GROW, 0.8f, 0); }
     if (ev & 4) sfx_play(SFX_FLAP, 0.5f, 0.4f);
     if (ev & 16) sfx_play(g_other.stage == ST_DRAGONET ? SFX_CHIRP : SFX_ROAR, 0.8f, 0.4f);
     /* the friend drawing follows player 2's dragon */
     g_friend.x = g_other.x; g_friend.y = g_other.y; g_friend.z = g_other.z; g_friend.yaw = g_other.yaw; g_friend.anim = g_other.anim; g_friend.anim_t = g_other.anim_t; g_friend.mode = g_other.mode == DM_AIR; g_friend.speed = g_other.speed; }
+
+#include "side.inc"
+
+/* Kaine's robots against one dragon: their moves this step, and any attack the dragon is doing (claw, tail, pounce, talons, barrel roll, spark chirp) */
+static void robots_vs(Dragon *D, float dt) {
+    { /* whatever attack the dragon is doing this step (claw, tail, pounce, talons, barrel roll, spark chirp) hits anything in its reach */
+      Attack atk = {D->atk_x, D->atk_y, D->atk_z, D->atk_r}; int safe = D->invuln_t > 0 || D->slam;
+      int roar = D->anim == DA_ROAR && D->act_t > 1.0f;
+      int dev = world_drones(&g_world, dt, D->x, D->y + 0.4f * dragon_length(D->stage), D->z, 0.8f * dragon_length(D->stage) + 1.0f, atk, roar);
+      if ((dev & 1) && D->evolve_t <= 0 && !safe) { D->hearts -= 0.5f * DMG[g_diff]; D->act_t = 0.77f; D->anim = DA_HIT; D->anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, D->stage >= ST_DRAGON ? "A FEATHER DRONE! WHEN ITS EYE FLASHES RED IT DIVES: ROLL (B) OR TALONS (X)" : "A FEATHER DRONE! WHEN ITS EYE FLASHES RED IT DIVES: TAIL (B), OR HOP AND POUNCE (A THEN B)"); g_msg_t = 4;
+          if (D->hearts <= 0) { D->hearts = 1; dragon_respawn(D); snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
+      if (dev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); D->growth += 8; hit_flash(); snprintf(g_msg, sizeof g_msg, "DRONE DOWN! +8"); g_msg_t = 2; }
+      int hev = world_hounds(&g_world, dt, D->x, D->y, D->z, 0.7f * dragon_length(D->stage) + 0.9f, atk, roar, D->mode == DM_AIR);
+      if ((hev & 1) && D->evolve_t <= 0 && !safe) { D->hearts -= 0.5f * DMG[g_diff]; D->act_t = 0.77f; D->anim = DA_HIT; D->anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A SHOCK HOUND! WHEN IT CROUCHES AND FLASHES, HOP ASIDE (A), THEN CLAW (X) OR TAIL (B)"); g_msg_t = 4;
+          if (D->hearts <= 0) { D->hearts = 1; dragon_respawn(D); snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
+      if (hev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); D->growth += 8; hit_flash(); snprintf(g_msg, sizeof g_msg, "HOUND DOWN! +8"); g_msg_t = 2; }
+      { float L = dragon_length(D->stage), stolen, rec; int pw = D == &g_dragon && g_power_t > 0.3f;
+        Attack ta = atk; if (pw) { ta.x = D->x; ta.y = D->y; ta.z = D->z; ta.r = fmaxf(ta.r, 8 + 2 * L); }
+        int tev = world_thieves(&g_world, dt, D->x, D->y, D->z, 0.7f * L + 0.9f, ta, D->growth, &stolen, &rec);
+        if (tev & 1) { D->growth = fmaxf(0, D->growth - stolen); sfx_play(SFX_HIT, 0.5f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, "A SCALE THIEF STOLE YOUR FOOD! CATCH IT WITH YOUR TAIL (B)"); g_msg_t = 4; }
+        if (tev & 2) { D->growth += rec + 3; sfx_play(SFX_PICKUP, 0.7f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, rec > 0 ? "CAUGHT! YOU GOT YOUR FOOD BACK" : "SCALE THIEF CAUGHT!"); g_msg_t = 3; } } }
+}
 
 void game_frame(const Pad *pads, int npads, float dt) {
     g_time += dt; gfx_set_time(g_time);
@@ -1350,29 +1393,59 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (dt < 0.08f) dt = 0.08f;   /* the cloud emulator is slow: let game time run ahead so the clip covers more */
     tour_input(&tourpad, g_time); pads = &tourpad; npads = 1;
 #endif
+#ifndef __wiiu__
+    static Pad sidepads[2]; if (getenv("DB_SIDETEST")) {   /* PC look check: two scripted players in the multiplayer levels */
+        memset(sidepads, 0, sizeof sidepads); sidepads[0].source = 1; sidepads[1].source = 4;
+        if (g_state != G_PLAY) { if (g_time > 0.5f) { g_p1pad = 0; g_p2 = 1; g_pick[0] = 0; g_pick[1] = 1; side_new_game(); { const char *lv = getenv("DB_SIDETEST"); int l = atoi(lv); if (l > 0 && l < SLV_N) side_start_level(l); } } }
+        else for (int k = 0; k < 2; k++) { Pad *sp = &sidepads[k]; sp->sx = 1; sp->zr = 1; float ph = g_time + k * 0.7f;
+            sp->a = fmodf(ph, 2.6f) < (g_dragon.stage >= ST_DRAGON ? 1.2f : 0.25f); sp->x = fmodf(ph, 3.1f) < 0.05f; sp->b = fmodf(ph, 5.3f) < 0.05f;
+            if (getenv("DB_SIDEDIVE") && g_dragon.stage >= ST_DRAGON && fmodf(ph, 6.0f) > 4.2f) { sp->a = 0; sp->sy = -1; } }
+        pads = sidepads; npads = 2; }
+#endif
     const Pad *p = &pads[0]; const Pad *q = &g_prev[0];
     if (pads[0].source && (fabsf(pads[0].sx) > 0.2f || fabsf(pads[0].sy) > 0.2f || pads[0].a || pads[0].b || pads[0].x || pads[0].y || pads[0].zr)) g_gp_last = g_time;
     {   /* player 1 plays on whichever controller was used last: the GamePad / touch screen, or a Bluetooth / Pro controller (every button counts) */
         int p1 = g_p1pad;
+        if ((g_side && g_p2 >= 0) || g_state == G_MPICK) { if (p1 < npads && pads[p1].source) { p = &pads[p1]; q = &g_prev[p1]; } goto p1_locked; }   /* two players: each keeps the controller they picked */
 #define PAD_BUSY(P) ((P).source && (fabsf((P).sx) > 0.2f || fabsf((P).sy) > 0.2f || fabsf((P).rx) > 0.2f || fabsf((P).ry) > 0.2f || (P).a || (P).b || (P).x || (P).y || (P).zl || (P).zr || (P).plus || (P).up || (P).down || (P).left || (P).right))
         if (PAD_BUSY(pads[0])) p1 = 0;
         else for (int i = 1; i < npads && i < KK_PADS; i++) if (i != g_p2 && PAD_BUSY(pads[i]) && (p1 == 0 || !PAD_BUSY(pads[p1]))) { p1 = i; break; }
 #undef PAD_BUSY
         if (p1 >= npads || p1 == g_p2 || !pads[p1].source) p1 = 0;
-        g_p1pad = p1; if (p1) { p = &pads[p1]; q = &g_prev[p1]; } }
-    DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl;
+        g_p1pad = p1; if (p1) { p = &pads[p1]; q = &g_prev[p1]; }
+      p1_locked:; }
+    DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl; in.side = g_side;
     g_state_t += dt;
     if (g_state != G_PLAY) {
         int upk = (p->up && !q->up) || (p->sy > 0.6f && q->sy <= 0.6f), downk = (p->down && !q->down) || (p->sy < -0.6f && q->sy >= -0.6f);
-        if (g_state == G_TITLE && in.a_press && g_state_t > 0.5f) { scan_slots(); g_state = G_SLOT; g_state_t = 0; g_slot_erase = -1; sfx_play(SFX_MENU_OK, 0.5f, 0); }
+        if (g_state == G_TITLE && in.a_press && g_state_t > 0.5f) { g_state = G_MODE; g_state_t = 0; g_side = 0; g_p2 = -1; sfx_play(SFX_MENU_OK, 0.5f, 0); }
+        else if (g_state == G_MODE) {   /* story or multiplayer */
+            if (upk || downk) { g_mode_sel ^= 1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
+            if (in.b_press) { g_state = G_TITLE; g_state_t = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
+            else if (in.a_press && g_state_t > 0.3f) { sfx_play(SFX_MENU_OK, 0.5f, 0); g_state_t = 0;
+                if (g_mode_sel == 0) { scan_slots(); g_state = G_SLOT; g_slot_erase = -1; }
+                else { g_state = G_MPICK; g_p2 = -1; g_ready[0] = g_ready[1] = 0; g_pick[0] = 0; g_pick[1] = 1; } } }
+        else if (g_state == G_MPICK) {   /* each player picks a dragon; player 2 joins with A on any other controller */
+            int lr = ((p->right && !q->right) || (p->sx > 0.6f && q->sx <= 0.6f)) ? 1 : (((p->left && !q->left) || (p->sx < -0.6f && q->sx >= -0.6f)) ? -1 : 0);
+            if (lr && !g_ready[0]) { g_pick[0] = (g_pick[0] + lr + K_N) % K_N; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
+            if (in.b_press) { if (g_ready[0]) g_ready[0] = 0; else { g_state = G_MODE; g_state_t = 0; g_p2 = -1; } sfx_play(SFX_MENU_BACK, 0.5f, 0); }
+            else if (in.a_press && g_state_t > 0.3f) { g_ready[0] = 1; sfx_play(SFX_MENU_OK, 0.5f, 0); }
+            for (int i = 0; i < npads && i < KK_PADS; i++) { if (i == g_p1pad || !pads[i].source) continue; const Pad *pp = &pads[i], *pq = &g_prev[i];
+                if (g_p2 < 0) { if (pp->a && !pq->a) { g_p2 = i; g_ready[1] = 0; g_pick[1] = (g_pick[0] + 1) % K_N; sfx_play(SFX_CHIRP, 0.8f, 0); } continue; }
+                if (i != g_p2) continue;
+                int l2 = ((pp->right && !pq->right) || (pp->sx > 0.6f && pq->sx <= 0.6f)) ? 1 : (((pp->left && !pq->left) || (pp->sx < -0.6f && pq->sx >= -0.6f)) ? -1 : 0);
+                if (l2 && !g_ready[1]) { g_pick[1] = (g_pick[1] + l2 + K_N) % K_N; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
+                if (pp->a && !pq->a) { g_ready[1] = 1; sfx_play(SFX_MENU_OK, 0.5f, 0); }
+                if (pp->b && !pq->b) { if (g_ready[1]) g_ready[1] = 0; else g_p2 = -1; sfx_play(SFX_MENU_BACK, 0.5f, 0); } }
+            if (g_ready[0] && (g_p2 < 0 || g_ready[1]) && g_state == G_MPICK) side_new_game(); }
         else if (g_state == G_SLOT) {
             if (upk) { g_slot_sel = (g_slot_sel + 2) % 3; g_slot_erase = -1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
             if (downk) { g_slot_sel = (g_slot_sel + 1) % 3; g_slot_erase = -1; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
-            if (in.b_press) { g_state = G_TITLE; g_state_t = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
+            if (in.b_press) { g_state = G_MODE; g_state_t = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
             else if (in.x_press && g_slots[g_slot_sel].used) {   /* erase: X twice */
                 if (g_slot_erase == g_slot_sel) { char path[300]; slot_path(g_slot_sel, path, sizeof path); remove(path); scan_slots(); g_slot_erase = -1; sfx_play(SFX_CRUMBLE, 0.6f, 0); }
                 else { g_slot_erase = g_slot_sel; sfx_play(SFX_MENU_MOVE, 0.5f, 0); } }
-            else if (in.a_press && g_state_t > 0.3f) { use_slot(g_slot_sel); sfx_play(SFX_MENU_OK, 0.5f, 0); g_state_t = 0;
+            else if (in.a_press && g_state_t > 0.3f) { g_side = 0; g_p2 = -1; use_slot(g_slot_sel); sfx_play(SFX_MENU_OK, 0.5f, 0); g_state_t = 0;
                 if (g_slots[g_slot_sel].used && load_progress()) { g_state = G_PLAY; g_title_t = 4.0f; if (!g_rescued) g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff];
                     snprintf(g_msg, sizeof g_msg, "WELCOME BACK, %s!", active_name()); g_msg_t = 4; }
                 else { g_state = G_DIFF; g_diff = 1; } } }
@@ -1399,7 +1472,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         gfx_view_begin(1, 0.08f, 0.14f, 0.08f); draw_title_hud(); gfx_view_end(1);
         gfx_frame_end(); return; }
     if (g_tale_i >= 0) {}   /* + waits until the storyteller is done */
-    else if (p->plus && !q->plus && g_p2 >= 0) { snprintf(g_msg, sizeof g_msg, "TWO PLAYERS: EACH OF YOU HAS A DRAGON. PLAYER 2 PRESSES + TO LEAVE"); g_msg_t = 3; }
+    else if (p->plus && !q->plus && g_side) { snprintf(g_msg, sizeof g_msg, "%s", SLV[g_lv].story); g_msg_t = 6; }
     else if (p->plus && !q->plus && team_size() > 1) { g_swap_open ^= 1; g_swap_sel = g_kind; sfx_play(g_swap_open ? SFX_MENU_OK : SFX_MENU_BACK, 0.6f, 0); }
     else if (p->plus && !q->plus) { snprintf(g_msg, sizeof g_msg, "RESCUE A DRAGON FRIEND FIRST TO SWAP"); g_msg_t = 3; }
     if (g_tale_i >= 0) { g_tale_t += dt; if ((in.a_press && g_tale_t > 0.6f) || g_tale_t > 14) { g_tale_t = 0; sfx_play(SFX_MENU_MOVE, 0.5f, 0); if (++g_tale_i >= 3) { g_tale_i = -1; g_msg_t = 6; } } goto paused; }
@@ -1418,7 +1491,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
                 else snprintf(g_msg, sizeof g_msg, "SHARED FOOD WITH YOUR FRIEND");
                 g_msg_t = 3; save_progress(); } }
         goto paused; }
-    if (p->up && !q->up) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
+    if (p->up && !q->up && !g_side) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
     g_look_x = p->rx;
     float yaw_before = g_dragon.yaw;
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt); solid_body(&g_dragon);
@@ -1432,7 +1505,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         if (hit) { g_dragon.growth += 5 * hit; sfx_play(SFX_BLOCK, 0.6f, 0); snprintf(g_msg, sizeof g_msg, g_power_kind == 2 ? "FROZEN SOLID!" : (g_power_kind == 1 ? "TOASTED!" : "BLOWN AWAY!")); g_msg_t = 2; } }
     if (sky_fall(&g_dragon, &g_safe_x, &g_safe_z)) { g_dragon.hearts -= 0.5f * DMG[g_diff]; if (g_dragon.hearts < 1) g_dragon.hearts = 1; snprintf(g_msg, sizeof g_msg, "LOST IN THE CLOUDS! BACK TO SOLID GROUND"); g_msg_t = 3; sfx_play(SFX_SPLASH, 0.6f, 0); platform_rumble(0.6f, 0.3f); }
     { float ccx, ccz; if (g_travel_cd > 0) g_travel_cd -= dt;
-      if (g_travel_t < 0 && g_travel_cd <= 0 && column_at(&ccx, &ccz)) { float dx = g_dragon.x - ccx, dz = g_dragon.z - ccz; float gy = world_height(&g_world, ccx, ccz);
+      if (g_travel_t < 0 && g_travel_cd <= 0 && !g_side && column_at(&ccx, &ccz)) { float dx = g_dragon.x - ccx, dz = g_dragon.z - ccz; float gy = world_height(&g_world, ccx, ccz);
           if (dx * dx + dz * dz < 3.5f * 3.5f && g_dragon.y < gy + 30) { g_travel_t = 0; g_travel_to = g_wk == WK_FOREST ? WK_SKY : WK_FOREST; sfx_play(SFX_FLAP, 1.0f, 0); sfx_play(SFX_GROW, 0.7f, 0); platform_rumble(0.5f, 1.0f);
               snprintf(g_msg, sizeof g_msg, g_travel_to == WK_SKY ? "THE WIND CARRIES YOU UP TO THE SKY KINGDOM..." : "THE WIND CARRIES YOU DOWN TO EVERLEAF WILDS..."); g_msg_t = 4; } } }
     if (g_kaine_t >= 0) { float before = g_kaine_t; g_kaine_t += dt;
@@ -1453,24 +1526,11 @@ void game_frame(const Pad *pads, int npads, float dt) {
     g_tour_a = in.a; g_tour_presses += in.a_press; g_tour_takeoffs += (ev & 4) != 0;
 #endif
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
-    { /* whatever attack the dragon is doing this step (claw, tail, pounce, talons, barrel roll, spark chirp) hits anything in its reach */
-      Attack atk = {g_dragon.atk_x, g_dragon.atk_y, g_dragon.atk_z, g_dragon.atk_r}; int safe = g_dragon.invuln_t > 0 || g_dragon.slam;
-      int roar = g_dragon.anim == DA_ROAR && g_dragon.act_t > 1.0f;
-      int dev = world_drones(&g_world, dt, g_dragon.x, g_dragon.y + 0.4f * dragon_length(g_dragon.stage), g_dragon.z, 0.8f * dragon_length(g_dragon.stage) + 1.0f, atk, roar);
-      if ((dev & 1) && g_dragon.evolve_t <= 0 && !safe) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, g_dragon.stage >= ST_DRAGON ? "A FEATHER DRONE! WHEN ITS EYE FLASHES RED IT DIVES: ROLL (B) OR TALONS (X)" : "A FEATHER DRONE! WHEN ITS EYE FLASHES RED IT DIVES: TAIL (B), OR HOP AND POUNCE (A THEN B)"); g_msg_t = 4;
-          if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
-      if (dev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 8; hit_flash(); snprintf(g_msg, sizeof g_msg, "DRONE DOWN! +8"); g_msg_t = 2; }
-      int hev = world_hounds(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * dragon_length(g_dragon.stage) + 0.9f, atk, roar, g_dragon.mode == DM_AIR);
-      if ((hev & 1) && g_dragon.evolve_t <= 0 && !safe) { g_dragon.hearts -= 0.5f * DMG[g_diff]; g_dragon.act_t = 0.77f; g_dragon.anim = DA_HIT; g_dragon.anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, "A SHOCK HOUND! WHEN IT CROUCHES AND FLASHES, HOP ASIDE (A), THEN CLAW (X) OR TAIL (B)"); g_msg_t = 4;
-          if (g_dragon.hearts <= 0) { g_dragon.hearts = 1; g_dragon.x = 0; g_dragon.z = 0; g_dragon.y = world_height(&g_world, 0, 0); g_dragon.mode = DM_GROUND; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
-      if (hev & 2) { sfx_play(SFX_BLOCK, 0.6f, 0); platform_rumble(0.5f, 0.2f); g_dragon.growth += 8; hit_flash(); snprintf(g_msg, sizeof g_msg, "HOUND DOWN! +8"); g_msg_t = 2; }
-      { float L = dragon_length(g_dragon.stage), stolen, rec; int pw = g_power_t > 0.3f;
-        Attack ta = atk; if (pw) { ta.x = g_dragon.x; ta.y = g_dragon.y; ta.z = g_dragon.z; ta.r = fmaxf(ta.r, 8 + 2 * L); }
-        int tev = world_thieves(&g_world, dt, g_dragon.x, g_dragon.y, g_dragon.z, 0.7f * L + 0.9f, ta, g_dragon.growth, &stolen, &rec);
-        if (tev & 1) { g_dragon.growth = fmaxf(0, g_dragon.growth - stolen); sfx_play(SFX_HIT, 0.5f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, "A SCALE THIEF STOLE YOUR FOOD! CATCH IT WITH YOUR TAIL (B)"); g_msg_t = 4; }
-        if (tev & 2) { g_dragon.growth += rec + 3; sfx_play(SFX_PICKUP, 0.7f, 0); platform_rumble(0.4f, 0.2f); snprintf(g_msg, sizeof g_msg, rec > 0 ? "CAUGHT! YOU GOT YOUR FOOD BACK" : "SCALE THIEF CAUGHT!"); g_msg_t = 3; } } }
+    if (g_side && g_side_n > 1) { robots_vs(&g_dragon, dt * 0.5f); robots_vs(&g_other, dt * 0.5f); }   /* two players: the robots react to both */
+    else robots_vs(&g_dragon, dt);
     boss_frame(dt);
     coop_frame(pads, npads, dt);
+    if (g_side) side_frame(dt);
     if (ev & 1) { platform_rumble(0.3f, 0.1f); sfx_play(SFX_MUNCH, 0.6f, 0); sfx_play(SFX_PICKUP, 0.3f, 0); }
     if (ev & 2) { snprintf(g_msg, sizeof g_msg, g_dragon.stage == ST_DRAGON ? "YOU GREW INTO A DRAGON! HOLD A TO FLY" : "BEYONDER! THE SKY IS YOURS"); g_msg_t = 6; platform_rumble(1, 0.8f); }
     if (ev & 16) { platform_rumble(0.6f, 0.4f); sfx_play(g_dragon.stage == ST_DRAGONET ? SFX_CHIRP : SFX_ROAR, 0.8f, 0); }
@@ -1504,7 +1564,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         else if (q < last_q) last_q = q; }
     if (!g_world.crystal_found) { float dx = g_dragon.x - g_world.crystal_x, dz = g_dragon.z - g_world.crystal_z, dy = g_dragon.y - g_world.crystal_y; if (dx * dx + dz * dz + dy * dy < (1.2f + 0.5f * dragon_length(g_dragon.stage)) * (1.2f + 0.5f * dragon_length(g_dragon.stage))) { g_world.crystal_found = 1; snprintf(g_msg, sizeof g_msg, "SECRET EGG CRYSTAL FOUND! 1 OF 10"); g_msg_t = 6; sfx_play(SFX_UNLOCK, 0.8f, 0); platform_rumble(0.8f, 0.5f); save_progress(); } }
     g_save_t += dt; if (g_save_t > 20) { g_save_t = 0; save_progress(); }
-    if (!g_rescued && g_dragon.stage >= ST_DRAGON && !g_boss.woke) {   /* point the way to the cage */
+    if (!g_rescued && g_dragon.stage >= ST_DRAGON && !g_boss.woke && !g_side) {   /* point the way to the cage */
         static float hint_t = 4; hint_t -= dt;
         if (hint_t <= 0 && g_msg_t <= 0) { hint_t = 25; snprintf(g_msg, sizeof g_msg, "A BABY DRAGON IS CRYING FOR HELP! FOLLOW THE BLUE ARROW ON YOUR TRACKER"); g_msg_t = 6; } }
     if (!g_rescued) { float dx = g_world.cage_x - g_dragon.x, dz = g_world.cage_z - g_dragon.z; static float chirp_t;
