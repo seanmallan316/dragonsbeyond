@@ -29,6 +29,12 @@ int anim3d_load(Anim3D *a, const char *name) {
     return a->ok; }
 static float g_arc, g_side, g_up, g_phase;
 void anim3d_set_bend(float arc, float side, float up, float phase) { g_arc = arc; g_side = side; g_up = up; g_phase = phase; }
+int anim3d_skin(Anim3D *a, const Anim3D *geom, const char *texname) {
+    memset(a, 0, sizeof *a); if (!geom || !geom->ok) return 0;
+    char path[160]; snprintf(path, sizeof path, "models/%s_anim.png", texname); int w, h; Texture *t = asset_texture_file(path, 1, &w, &h); if (!t) { gfx_log("skin %s: no texture", texname); return 0; }
+    *a = *geom; a->tex = t; a->filled = 0; a->last_c = -1;
+    a->vb = malloc(sizeof(Vertex) * 3 * a->nt); a->mesh = gfx_mesh_dynamic((uint32_t)(3 * a->nt));   /* its own posed copy, so two dragons in different poses never share one */
+    a->ok = a->vb && a->mesh; return a->ok; }
 int anim3d_clip(const Anim3D *a, const char *name) { for (int c = 0; c < a->nc; c++) if (!strcmp(a->clip[c].name, name)) return c; return -1; }
 void anim3d_draw(Anim3D *a, int c, float t, const Mat4 *base, float r, float g, float b, float alpha) {
     if (!a->ok || c < 0 || c >= a->nc) return; const A3Clip *cl = &a->clip[c];

@@ -1,0 +1,36 @@
+{
+ "id": "01a1d4da-f55f-77bc-b256-ebe9b88b516d",
+ "type": "retexture",
+ "name": "",
+ "art_style": "realistic",
+ "object_prompt": "",
+ "style_prompt": "",
+ "negative_prompt": "",
+ "texture_prompt": "",
+ "texture_image_url": "",
+ "text_style_prompt": "desert sand dragon: warm golden yellow scales with light sandy yellow shading, pale cream belly plates, darker amber stripes on the back and tail like a scorpion, tail tip dark amber like a scorpion stinger, wing membranes light sandy yellow with tan veins, white horns, amber eyes, dragon stage, high quality stylized 3D game texture",
+ "image_style_url": "",
+ "status": "SUCCEEDED",
+ "created_at": 1794572485527,
+ "progress": 100,
+ "started_at": 1794572485536,
+ "finished_at": 1794572512673,
+ "expires_at": 1794831712673,
+ "task_error": null,
+ "model_url": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/model.glb?Expires=1794831712&Signature=QBNO9AzLkeyNX9n1iXXRXar8TzsmoEsL4ejZv6Y9m7~egSuluw9uK5vI-b-o1XDY1HJFGJO8SMqseUdZkYtyzCCbdNX5kPtdH8HE8F3r3I8N8-nbJvLQIA~kkM8oM81hHjixNEvNSljVLIAO7zPjY42VqsXa1XcsXOLDVP3dh3zQqQ6oP6hAoPbcGiAGpG4diZ3b0iBuSFO8ehNbMTMTOvkBAXsUV7U6-VK4s7FprDEA-d4WwEURJHl9AxHFBcS-hoipddmWd5KbtAnrbHXCd1jcB3IKnQMWJzalIbc50IZ4NwqJzr5unFokvv5TjTKMTU-RPWKJQobMM1j~R9-x4g__&Key-Pair-Id=K1VGYTHIYLM9UM",
+ "model_urls": {
+  "glb": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/model.glb?Expires=1794831712&Signature=QBNO9AzLkeyNX9n1iXXRXar8TzsmoEsL4ejZv6Y9m7~egSuluw9uK5vI-b-o1XDY1HJFGJO8SMqseUdZkYtyzCCbdNX5kPtdH8HE8F3r3I8N8-nbJvLQIA~kkM8oM81hHjixNEvNSljVLIAO7zPjY42VqsXa1XcsXOLDVP3dh3zQqQ6oP6hAoPbcGiAGpG4diZ3b0iBuSFO8ehNbMTMTOvkBAXsUV7U6-VK4s7FprDEA-d4WwEURJHl9AxHFBcS-hoipddmWd5KbtAnrbHXCd1jcB3IKnQMWJzalIbc50IZ4NwqJzr5unFokvv5TjTKMTU-RPWKJQobMM1j~R9-x4g__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "fbx": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/model.fbx?Expires=1794831712&Signature=BM~r0WVCey2HKlWJ9~w7vxxkilrsyB-SAYqORMBkjzLJefDSV5qPP21qAwp~eFLK1Bc~gwIMTFUByEhNwYr2dqQXwLogtm7zekpnOhUrZ2k8BCJ4DXD8XVpyblYWUNatIxF9B4cd30UfsxKeHjzJ-~2rRoXiIGO~exMYIFHrRaYBHsRASeb7-5UDhx3Jqdfh94jwlesv22XVxrAvqUimAipIOCp1baKAY7WHmOLqBnJIcQHCKNlaYXRRZeK4H3gO6v80YpYaZK2toLTevLOp-l~ZwrOG1YPj-ULcXwQpKdPsXr-1H8f0y591VN~9F2cB65yZ3H1e14~fjCVAZPRADA__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "usdz": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/model.usdz?Expires=1794831712&Signature=H1P5OKh6gKGDcARs2RGN9LtKyEv3Y2GNIUSbcTG5ObvqoWz1upe9cVChikLEFF~31bZo8Pv5OWo5SD~UivUpydbx-DUWv31-g9BAHrGf9Lc~4YQZcCmkB13YSzZXvINuZnJsxm826cGgMmSh7TkbDv-gkoxIzrNLZ~yc2W1yQZ4JNb5mCkjp4f0QvfFHAfF6ztTAKCXrAmW~nJyD1vL3jKO5heUcvihRL55DL3aMq77RwqwBul8Z3aTGDcAYVyiOc7a72Nv9cOLgGe8NmRAG8OI-3rphPPs9dbeiIcNw0vWsSI7dITnliSWlyWI46lOp4dMeapqA8Z3j5OpEe6xThg__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "obj": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/model.obj?Expires=1794831712&Signature=QZmSzb8PI0scYavO-utpPRLFh1PaF18ANm3lHSM6qCvO3xCEsGIvSj~smlz-GyOhSbI1JCoMG5-v1Sfv9tXwHn2GtoyjYCsei9ogBwWnRwMWIfcFezGvtyHjv1FO-JYNNRwheyv7c8g9J2yWvFerTE7ljb2UaFG7wijTY-m7sC1JDDnqFPJV7mgpkk0smyzmdHIznRUwSvxcu3G-Ylqckoornn2i7Or2XeYvtfnEqjJIIJqPg-OiAwRQUOHeAAYPs6cINpQRSebd9HqT5dddzDKsgFMGitFeEuYLosbLwgBSGmbUIOduxw3tTp81Yhja-o7js0rqogzc9TyQOdmj~Q__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "mtl": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/model.mtl?Expires=1794831712&Signature=db07Lffvza1RZpGqwmjv~pFMDAisVKU7ARlNmYT28Jy8DURs-XlsrzRB0svqi0uuWN8wpA3uIO98WakPfb6-G5kIgDsd2Re7tl5w7y~pcCHg0jyWWl1i3tmz6~Vva5e9OSa6pAwhXftPb2L7YnJEaVGPcuBoe8~rMhYSOQxg~KJ9TtmAOlTufAiRsowcvomZUNkg15V-Rndnml6llvrbKxvIIUPdkj3z6lxX3nhIEzSKPFr9aF2n1QMXMx4dhBD-jvlLUq2J4G3vNj~9jsdZrGCKAWudWGOIne~8dBbP9CfwecBnbougyv6CprmwUKsd8cxHssY-aVoQZvfKWY-nWQ__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "stl": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/model.stl?Expires=1794831712&Signature=nmGOk0Ol8IoCawXsHUh0CKqtpMFztRWpkkNc1HR3aG6wkLRztviX0cWeTmm167rMczmGJZK6F-PkNu8kHUp~HOStuDUtcGq1hTHdySk5kfeiFbPeBKOxpm~Qr9QIQAhn2BzZ3-7gQcyokn0If-piYvKOmPKIqbV2PuWjd2G8QG7AsvtGrbI6oQ0dTgrFk1Uy0j6Fwei2wBlAbaurozg-wAP7MuPJ3WbBRqpm15nS0lTUoTbBHn2bAq0twp~TgHi1aCvbTnhdp9H0~rYq9tHp12L09J2y9yHuHm26e5O5VVc0lXnF4RkWwzlm6zBHKe-6IDBhUCt2CwS~8W8pRj6gUw__&Key-Pair-Id=K1VGYTHIYLM9UM"
+ },
+ "thumbnail_url": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/preview.png?Expires=1794831712&Signature=Bu9XS2U5h~LIyDbGc8~ueFSXEJadRr~XBCv0QiBtDZ6Cj0IAkQUsjMRcNgAUS10CEmpBgfAMIf-BkPjPHi5ViQL1A3DmOdCZWETtlpKrKwHWdJMtFYlklrVcHCkwNEEvoWj-5-d5D4cD1UP09kuHju~Dpz8ko6QQkDXX46BmxkeFaqLxqRp4LVwryzqPe69fEJ8oO5H5~g0Ey~Zy5IvpS5lpMcX6P6eZCV74Uo17yn~4aYNbsXTsIyqdu9RnvbRigtPgKezqWZV~CLEeyGRk~O6wwmaE9nPN6sgs6XSBe6k~QQFu0eKP0Q2~vqagrSFkXRBDcEE7ogJZfOJBze~Guw__&Key-Pair-Id=K1VGYTHIYLM9UM",
+ "texture_urls": [
+  {
+   "base_color": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d4da-f55f-77bc-b256-ebe9b88b516d/output/texture_0.png?Expires=1794831712&Signature=GrqNWUCh1Sr9ipqrF5EirXYBsIT9KciIOMprQzRngyLNe6Nd2GexBK82~xZIlOiu-za~CqcU0RWi2N1v3Xew9H-pNSM2WNzG5cwu3xNqOK4uCqd-k0HqEP6Xn0AqIIPge--CA44hdyFFbvVtCdzZra4F~bk-B6ePnNTrINzMPDIsxxPgr~6FZiJT0phd5I7C97QHtJPvixU9ak1sIFHfL-oNNosZt9Z5NezGLXuKfGriZHGidwWfwwiASRcBeWEz~h6xa4NUF7tPDJlC8CZcvQtVlDgzzSJjVdA1Gz8WZ27Cfk9dQxQNjTao2UMH5NItUTdLekFEuZ0N7Pv1OztT8g__&Key-Pair-Id=K1VGYTHIYLM9UM"
+  }
+ ],
+ "consumed_credits": 10
+}
