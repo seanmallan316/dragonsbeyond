@@ -59,13 +59,19 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         float top = (in->zr ? RUN[d->stage] : WALK[d->stage]) * mag; if (d->mode == DM_SWIM) top *= 0.55f;
         float turn = 6.0f * dt; d->yaw += clampf(wrapa(want_yaw - d->yaw), -turn, turn);
         d->speed = lerp(d->speed, top, 1 - expf(-dt * (top > d->speed ? 5.0f : 8.0f)));
-        float sy = sinf(d->yaw), cy = cosf(d->yaw);
+        float sy = sinf(d->yaw), cy = cosf(d->yaw); float px = d->x, pz = d->z, py = d->y;
         d->x += sy * d->speed * dt; d->z += cy * d->speed * dt;
         /* stay on the patch */
         float lim = W_SIZE / 2 - 6; d->x = clampf(d->x, -lim, lim); d->z = clampf(d->z, -lim, lim);
+        /* too steep to climb: the step uphill is undone, and on a cliff face the dragon slides down it (no more sticking to the side) */
+        Vec3 n = world_normal(w, d->x, d->z);
+        if (n.y < 0.72f) { float ux = -n.x, uz = -n.z, ul = sqrtf(ux * ux + uz * uz) + 1e-5f; ux /= ul; uz /= ul;   /* uphill */
+            float mx = d->x - px, mz = d->z - pz, up = mx * ux + mz * uz; if (up > 0) { d->x -= ux * up; d->z -= uz * up; }
+            float slide = (0.72f - n.y) * 22.0f + 2.0f; d->x -= ux * slide * dt; d->z -= uz * slide * dt;
+            d->x = clampf(d->x, -lim, lim); d->z = clampf(d->z, -lim, lim); }
         gy = world_height(w, d->x, d->z); inpond = world_in_pond(w, d->x, d->z); waterline = inpond ? w->pond_y : -1e9f;
-        /* slopes: slide down very steep ground a little */
-        Vec3 n = world_normal(w, d->x, d->z); if (n.y < 0.72f) { d->x += n.x * 3.0f * dt; d->z += n.z * 3.0f * dt; }
+        if (!inpond && gy < py - 0.8f && d->act_t <= 0 && w->kind != WK_SKY) {   /* walked off a ledge: fall (glide) instead of snapping down the drop */
+            d->mode = DM_AIR; d->y = py; d->vy = 0; d->vx = sy * d->speed; d->vz = cy * d->speed; set_anim(d, DA_GLIDE); return ev; }
         if (gy < waterline - 0.3f * L) { d->mode = DM_SWIM; d->y = waterline - 0.25f * L; }
         else { d->mode = DM_GROUND; d->y = gy; }
         /* jump, and from stage 2 on: fly */

@@ -96,14 +96,14 @@ def idle(t):
         rots['head'] = (2 * S(t, 2.0), 12 * S(0.5 * t, 0.7), 6 * S(0.5 * t, 1.0)); rots['hips'] = (0, 0, 3 * S(0.5 * t))
     return rots, {'hips': (0, 0, 0.004 * H * S(t))}
 def walk(t):
-    rots = legs_walk(t, swing=34, lift=30)
+    rots = legs_walk(t, swing=44, lift=40)
     bob = 0.01 * H * S(2 * t, 0.3) + (0.03 * H * max(0.0, S(2 * t, 0.3)) if CH < 1 else 0)   # chibi: a springy hop in every step
     rots.update({'spine1': (0, 0, 4 * S(t)), 'spine2': (0, 0, 3 * S(t)), 'chest': (2 * S(2 * t), 0, -3 * S(t)),
                  'neck1': (-3 * S(2 * t), 0, 0), 'head': (3 * S(2 * t, 1.0), 0, 0)})
     rots.update(tail(t, 14, 0.5)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, bob)}
 def run(t):
-    rots = legs_walk(t, swing=50, lift=44)
+    rots = legs_walk(t, swing=62, lift=55)
     rots.update({'spine1': (6 * S(2 * t), 0, 0), 'spine2': (6 * S(2 * t, 0.5), 0, 0), 'chest': (-5 * S(2 * t), 0, 0),
                  'neck1': (-8 - 4 * S(2 * t), 0, 0), 'neck2': (-4, 0, 0), 'head': (12 + 3 * S(2 * t, 1.0), 0, 0)})
     rots.update(tail(t, 18, 0.5, nod=-5)); rots.update(wings_folded())

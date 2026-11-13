@@ -506,6 +506,10 @@ static void camera_update(float dt) {
         at = v3(want.x + sinf(d->yaw) * 10, want.y - (d->mode == DM_AIR ? d->pitch * 8 : 0.8f), want.z + cosf(d->yaw) * 10); }
     /* keep the camera above the ground and out of the trees */
     float gnd = world_height(&g_world, want.x, want.z) + 0.6f; if (want.y < gnd) want.y = gnd;
+    if (g_cam_mode == 0) {   /* a hill or cliff between the camera and the dragon: lift the camera over it, so it never looks through the mountain */
+        Vec3 tg = v3(d->x, d->y + 0.6f * dragon_length(d->stage) * 0.4f + 0.5f, d->z);
+        for (int i = 1; i < 8; i++) { float u = i / 8.0f; float hx = want.x + (tg.x - want.x) * u, hz = want.z + (tg.z - want.z) * u, hy = want.y + (tg.y - want.y) * u;
+            float h = world_height(&g_world, hx, hz) + 0.5f; if (h > hy) want.y += (h - hy) / (1 - u); } }
     if (g_cam_mode == 0) for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i];
         if (p->kind == P_BUSH) {   /* bushes: lift the camera over them rather than look through the leaves */
             float bx = want.x - p->x, bz = want.z - p->z, R = 1.6f * p->scale + 0.4f; if (bx * bx + bz * bz < R * R) { float top = world_height(&g_world, p->x, p->z) + 2.0f * p->scale + 0.3f; if (want.y < top) want.y = top; } continue; }
@@ -1048,7 +1052,7 @@ static void draw_hud(int drc) {
         char pg[16]; snprintf(pg, sizeof pg, "%d / 3", g_tale_i + 1); text_cg(pg, 556, 18, 0.7f * fade); text_c("A : NEXT", 620, 24, 1, 1, 1, 0.6f + 0.4f * sinf(g_time * 3)); }
     else if (g_pause_open) {   /* the pause menu */
         ui_shade(1); ui_embers(30, 0.8f); ui_panel(390, 150, 500, 420, 0.97f, 0); text_cg("PAUSED", 196, 50, 1); ui_divider(640, 260, 380, 1);
-        int canswap = !g_side && team_size() > 1; const char *it[3] = {"RESUME", canswap ? "SWAP DRAGONS" : "MAIN MENU", "MAIN MENU"}; int n = canswap ? 3 : 2;
+        int canswap = !g_side; const char *it[3] = {"RESUME", canswap ? "SWAP DRAGONS" : "MAIN MENU", "MAIN MENU"}; int n = canswap ? 3 : 2;
         float pulse = 0.75f + 0.25f * sinf(g_time * 4);
         for (int i = 0; i < n; i++) { float y = 300 + i * 74; int sel = i == g_pause_sel; ui_panel(470, y - 8, 340, 60, 1, sel);
             batch_text_g(&g_b, it[i], 640 - text_width(it[i], 30) / 2, y + 6, 30, 1, 1, 1, sel ? pulse : 0.65f, 1); }
@@ -1510,12 +1514,12 @@ void game_frame(const Pad *pads, int npads, float dt) {
     else if (p->plus && !q->plus && g_swap_open) { g_swap_open = 0; sfx_play(SFX_MENU_BACK, 0.6f, 0); }
     else if (p->plus && !q->plus) { g_pause_open ^= 1; g_pause_sel = 0; sfx_play(g_pause_open ? SFX_MENU_OK : SFX_MENU_BACK, 0.6f, 0); }   /* + (or the phone's back key): the pause menu */
     if (g_pause_open) {   /* PAUSED: resume, swap dragons (story, with a friend), or back to the main menu */
-        int canswap = !g_side && team_size() > 1, n = canswap ? 3 : 2;
+        int canswap = !g_side, n = canswap ? 3 : 2;
         int ud = ((p->down && !q->down) || (p->sy < -0.6f && q->sy >= -0.6f)) ? 1 : (((p->up && !q->up) || (p->sy > 0.6f && q->sy <= 0.6f)) ? -1 : 0);
         if (ud) { g_pause_sel = (g_pause_sel + ud + n) % n; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
         if (in.b_press) { g_pause_open = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
         else if (in.a_press) { int item = g_pause_sel; if (!canswap && item == 1) item = 2; sfx_play(SFX_MENU_OK, 0.5f, 0); g_pause_open = 0;
-            if (item == 1) { g_swap_open = 1; g_swap_sel = g_kind; }
+            if (item == 1) { if (team_size() > 1) { g_swap_open = 1; g_swap_sel = g_kind; } else { snprintf(g_msg, sizeof g_msg, "NO FRIEND TO SWAP WITH YET: FREE THE BABY DRAGON FROM ITS CAGE FIRST"); g_msg_t = 4; } }
             else if (item == 2) {   /* the story is saved as it is; multiplayer just ends */
                 if (!g_side) save_progress();
                 g_side = 0; g_p2 = -1; g_swap_open = 0; g_tale_i = -1; g_msg_t = 0; g_state = G_TITLE; g_state_t = 0; } }
