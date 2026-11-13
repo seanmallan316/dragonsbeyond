@@ -1411,7 +1411,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
 #ifndef __wiiu__
     static Pad sidepads[2]; if (getenv("DB_SIDETEST")) {   /* PC look check: two scripted players in the multiplayer levels */
         memset(sidepads, 0, sizeof sidepads); sidepads[0].source = 1; sidepads[1].source = 4;
-        if (g_state != G_PLAY) { if (g_time > 0.5f) { g_p1pad = 0; g_p2 = 1; g_pick[0] = 0; g_pick[1] = 1; side_new_game(); { const char *lv = getenv("DB_SIDETEST"); int l = atoi(lv); if (l > 0 && l < SLV_N) side_start_level(l); } } }
+        if (g_state != G_PLAY) { if (g_time > 0.5f) { g_p1pad = 0; g_p2 = 1; g_pick[0] = 0; g_pick[1] = 1; if (getenv("DB_SIDEKINDS")) sscanf(getenv("DB_SIDEKINDS"), "%d,%d", &g_pick[0], &g_pick[1]); side_new_game(); { const char *lv = getenv("DB_SIDETEST"); int l = atoi(lv); if (l > 0 && l < SLV_N) side_start_level(l); } } }
         else for (int k = 0; k < 2; k++) { Pad *sp = &sidepads[k]; sp->sx = 1; sp->zr = 1; float ph = g_time + k * 0.7f;
             sp->a = fmodf(ph, 2.6f) < (g_dragon.stage >= ST_DRAGON ? 1.2f : 0.25f); sp->x = fmodf(ph, 3.1f) < 0.05f; sp->b = fmodf(ph, 5.3f) < 0.05f;
             if (getenv("DB_SIDEDIVE") && g_dragon.stage >= ST_DRAGON && fmodf(ph, 6.0f) > 4.2f) { sp->a = 0; sp->sy = -1; } }
