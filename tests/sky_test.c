@@ -21,11 +21,11 @@ int main(void) {
             float x = 0, y = 0, z = 0; const char *q = strstr(w, " at "); if (q) sscanf(q + 4, "%f,%f,%f", &x, &y, &z); float dx = -62 - x, dz = 60 - z;
             float ang = atan2f(dx, dz); pads[0].sx = -sinf(ang - num_after(w, "camyaw ")); pads[0].sy = cosf(ang - num_after(w, "camyaw ")); }
         else if (fr == arrived + 60) pads[0].y = 1;                    /* use the power next to the wind column (the sparkle buffer must hold both) */
-        else if (t - arrived / 60.0f > 6 && !fell) { pads[0].sy = 1; pads[0].zr = 1; }   /* run straight off the edge of the first island */
+        else if (t - arrived / 60.0f > 6 && !fell && !strstr(w, " air at ")) { pads[0].sy = 1; pads[0].zr = 1; }   /* run straight off the edge of the first island, then let go and drop */
         game_frame(pads, KK_PADS, 1.0f / 60);
         w = game_where();
         if (arrived < 0 && strstr(w, "Sky Kingdom")) { arrived = fr; printf("arrived in the Sky Kingdom after %.1f s: %s\n", t, w); }
-        if (arrived >= 0 && strstr(w, "msg LOST IN THE CLOUDS")) { fell = 1; printf("fell and came back: %s\n", w); break; } }
+        if (arrived >= 0 && strstr(w, "msg YOU FELL INTO THE CLOUDS")) { fell = 1; printf("fell and came back: %s\n", w); break; } }
     remove("sky_test_save.txt"); remove("sky_test_save1.txt");
     if (arrived < 0) { printf("FAIL: never reached the Sky Kingdom: %s\n", game_where()); return 1; }
     if (!fell) { printf("FAIL: never fell off an edge: %s\n", game_where()); return 1; }

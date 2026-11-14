@@ -1,0 +1,32 @@
+{
+ "id": "01a1d84d-e403-7721-83d9-c0e2619f220d",
+ "type": "text-to-3d-refine",
+ "mode": "refine",
+ "name": "",
+ "model_type": "standard",
+ "seed": 3309047903,
+ "prompt": "giant glowing gemstone crystal cluster growing from a rock base, many tall faceted crystal points, stylized game asset",
+ "texture_prompt": "iridescent purple pink and light blue crystal gems, shiny facets, grey rock base, stylized game texture",
+ "texture_image_url": "",
+ "status": "SUCCEEDED",
+ "created_at": 1794630348079,
+ "progress": 100,
+ "started_at": 1794630348089,
+ "finished_at": 1794630382827,
+ "task_error": null,
+ "model_urls": {
+  "glb": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d84d-e403-7721-83d9-c0e2619f220d/output/model.glb?Expires=4948214400&Signature=b2-rqVS0DJybTqO96X--O1E2GFqGaqWHSrAebLH0eZmgN0hIyfXpFd8CZjozHxPMzhKE-rnChd5iik3TCZi6USxLvEUBh6AuNJg29jHZ-reNJhJUtOxn0DoSv61O1avLjEsDJt3kacGhOe4-8sm3nIi4xYWFRt-NkXZN-yYKZbpA7~PseWxyVQEHUErSPFjyQRz72BfNLLFf6dHiPsolxqHOGNkl3A8gl-KTRbzS2clLNEkrvnoFQfKpBMjNg5JaKEXyyiFcnMsbqAsjSqWIUPItOh3~BQSM0D~Xsj6dASx6Zz4pLcNgThfPm9LuFyfH3iImLxFfxz8HVoocTTzXbg__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "fbx": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d84d-e403-7721-83d9-c0e2619f220d/output/model.fbx?Expires=4948214400&Signature=ak7GZBIAohzsHuriST7h5DZ8myuiybw-GYooN4jx38KGpqBr9ES36no9ezV0fK-sX8NXHgTesG-gDPI1Z8F5vCgu1sMxV56lI58Ao9wAr9SaVf1XWe6jGLN4g50j9AHKezGNQlUfM06o-KH0YyoetLRBHpK75V3f7goM-X1cPv2GXSYi6xEsUBvpkX5r5bB86vsLtqU5JzHurcq7GOMrri6jR7BIi2KJjnnqRLaEXjxPo3x-9YvAeXGovLRq2Wio~ZSIKE9RoCrS82VOJHXJGaR5RlfmyTAD1km3ckBPoMZOaNjUd-9Qlx16Kq7UH9xtx2UYQJbxK63~JN79LEc64Q__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "usdz": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d84d-e403-7721-83d9-c0e2619f220d/output/model.usdz?Expires=4948214400&Signature=HuPAZkUBa5S7reXPzYzfln4ogiC7hO7Eum8SVV3tnRisGlw4yRUnhm2o15sDjs7SwGf2domqFCHow8VcLH2bjBWxlt1g60vdLG4mK-xMIUh6M0gr-02T2nN8G3hgLAep0~5Rr3KFnzEuRjagy7q-gQ-6LKPHUxkO8bt7nGT~BNH4YCiCrV8gnEqkCUhU5YVvJuIVDZmC201gQV6B0DcfPOsm4k23Hw7ux9biR61viqg3fHAX1Ww5vDTGDLDeCOEOE5sEE6sOdJwEoo7QfjHTxf28cqwXUG~8YMJTjPqNefcjiG01uWejWVUrJ~9mHluW3REUrJk-vkb0q1NGYpoggA__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "obj": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d84d-e403-7721-83d9-c0e2619f220d/output/model.obj?Expires=4948214400&Signature=Gr62MLkPMpjKOzEergDukObGlhQUvQfbFW4d0faLwuIAWY3KSO7Yr6wiEQU-oRMlHHsBoEiWmbZ4ZzJSa9SlJaDumeXbTfQH2tpD7GXut8BLfnbfwth0rw3-ATQYG6nTVV3BL4TUktxRgH-MDDyVi1nixJ~yPMnh2LCi7z2VgYeVQnQV9gj8XjBQ2iAl8nkpG~uaRnsTU5oaN9pIP-2NIyXJ0gQjDjFN0lezsQGXFKrMdOThl6MKzdWPHUxNeJWtlOeGsupOsvbhlGsobkEAt8LdeRE9ze8tBdGduNjAKzj7ldYqrHL6SQ1qHQtt3xW0WUzYT9KbTSa2xRx3bTCBFg__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "mtl": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d84d-e403-7721-83d9-c0e2619f220d/output/model.mtl?Expires=4948214400&Signature=b41SmmUfYCEy2Rces8Py-7g~12R5Wg~MR70UKbiWeriIo63dslIm58sEEtTCdCbYDiDnk3nGZKFyv9Nq02GlCgcBQ-d4ZGDCoxdqPF178UePlqOYPh88xQRxDGMdZmpSmaISX3kEkRVvmqxfK-3YRKUGBXvoQce65WuzPVAiYWP-8bhlDl8fiZ7-g3Lsm5E92kal4t21jFqobSScGZkrtarNO9UdTK1C~3aWM0OqqxUdtTFLn6N02kLjdjC9mab~vo-XRWkHrnXTulQ7WAA4g2DMdTHb7O9W8TrAxRvezGfzwvrlnLPOOejX1nMgyln9DUyrWlU2RiUCRk9Aczi02g__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "stl": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d84d-e403-7721-83d9-c0e2619f220d/output/model.stl?Expires=4948214400&Signature=NPHFyRgGEZxY99JXsSX~wUdKEv67AZ2DuERsHAaCPom3fmL4f2yhigoIT-hDceFJtK5GXPj0rnAELyf2Qfr8FGgqeGRsu20WqKv3cyUCzDmUZ8wYj8ZOH0RaIsYxHWZgOJ4GbC474LnPU9lyxQV4E2ydZtSLRrCsV2AyfCF6AD0JHl5ahfwF68e~NY1icu913t1Cx2zc7AVxWBeUlBwzjuTmJ5zn3pJC9p78DmDd-Jy1o6QDWsdRw-4kKZIGBqR6UgBF~3zd1cvv7iqRV1-vCihH1jXMZ~Ib8wmOgGMmuBMN6uAl0FmOMeEHrwIucq~oeNuwxumaRvXIUyFCz0t4yA__&Key-Pair-Id=K1VGYTHIYLM9UM"
+ },
+ "thumbnail_url": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d84d-e403-7721-83d9-c0e2619f220d/output/preview.png?Expires=4948214400&Signature=gmPzW-~yDB9pAum-sB21KP8teCjFNROpuvSLR05GVFYkMDQQF0ijpPE~3iXgiXc0HVJ9trj2VNrdBOwcJ5ojHfktLLaFK6r8qg0QPjLvK9uWzdhxTqF2~ki4A1Ui9idGQOwHc71RbQPmKvuP-6OwYAW6rRDVCRg5u5wy7L4YC15J3V8DdzwYRUGy5G3t666qaylP-0SJt-yK6tgjNWS-Ny4qzksIkhgPJ6Zlk~W993l87ezWd5RsBdI1-~uUz8rR-sr2grxjXveOFp0aFC4NrofH7BFpy-20k2XKOCeZQdoj2dVUSFZ70TK-PWyHeD8-ASgpgOVArXrMsoYfkae-Xg__&Key-Pair-Id=K1VGYTHIYLM9UM",
+ "texture_urls": [
+  {
+   "base_color": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1d84d-e403-7721-83d9-c0e2619f220d/output/texture_0.png?Expires=4948214400&Signature=Ai1xohOCH9zycrQ42-aqhVMK9d1MR995YrAQI7bDs0IWm~WbnnZnEvkt3DioJRqf2FjoYQi1sKDS9vkyLWpdnCJ1Sg95uNs22Yp1oyYRuly9XU37a12HBkzZMwZ9mT8jJ019KcJBzpGO6hN1IAWaDEm30CEYl3~fLxrBW5NscZGwKohProDE3yHYPIXqt0APAikQXYKhdUwxJ-wzv467lL4mhJHtUlPQsxjjL7xF-bNsrIWUXMLLcV1K2AB8TywFITKXWMFAR4qTCYZpnUOwU~9yomPOt9w6aUcTZy7Qkb38pHs7FBJKJv0d1CCmbRuOC5twriWbuJEAtKyEz-qWnw__&Key-Pair-Id=K1VGYTHIYLM9UM"
+  }
+ ],
+ "consumed_credits": 10
+}

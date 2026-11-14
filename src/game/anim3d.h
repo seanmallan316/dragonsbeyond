@@ -16,5 +16,7 @@ int anim3d_clip(const Anim3D *a, const char *name);   /* -1 if missing */
 /* bend the posed body (model space, front +z): arc = curve into a turn (-1..1, + = toward +x), side/up = a travelling
    wave down the body (snake-like) sideways / up-down, phase in radians. Stays set until changed. */
 void anim3d_set_bend(float arc, float side, float up, float phase);
+/* the next anim3d_draw only: mix in clip c at time t with weight w (0..1), for a smooth crossfade out of the last move */
+void anim3d_set_blend(int c, float t, float w);
 void anim3d_draw(Anim3D *a, int c, float t, const Mat4 *base, float r, float g, float b, float alpha);
 #endif

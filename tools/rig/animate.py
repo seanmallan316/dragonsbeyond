@@ -89,7 +89,7 @@ def idle(t):
     rots = {'spine1': (br * 0.4, 0, 0), 'spine2': (br * 0.6, 0, 0), 'chest': (br * 0.5, 0, 0),
             'neck1': (-br * 0.6 + 2 * S(t, 1.0), 0, 3 * S(0.5 * t)), 'neck2': (-br * 0.4, 0, 0), 'head': (2 * S(t, 2.0), 0, 4 * S(0.5 * t, 1.0)),
             'jaw': (max(0, 3 * S(t, 0.5)), 0, 0)}
-    rots.update(tail(t, 8)); rots.update(wings_folded())
+    rots.update({f'tail{i+1}': (1.5 * S(t, i * 0.7), 0, 13 * S(0.5 * t, i * 0.75) + 3 * S(t, i * 0.9)) for i in range(5)}); rots.update(wings_folded())   # a lazy, travelling sway: never still
     if has_wings:
         rots['wingL_1'] = (-35 + 2 * S(t), 0, -25); rots['wingR_1'] = (-35 + 2 * S(t), 0, 25)
     if CH < 1:   # chibi idle: a curious head tilt and a little weight shift
@@ -98,15 +98,16 @@ def idle(t):
 def walk(t):
     rots = legs_walk(t, swing=44, lift=40)
     bob = 0.01 * H * S(2 * t, 0.3) + (0.03 * H * max(0.0, S(2 * t, 0.3)) if CH < 1 else 0)   # chibi: a springy hop in every step
-    rots.update({'spine1': (0, 0, 4 * S(t)), 'spine2': (0, 0, 3 * S(t)), 'chest': (2 * S(2 * t), 0, -3 * S(t)),
-                 'neck1': (-3 * S(2 * t), 0, 0), 'head': (3 * S(2 * t, 1.0), 0, 0)})
-    rots.update(tail(t, 14, 0.5)); rots.update(wings_folded())
+    rots.update({'hips': (0, 3 * S(t, 0.4), 4 * S(t)), 'spine1': (0, 0, 4 * S(t, 0.2)), 'spine2': (0, 0, 3 * S(t, 0.5)), 'chest': (2 * S(2 * t), -2 * S(t, 0.4), -4 * S(t, 0.7)),
+                 'neck1': (-3 * S(2 * t), 0, 3 * S(t, 1.2)), 'neck2': (0, 0, -2 * S(t, 1.4)), 'head': (3 * S(2 * t, 1.0), 0, -2 * S(t, 1.6))})   # hips and shoulders roll against each other, the head steadies itself
+    rots.update(tail(t, 20, 0.9)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, bob)}
 def run(t):
     rots = legs_walk(t, swing=62, lift=55)
     rots.update({'spine1': (6 * S(2 * t), 0, 0), 'spine2': (6 * S(2 * t, 0.5), 0, 0), 'chest': (-5 * S(2 * t), 0, 0),
                  'neck1': (-8 - 4 * S(2 * t), 0, 0), 'neck2': (-4, 0, 0), 'head': (12 + 3 * S(2 * t, 1.0), 0, 0)})
-    rots.update(tail(t, 18, 0.5, nod=-5)); rots.update(wings_folded())
+    rots.update({'hips': (0, 2 * S(t, 0.4), 3 * S(t))})
+    rots.update(tail(t, 22, 0.9, nod=-5)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, (0.055 if CH < 1 else 0.025) * H * max(0, S(2 * t, 0.3)))}
 def fly(t):
     # bird-like stroke: the wing rests ~42 deg up, so -42 = level; +-88 around level brings the tips nearly together

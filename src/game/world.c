@@ -18,14 +18,22 @@ static float fbm(float x, float y, unsigned s) { float v = 0, a = 1, f = 1, n = 
 static float raw_height(const World *w, float x, float z) {
     float d = sqrtf(x * x + z * z) / (W_SIZE * 0.5f);
     float h = (fbm(x * 0.012f + 3.1f, z * 0.012f + 7.7f, w->seed) - 0.5f) * 14.0f + (fbm(x * 0.05f, z * 0.05f, w->seed + 99) - 0.5f) * 2.2f;
+    switch (w->kind) {
+    case WK_SNOW: h = h * 1.6f + (fbm(x * 0.03f, z * 0.03f, w->seed + 5) - 0.5f) * 6.0f; break;                          /* tall snowy hills */
+    case WK_CRYSTAL: { float r = 1 - fabsf(fbm(x * 0.025f, z * 0.025f, w->seed + 11) * 2 - 1); h = h * 0.9f + r * r * 9.0f - 3; } break;   /* sharp ridges */
+    case WK_SAND: h = (fbm(x * 0.008f, z * 0.008f, w->seed + 3) - 0.5f) * 10.0f + sinf(x * 0.09f + 2.0f * fbm(x * 0.02f, z * 0.02f, w->seed + 4) * 6.28f) * 1.6f; break;   /* long dunes with ripples */
+    case WK_LAVA: { float r = fbm(x * 0.04f, z * 0.04f, w->seed + 21); h = h * 1.2f + (r - 0.5f) * 7.0f; } break;          /* rough volcanic ground */
+    default: break; }
     h += d * d * d * 26.0f;                                     /* the edges rise into hills so the patch feels enclosed */
     float pd = sqrtf((x - w->pond_x) * (x - w->pond_x) + (z - w->pond_z) * (z - w->pond_z));
     if (pd < w->pond_r * 1.6f) { float t = clampf(1 - pd / (w->pond_r * 1.6f), 0, 1); h -= t * t * 5.0f; }   /* the pond's dip */
     float sd = sqrtf(x * x + z * z); if (sd < 18) h = lerp(h, w->pond_y + 1.2f, (1 - sd / 18) * 0.8f);   /* a flat meadow to start on */
     return h; }
 
-void world_make(World *w, unsigned seed) {
-    memset(w, 0, sizeof *w); w->seed = seed; g_rs = seed * 7919u + 17;
+static void make_ground(World *w, unsigned seed, int kind);
+void world_make(World *w, unsigned seed) { make_ground(w, seed, WK_FOREST); }
+static void make_ground(World *w, unsigned seed, int kind) {
+    memset(w, 0, sizeof *w); w->seed = seed; w->kind = kind; g_rs = seed * 7919u + 17;
     w->pond_x = 38; w->pond_z = -30; w->pond_r = 14; w->pond_y = -2.2f;
     for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
         float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1);
@@ -51,14 +59,19 @@ void world_make(World *w, unsigned seed) {
         int ok = 1; for (int k = 0; k < w->nprop; k++) { float dx = w->prop[k].x - x, dz = w->prop[k].z - z; if (dx * dx + dz * dz < 5.5f * 5.5f) { ok = 0; break; } }
         if (!ok) continue;
         float r = frand(); Prop *p = &w->prop[w->nprop++];
-        p->kind = r < 0.42f ? P_TREE : (r < 0.56f ? P_PALM : (r < 0.76f ? P_BUSH : (r < 0.88f ? P_FERN : P_ROCK)));
-        p->x = x; p->z = z; p->yaw = frand() * 6.2831853f; p->scale = 0.8f + frand() * 0.5f; }
+        if (kind == WK_FOREST) p->kind = r < 0.42f ? P_TREE : (r < 0.56f ? P_PALM : (r < 0.76f ? P_BUSH : (r < 0.88f ? P_FERN : P_ROCK)));
+        else if (kind == WK_SNOW) p->kind = r < 0.5f ? P_TREE : (r < 0.66f ? P_BUSH : (r < 0.78f ? P_FERN : (r < 0.9f ? P_ROCK : P_SPIRE)));        /* snowy pines, ice crystals */
+        else if (kind == WK_CRYSTAL) p->kind = r < 0.3f ? P_TREE : (r < 0.46f ? P_BUSH : (r < 0.66f ? P_FERN : (r < 0.8f ? P_ROCK : P_SPIRE)));   /* crystal clusters, ice shards */
+        else if (kind == WK_SAND) p->kind = r < 0.32f ? P_TREE : (r < 0.44f ? P_PALM : (r < 0.58f ? P_BUSH : (r < 0.78f ? P_ROCK : P_SPIRE)));     /* cactus, palms by the oasis, sandstone pillars */
+        else p->kind = r < 0.3f ? P_TREE : (r < 0.42f ? P_BUSH : (r < 0.62f ? P_ROCK : (r < 0.72f ? P_FERN : P_SPIRE)));                          /* lava: burnt trees, lava rocks */
+        if (kind == WK_SAND && p->kind == P_PALM && sqrtf((x - w->pond_x) * (x - w->pond_x) + (z - w->pond_z) * (z - w->pond_z)) > w->pond_r * 2.6f) p->kind = P_TREE;   /* palms only round the oasis */
+        p->x = x; p->z = z; p->yaw = frand() * 6.2831853f; p->scale = p->kind == P_SPIRE ? 0.6f + frand() * 0.5f : 0.8f + frand() * 0.5f; }
     /* food: berry bushes and mushrooms near the meadow and paths, grubs on the open ground, fish in the pond */
     for (int tries = 0; tries < 3000 && w->nfood < W_MAXFOOD; tries++) {
         float x = (frand() - 0.5f) * (W_SIZE - 30), z = (frand() - 0.5f) * (W_SIZE - 30); float d = sqrtf(x * x + z * z);
         { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 2) * (w->arena_r + 2)) continue; }
         int inpond = world_in_pond(w, x, z); int kind;
-        if (inpond) { if (frand() < 0.5f) continue; kind = F_FISH; }
+        if (inpond) { if (frand() < 0.5f || w->kind == WK_LAVA) continue; kind = F_FISH; }   /* nothing swims in lava */
         else { float r = frand(); kind = r < 0.45f ? F_BERRY : (r < 0.72f ? F_MUSHROOM : F_GRUB); if (d > 95 && frand() < 0.6f) continue; }
         int ok = 1; for (int k = 0; k < w->nfood; k++) { float dx = w->food[k].x - x, dz = w->food[k].z - z; if (dx * dx + dz * dz < 4.0f * 4.0f) { ok = 0; break; } }
         for (int k = 0; k < w->nprop && ok; k++) { float dx = w->prop[k].x - x, dz = w->prop[k].z - z; if (dx * dx + dz * dz < 2.2f * 2.2f) ok = 0; }
@@ -109,7 +122,8 @@ int world_nearest_food(const World *w, float x, float z, float reach) {
     for (int i = 0; i < w->nfood; i++) { const Food *f = &w->food[i]; if (!f->alive) continue; float dx = f->x - x, dz = f->z - z, d = dx * dx + dz * dz; if (d < bd) { bd = d; best = i; } }
     return best; }
 
-static float air_floor(const World *w, float x, float z) { float h = world_height(w, x, z); return w->kind == WK_SKY ? fmaxf(h, W_CLOUDS + 8) : h; }   /* flyers keep above the cloud sea */
+static void note_kill(World *w, float x, float y, float z);
+static float air_floor(const World *w, float x, float z) { float h = world_height(w, x, z); return WK_ISLES(w->kind) ? fmaxf(h, W_CLOUDS + 8) : h; }   /* flyers keep above the cloud sea */
 static int atk_hits(Attack a, float x, float y, float z, float pad) { if (a.r <= 0) return 0; float dx = x - a.x, dy = y - a.y, dz = z - a.z; float r = a.r + pad; return dx * dx + dz * dz < r * r && fabsf(dy) < r + 0.5f; }
 int world_drones(World *w, float dt, float px, float py, float pz, float reach, Attack atk, int roar) {
     int ev = 0;
@@ -118,7 +132,7 @@ int world_drones(World *w, float dt, float px, float py, float pz, float reach, 
         float gy = air_floor(w, d->x, d->z);
         if (d->state == 3) { if (d->y > gy + 0.2f) { d->y -= 6 * dt; d->yaw += 5 * dt; } if (d->t > 25) { d->state = 0; d->x = d->hx; d->z = d->hz; d->y = air_floor(w, d->x, d->z) + 9; d->t = 0; } continue; }
         if (roar && dist < 14) { d->state = 2; d->t = 0; }
-        if (atk_hits(atk, d->x, d->y, d->z, 0.3f)) { d->state = 3; d->t = 0; ev |= 2; continue; }
+        if (atk_hits(atk, d->x, d->y, d->z, 0.3f)) { d->state = 3; d->t = 0; ev |= 2; note_kill(w, d->x, d->y, d->z); continue; }
         if (d->state == 0) {   /* circle the home spot; when the dragon comes near, stop and wind up */
             float ang = d->t * 0.4f; float tx = d->hx + cosf(ang) * 12, tz = d->hz + sinf(ang) * 12; float ty = air_floor(w, tx, tz) + 8 + 1.5f * sinf(d->t);
             float ddx = tx - d->x, ddz = tz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 4.5f * dt; d->z += cosf(d->yaw) * 4.5f * dt; d->y += (ty - d->y) * dt * 2;
@@ -142,7 +156,7 @@ int world_hounds(World *w, float dt, float px, float py, float pz, float reach, 
         float dx = px - h->x, dz = pz - h->z, dist = sqrtf(dx * dx + dz * dz);
         if (h->state == 3) { h->flap += dt * 3; if (h->t > 22) { h->state = 0; h->t = 0; } continue; }
         if (roar && dist < 12) { h->state = 2; h->t = 0; }
-        if (atk_hits(atk, h->x, h->y + 0.5f, h->z, 0.3f)) { h->state = 3; h->t = 0; ev |= 2; continue; }
+        if (atk_hits(atk, h->x, h->y + 0.5f, h->z, 0.3f)) { h->state = 3; h->t = 0; ev |= 2; note_kill(w, h->x, h->y, h->z); continue; }
         float sp = 0;
         if (h->state == 0) { float ang = h->t * 0.35f; float tx = h->hx + cosf(ang) * 10, tz = h->hz + sinf(ang) * 10; h->yaw = atan2f(tx - h->x, tz - h->z); sp = 2.2f; if (dist < 15 && !in_air) { h->state = 1; h->t = 0; } }
         else if (h->state == 1) { h->yaw = atan2f(dx, dz); sp = 3.4f; if (dist < 3.4f + 0.3f * reach && !in_air) { h->state = 5; h->t = 0; } if (h->t > 12 || dist > 40 || in_air) { h->state = 2; h->t = 0; } }   /* stalks, slower than a running dragonet */
@@ -185,7 +199,7 @@ static float sky_height(const World *w, float x, float z) {
     return best; }
 int world_is_void(const World *w, float x, float z) { return world_height(w, x, z) < W_CLOUDS + 4; }
 void world_safe_spot(const World *w, float x, float z, float *ox, float *oz) {
-    if (w->kind != WK_SKY || !world_is_void(w, x, z)) { *ox = x; *oz = z; return; }
+    if (!WK_ISLES(w->kind) || !world_is_void(w, x, z)) { *ox = x; *oz = z; return; }
     float bd = 1e9f; *ox = 0; *oz = 0;
     for (int i = 0; i < N_ISLES; i++) { const Isle *I = &ISLES[i]; float dx = x - I->x, dz = z - I->z, d = sqrtf(dx * dx + dz * dz);
         float k = d > 1e-3f ? fminf(1, (I->r * 0.6f) / d) : 0; float sx = I->x + dx * k, sz = I->z + dz * k; float dd = (sx - x) * (sx - x) + (sz - z) * (sz - z);
@@ -227,8 +241,8 @@ static void make_sky(World *w) {
     w->nhound = 0;
     w->nthief = 4; for (int i = 0; i < w->nthief; i++) { Drone *t = &w->thief[i]; const Isle *I = &ISLES[2 + i]; t->hx = I->x + 3; t->hz = I->z - 2; t->x = t->hx; t->z = t->hz; t->y = world_height(w, t->x, t->z); t->t = i * 2.1f; } }
 void world_make_kind(World *w, unsigned seed, int kind) {
-    if (kind != WK_SKY) { world_make(w, seed); return; }
-    memset(w, 0, sizeof *w); w->seed = seed; w->kind = WK_SKY; g_rs = seed * 7919u + 23; make_sky(w); }
+    if (!WK_ISLES(kind)) { make_ground(w, seed, kind); return; }
+    memset(w, 0, sizeof *w); w->seed = seed; w->kind = kind; g_rs = seed * 7919u + 23; make_sky(w); }
 int world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone) {
     int n = 0; float dl = sqrtf(dx * dx + dz * dz); if (dl > 1e-4f) { dx /= dl; dz /= dl; }
     for (int pass = 0; pass < 3; pass++) { Drone *arr = pass == 2 ? w->thief : (pass ? w->hound : w->drone); int cnt = pass == 2 ? w->nthief : (pass ? w->nhound : w->ndrone);
@@ -236,9 +250,10 @@ int world_blast(World *w, float x, float y, float z, float dx, float dz, float r
             float ex = d->x - x, ey = d->y - y, ez = d->z - z; float dist = sqrtf(ex * ex + ey * ey + ez * ez); if (dist > range) continue;
             if (cos_cone > -1 && dist > 1.0f && (ex * dx + ez * dz) / sqrtf(ex * ex + ez * ez + 1e-6f) < cos_cone) continue;
             if (pass == 2) continue;   /* thieves are handled by world_thieves (they drop what they stole) */
-            d->state = 3; d->t = 0; n++; } }
+            d->state = 3; d->t = 0; n++; note_kill(w, d->x, d->y, d->z); } }
     return n; }
-static int thief_step_ok(const World *w, float x, float z) { return !(w->kind == WK_SKY && world_is_void(w, x, z)) && !world_in_pond(w, x, z) && fabsf(x) < W_SIZE / 2 - 4 && fabsf(z) < W_SIZE / 2 - 4; }
+static void note_kill(World *w, float x, float y, float z) { if (w->nkill < 8) { w->kill_x[w->nkill] = x; w->kill_y[w->nkill] = y; w->kill_z[w->nkill] = z; w->nkill++; } }
+static int thief_step_ok(const World *w, float x, float z) { return !(WK_ISLES(w->kind) && world_is_void(w, x, z)) && !world_in_pond(w, x, z) && fabsf(x) < W_SIZE / 2 - 4 && fabsf(z) < W_SIZE / 2 - 4; }
 int world_thieves(World *w, float dt, float px, float py, float pz, float reach, Attack atk, float carry, float *stolen, float *recovered) {
     int ev = 0; *stolen = 0; *recovered = 0;
     for (int i = 0; i < w->nthief; i++) { Drone *t = &w->thief[i]; t->t += dt;
@@ -246,7 +261,7 @@ int world_thieves(World *w, float dt, float px, float py, float pz, float reach,
         if (t->state == 3) { if (t->t > 12) { t->state = 4; t->t = 0; } continue; }
         if (t->state == 4) { if (t->t > 18) { t->state = 0; t->t = 0; t->x = t->hx; t->z = t->hz; t->flap = 0; } continue; }
         if (atk_hits(atk, t->x, t->y + 0.5f, t->z, 0.6f)) {   /* caught! it drops what it stole */
-            if (t->flap > 0) { *recovered += t->flap; t->flap = 0; } t->state = 3; t->t = 0; ev |= 2; continue; }
+            if (t->flap > 0) { *recovered += t->flap; t->flap = 0; } t->state = 3; t->t = 0; ev |= 2; note_kill(w, t->x, t->y, t->z); continue; }
         if (t->state == 0) { float a = t->t * 0.7f + i; float tx = t->hx + cosf(a) * 4, tz = t->hz + sinf(a * 1.3f) * 4; yaw = atan2f(tx - t->x, tz - t->z); sp = 1.5f;
             if (dist < 18 && carry >= 10 && fabsf(py - t->y) < 3) { t->state = 1; t->t = 0; } }
         else if (t->state == 1) { yaw = atan2f(dx, dz); sp = 4.0f;

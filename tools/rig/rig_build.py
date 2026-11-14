@@ -83,6 +83,51 @@ y_snout = lo[1]; z_snout = zmid_at(y_snout + 0.02 * L)
 y_neck0 = y_shoulder - 0.02 * L
 # tail: from the hips back to the far end
 y_tail_end = hi[1]
+# trace the real tail along the surface (it may curl up, over or to the side): geodesic distance from where it leaves the body
+tail_verts = None; tail_g = None; tail_joints = None
+try:
+    import scipy.sparse as sps
+    from scipy.sparse.csgraph import dijkstra, connected_components
+    E = np.array([tuple(e.vertices) for e in mesh.data.edges], int)
+    y_cut = y_hip + 0.10 * L
+    region = P[:, 1] > y_cut
+    ein = region[E[:, 0]] & region[E[:, 1]]; Er = E[ein]
+    el = np.linalg.norm(P[Er[:, 0]] - P[Er[:, 1]], axis=1)
+    G = sps.coo_matrix((np.r_[el, el], (np.r_[Er[:, 0], Er[:, 1]], np.r_[Er[:, 1], Er[:, 0]])), shape=(len(P), len(P))).tocsr()
+    ncomp, lab = connected_components(G, directed=False)
+    cross = region[E[:, 0]] != region[E[:, 1]]   # edges cut by the plane: their region end is a boundary vertex
+    bnd = np.unique(np.where(region[E[cross, 0]], E[cross, 0], E[cross, 1]))
+    best = None
+    for c in np.unique(lab[bnd]):
+        cb = bnd[lab[bnd] == c]; cv = np.nonzero(lab == c)[0]
+        if len(cv) < 200: continue
+        bx = np.abs(P[cb, 0]).mean()
+        if bx > 0.12 * W: continue                  # a wing's trailing edge, not the tail
+        if best is None or len(cv) > len(best[1]): best = (cb, cv)
+    if best is not None:
+        cb, cv = best
+        dist = dijkstra(G, directed=False, indices=cb, min_only=True)
+        g = dist[cv]; ok = np.isfinite(g); cv = cv[ok]; g = g[ok]; gmax = g.max()
+        if gmax > 0.25 * L:
+            g = g / gmax
+            joints = [P[cb].mean(0)]
+            for q in np.linspace(0.2, 1.0, 5):
+                band = cv[np.abs(g - q) < (0.06 if q < 1 else 0.08)]
+                if q >= 1.0: band = cv[g > 0.93]
+                joints.append(P[band].mean(0) if len(band) else joints[-1] + np.array([0, 0.05 * L, 0]))
+            tail_joints = np.array(joints); tail_verts = cv; tail_g = g
+            # loose pieces (spikes, fins) floating near the tail join it: nearest traced tail vertex decides
+            from scipy.spatial import cKDTree as _KD
+            loose = np.nonzero(region & (lab != lab[cv[0]]))[0]
+            if len(loose):
+                dd, ii = _KD(P[cv]).query(P[loose]); near = dd < 0.06 * H
+                comp_ok = {}
+                for vi, n_ok, j in zip(loose, near, ii):
+                    pass
+                lv = loose[near]; tail_verts = np.r_[cv, lv]; tail_g = np.r_[g, g[ii[near]]]
+            print(' tail traced along the surface:', len(tail_verts), 'verts, joints', np.round(tail_joints, 3).tolist())
+except Exception as ex:
+    print(' tail trace skipped:', ex)
 # ---- wings: points far out in x, above the body middle, between hips and shoulders (plus a bit)
 wing_pts = P[(np.abs(P[:, 0]) > 0.5 * max(W / 2, 1e-6)) & (P[:, 2] > body_bot + 0.3 * (body_top - body_bot))]
 has_wings = len(wing_pts) > 200
@@ -127,7 +172,10 @@ bone('jaw', (0, y_head_c, jaw_line), (0, y_snout + 0.02 * L, jz_lo + 0.12 * (jz_
 ty = np.linspace(y_hip + 0.08 * L, y_tail_end, 6)
 prevb = 'hips'
 for i in range(5):
-    bone(f'tail{i+1}', (0, ty[i], zmid_at(ty[i])), (0, ty[i + 1], zmid_at(ty[i + 1])), prevb, i > 0); prevb = f'tail{i+1}'
+    if tail_joints is not None: a, b = tail_joints[i], tail_joints[i + 1]
+    else: a, b = (0, ty[i], zmid_at(ty[i])), (0, ty[i + 1], zmid_at(ty[i + 1]))
+    if np.linalg.norm(np.array(b) - np.array(a)) < 1e-3: b = np.array(a) + np.array([0, 0.03 * L, 0])
+    bone(f'tail{i+1}', tuple(a), tuple(b), prevb, i > 0); prevb = f'tail{i+1}'
 # legs
 def leg(tag, foot_xy, attach, parent):
     fx, fy = foot_xy; top = (fx * 0.8, fy, body_bot + 0.1 * (body_top - body_bot))
@@ -234,6 +282,17 @@ for _ in range(5):
 # the head stays rigid after smoothing
 rigid = front & (uu >= 2.0)
 Wt[rigid] = Wf[rigid]
+# the traced tail answers only to the tail chain (and the hips right at its root): the whole tail swings, curl and all
+if tail_verts is not None:
+    ihp = names.index('hips'); it = [names.index(f'tail{i+1}') for i in range(5)]
+    jg = np.r_[0.0, np.linspace(0.2, 1.0, 5)]          # geodesic position of each joint
+    uq = np.interp(tail_g, jg, np.arange(6))           # 0..5 along the chain
+    Wtl = np.zeros((len(tail_verts), len(names)))
+    for i in range(5): Wtl[:, it[i]] = np.clip(1 - np.abs(uq - (i + 0.5)), 0, 1)
+    Wtl[:, it[0]] += np.clip(0.5 - uq, 0, 0.5); Wtl[:, it[4]] += np.clip(uq - 4.5, 0, 1)
+    root = np.clip(1 - uq / 0.6, 0, 1); Wtl[:, ihp] = root; Wtl[:, it[0]] *= (1 - root) + root * 0.5
+    Wtl = Wtl / np.maximum(Wtl.sum(1, keepdims=True), 1e-9)
+    Wt[tail_verts] = Wtl
 Wt = Wt / np.maximum(Wt.sum(1, keepdims=True), 1e-9)
 for i, nm in enumerate(names):
     g = mesh.vertex_groups[nm]

@@ -13,7 +13,9 @@
 #define W_MAXTHIEVES 5
 
 enum { P_TREE = 0, P_PALM, P_BUSH, P_ROCK, P_FERN, P_SPIRE, P_N };   /* spires: tall rock needles on the sky islands */
-enum { WK_FOREST = 0, WK_SKY, WK_N };   /* which world: Everleaf Wilds, the Sky Kingdom */
+/* which world. Each one holds the dragon of the same number in Kaine's cage (the forest is home: its boss guards the way out) */
+enum { WK_FOREST = 0, WK_SKY, WK_SNOW, WK_CRYSTAL, WK_SAND, WK_WATER, WK_LAVA, WK_N };
+#define WK_ISLES(k) ((k) == WK_SKY || (k) == WK_WATER)   /* island worlds: floating islands over clouds, or islands in the sea */
 #define W_VOID -60.0f        /* ground height where there is no island (the cloud sea hides it) */
 #define W_CLOUDS -22.0f      /* the top of the cloud sea: fall below it and you are lost in the clouds */
 enum { F_BERRY = 0, F_MUSHROOM, F_GRUB, F_FISH, F_N };   /* berries and mushrooms are plants; grubs and fish are meat */
@@ -40,6 +42,7 @@ typedef struct {
     Drone thief[W_MAXTHIEVES]; int nthief;   /* Scale Thieves: state 0 lurk, 1 sneak up, 2 run off with food (flap = how much), 3 knocked out, 4 hiding */
     float arena_x, arena_z, arena_r, arena_y;   /* the boss clearing: flat ground ringed by big trees */
     int arena_tree[8]; int narena_tree;         /* prop indices of the ring trees (the boss rams these) */
+    float kill_x[8], kill_y[8], kill_z[8]; int nkill;   /* where robots were knocked out this step (the game drops a treat there) */
     float cage_x, cage_y, cage_z;               /* where the captured dragonet's cage hangs */   /* Shock Hounds: same record, on the ground. state 0 patrol, 1 chase, 2 retreat, 3 knocked out */
 } World;
 

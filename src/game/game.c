@@ -29,18 +29,39 @@ enum { RB_DRONE = 0, RB_HOUND, RB_THIEF, RB_N }; static Anim3D g_robot[RB_N]; st
 #define LD_HI 70.0f
 #define LD_SKIP 0.0f
 #endif
-enum { PM_OAK = 0, PM_PALM, PM_FERN, PM_BUSH, PM_MUSH, PM_IRON, PM_STORM, PM_ROCK, PM_SPIRE, PM_GRUB, PM_CAGE, PM_N }; static PropModel g_pm[PM_N]; static SceneLayer g_lay_tree, g_lay_palm, g_lay_fern, g_lay_bush, g_lay_rock, g_lay_spire;
-static const char *PM_NAMES[PM_N] = {"oak", "palm", "fern", "berrybush", "mushroom", "ironhorn", "stormtalon", "boulder", "rock_spire", "grub", "dragon_cage"};
-static const char *BOSS_NAME[2] = {"IRONHORN", "STORMTALON"};
-static const char *BOSS_GUARD[2] = {"IRONHORN GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A TREE", "STORMTALON GUARDS THE CAGE! DODGE ITS SWOOP SO IT HITS A ROCK SPIRE"};
-static const char *BOSS_STUCK[2] = {"ITS ANTLERS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "ITS TALONS ARE STUCK IN THE ROCK! HIT IT NOW: TAIL (B) OR CLAW"};
+enum { PM_OAK = 0, PM_PALM, PM_FERN, PM_BUSH, PM_MUSH, PM_IRON, PM_STORM, PM_ROCK, PM_SPIRE, PM_GRUB, PM_CAGE,
+       PM_SNOWPINE, PM_ICE, PM_CRYS, PM_CACTUS, PM_SANDSPIRE, PM_CORAL, PM_CHAR, PM_LAVAROCK, PM_N }; static PropModel g_pm[PM_N]; static SceneLayer g_lay_tree, g_lay_palm, g_lay_fern, g_lay_bush, g_lay_rock, g_lay_spire;
+static const char *PM_NAMES[PM_N] = {"oak", "palm", "fern", "berrybush", "mushroom", "ironhorn", "stormtalon", "boulder", "rock_spire", "grub", "dragon_cage",
+    "snow_pine", "ice_crystal", "crystal_cluster", "cactus", "sand_spire", "coral", "charred_tree", "lava_rock"};
+/* every world has its own look, matching the dragon caged there: ground, sky, fog, plants and rocks, its boss and its whirlwind */
+typedef struct { const char *name, *gtex0, *gtex1; float gtint[3], fog[3], sky[3], mount[3], snowline; int pm[6]; float lscale[6];
+                 int boss_isles; float boss_tint[3], portal[3], portal2[3]; const char *boss, *guard, *stuck, *music; } Theme;
+enum { SL_TREE, SL_PALM, SL_FERN, SL_BUSH, SL_ROCK, SL_SPIRE };
+static const Theme THEMES[WK_N] = {
+  { "EVERLEAF WILDS", "grass", "dirt", {1, 1, 1}, {0.74f, 0.82f, 0.92f}, {1, 1, 1}, {1, 1, 1}, 120, {PM_OAK, PM_PALM, PM_FERN, PM_BUSH, PM_ROCK, PM_SPIRE}, {1, 1, 1, 1.6f, 1, 1},
+    0, {1.1f, 1.1f, 1.15f}, {0.45f, 1.0f, 0.4f}, {1.0f, 0.95f, 0.5f}, "IRONHORN", "IRONHORN GUARDS THE WIND GATE! DODGE ITS CHARGE SO IT HITS A TREE", "ITS ANTLERS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "everleaf" },
+  { "SKY KINGDOM", "grass", "dirt", {1, 1, 1}, {0.74f, 0.82f, 0.92f}, {1, 1, 1}, {1, 1, 1}, 120, {PM_OAK, PM_PALM, PM_FERN, PM_BUSH, PM_ROCK, PM_SPIRE}, {1, 1, 1, 1.6f, 1, 1},
+    1, {1.1f, 1.1f, 1.15f}, {0.35f, 0.7f, 1.0f}, {1, 1, 1}, "STORMTALON", "STORMTALON GUARDS THE CAGE! DODGE ITS SWOOP SO IT HITS A ROCK SPIRE", "ITS TALONS ARE STUCK IN THE ROCK! HIT IT NOW: TAIL (B) OR CLAW", "sky" },
+  { "FROSTPEAK MOUNTAINS", "snow", "ice", {1, 1, 1}, {0.86f, 0.9f, 0.98f}, {0.92f, 0.97f, 1.08f}, {0.95f, 0.98f, 1.05f}, 30, {PM_SNOWPINE, PM_SNOWPINE, PM_ICE, PM_BUSH, PM_ROCK, PM_ICE}, {1.0f, 1.3f, 0.35f, 1.6f, 1, 0.8f},
+    0, {0.75f, 0.92f, 1.3f}, {0.6f, 0.85f, 1.0f}, {0.2f, 0.45f, 1.0f}, "FROSTFANG", "FROSTFANG GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A PINE", "ITS ANTLERS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "everleaf" },
+  { "CRYSTAL CAVERNS", "crystalground", "ice", {1, 1, 1}, {0.6f, 0.55f, 0.78f}, {0.78f, 0.68f, 1.0f}, {0.75f, 0.65f, 0.95f}, 9999, {PM_CRYS, PM_ICE, PM_CRYS, PM_BUSH, PM_ROCK, PM_ICE}, {1.0f, 0.9f, 0.35f, 1.6f, 1, 1.2f},
+    0, {1.05f, 0.8f, 1.35f}, {0.85f, 0.5f, 1.0f}, {0.5f, 0.9f, 1.0f}, "SHARDCLAW", "SHARDCLAW GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A CRYSTAL", "ITS HORNS ARE STUCK IN THE CRYSTAL! HIT IT NOW: TAIL (B) OR CLAW", "danger" },
+  { "SUNSCORCH DESERT", "sand", "beach", {1, 1, 1}, {0.95f, 0.85f, 0.66f}, {1.1f, 1.0f, 0.85f}, {1.15f, 0.9f, 0.65f}, 9999, {PM_CACTUS, PM_PALM, PM_CACTUS, PM_BUSH, PM_ROCK, PM_SANDSPIRE}, {1.0f, 1.0f, 0.5f, 1.6f, 1, 1.0f},
+    0, {1.3f, 1.05f, 0.7f}, {1.0f, 0.8f, 0.3f}, {1.0f, 0.6f, 0.2f}, "DUNEBREAKER", "DUNEBREAKER GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A CACTUS", "ITS HORNS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "everleaf" },
+  { "CORAL SEA ISLES", "grass", "beach", {1, 1, 1}, {0.6f, 0.82f, 0.95f}, {0.88f, 1.0f, 1.1f}, {1, 1, 1}, 120, {PM_PALM, PM_PALM, PM_CORAL, PM_BUSH, PM_ROCK, PM_CORAL}, {1.0f, 1.0f, 0.45f, 1.6f, 1, 0.8f},
+    1, {0.7f, 1.0f, 1.3f}, {0.25f, 0.8f, 1.0f}, {0.9f, 1.0f, 1.0f}, "TIDEWING", "TIDEWING GUARDS THE CAGE! DODGE ITS SWOOP SO IT HITS THE CORAL", "ITS TALONS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "sky" },
+  { "EMBER VOLCANO", "basalt", "ash", {1, 1, 1}, {0.45f, 0.26f, 0.2f}, {0.95f, 0.55f, 0.42f}, {0.55f, 0.35f, 0.3f}, 9999, {PM_CHAR, PM_CHAR, PM_LAVAROCK, PM_BUSH, PM_ROCK, PM_LAVAROCK}, {1.0f, 1.0f, 0.35f, 1.6f, 1, 1.0f},
+    0, {1.35f, 0.7f, 0.5f}, {1.0f, 0.45f, 0.1f}, {1.0f, 0.85f, 0.2f}, "MAGMAHORN", "MAGMAHORN GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A LAVA ROCK", "ITS HORNS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "danger" } };
+#define TH (&THEMES[g_wk])
+#define FOGC(i) ((g_sky_photo ? (0.66f + 0.04f * (i) + ((i) == 2 ? 0.06f : 0)) / (0.74f + 0.08f * (i) + ((i) == 2 ? 0.02f : 0)) : 1.0f) * TH->fog[i])   /* fog matches the sky picture's horizon, tinted for the world */
+static int g_wk;   /* which world we are in (defined early: the theme macro needs it) */
 /* Ironhorn guards the cage that holds the Sky dragonet; once freed, she follows the player everywhere */
 static Boss g_boss; static Anim3D g_bossa[2]; static int g_bossa_ok[2];   /* the bosses with moving legs and wings (fallback: the still models) */
 /* the team: kind 0 forest (always), 1 sky (freed in Everleaf Wilds), 2 snow (freed in the Sky Kingdom) */
 #define K_N 7   /* forest, sky, snow, crystal, sand, water, lava */
 static int g_has[K_N] = {1}, g_wrescued[WK_N];   /* who is on the team; whether each world's captive is free */
 #define g_rescued (g_wrescued[g_wk])
-static const int CAPTIVE[WK_N] = {1, 2};   /* who is caged in each world */
+static const int CAPTIVE[WK_N] = {-1, 1, 2, 3, 4, 5, 6};   /* who is caged in each world (the forest is home: no cage) */
 static Anim3D g_km[K_N][ST_N]; static int g_km_ok[K_N][ST_N];   /* every dragon's models (forest uses g_model) */
 #define g_skym g_km[1]
 #define g_skym_ok g_km_ok[1]   /* the sky dragon's three stages (grown ones optional) */
@@ -72,12 +93,27 @@ static int g_mode_sel, g_pick[2] = {0, 1}, g_ready[2];   /* title menus: story o
 static void side_clear_lane(void); static void side_camera(float dt); static void side_draw_goal(void); static void side_hud(void); static void dragon_respawn(Dragon *d); static float g_gp_last = -100, g_p2_gone;
 /* the storyteller's cards after the rescue (the game waits while they show) */
 static const char *TALE[WK_N][3] = {
-  { "AND SO IRONHORN FELL, AND THE IRON CAGE SWUNG OPEN. %s, DRAGONET OF THE SKY, WAS FREE AT LAST.",
-    "BUT FAR AWAY, IN HIS DARK TOWER, KAINE BLACKFEATHER CRACKED HIS WHIP. ONE DRAGON FREED, HE SNEERED. FIVE ARE STILL MINE.",
-    "THE TWO FRIENDS LOOKED UP AT THE CLOUDS. A COLUMN OF WIND ROSE FROM THE CLEARING... THE SKY KINGDOM WAS WAITING." },
-  { "STORMTALON CRASHED DOWN AMONG THE SPIRES, AND THE CAGE FELL OPEN. %s, DRAGONET OF THE SNOW, SHOOK THE FROST FROM TINY WINGS.",
-    "IN HIS TOWER, KAINE BLACKFEATHER SNAPPED HIS WHIP SO HARD THE WINDOWS SHOOK. TWO DRAGONS FREED, HE ROARED. FOUR ARE STILL MINE!",
-    "THREE FRIENDS NOW, AND GROWING STRONGER. FAR AWAY, PAST THE EDGE OF THE CLOUDS, THE WINTER PALACE WAS WAITING..." } };
+  { "AND SO IRONHORN FELL, AND THE WIND GATE OF EVERLEAF WILDS SWUNG OPEN. %s FELT STRONGER THAN EVER.",
+    "BUT FAR AWAY, IN HIS DARK TOWER, KAINE BLACKFEATHER CRACKED HIS WHIP. SIX DRAGONS STILL IN MY CAGES, HE SNEERED.",
+    "A WHIRLWIND OF SKY-BLUE WIND ROSE FROM THE CLEARING... THE SKY KINGDOM WAS WAITING, AND A SKY DRAGONET WITH IT." },
+  { "STORMTALON CRASHED DOWN AMONG THE SPIRES, AND THE CAGE FELL OPEN. %s, DRAGONET OF THE SKY, WAS FREE AT LAST.",
+    "IN HIS TOWER, KAINE BLACKFEATHER SNAPPED HIS WHIP SO HARD THE WINDOWS SHOOK. ONE DRAGON FREED! FIVE ARE STILL MINE!",
+    "A NEW WHIRLWIND SWIRLED WITH SNOWFLAKES. FAR AWAY, THE FROSTPEAK MOUNTAINS WERE WAITING..." },
+  { "FROSTFANG SLID ACROSS THE ICE AND FELL. THE CAGE CRACKED OPEN, AND %s, DRAGONET OF THE SNOW, SHOOK THE FROST FROM TINY WINGS.",
+    "KAINE BLACKFEATHER STARED INTO HIS CRYSTAL BALL. TWO FREED? NO MATTER. FOUR ARE STILL MINE!",
+    "THE NEXT WHIRLWIND GLITTERED PURPLE AND PINK. THE CRYSTAL CAVERNS WERE CALLING..." },
+  { "SHARDCLAW SHATTERED LIKE GLASS, AND THE CAGE SPRANG OPEN. %s, DRAGONET OF THE CRYSTALS, SPARKLED IN THE LIGHT.",
+    "KAINE BLACKFEATHER'S CRYSTAL BALL CRACKED IN TWO. THREE FREED! HE HOWLED. BUT THREE ARE STILL MINE!",
+    "A GOLDEN WHIRLWIND FULL OF SAND ROSE UP. THE SUNSCORCH DESERT WAS WAITING..." },
+  { "DUNEBREAKER SANK INTO THE SAND, AND THE CAGE CREAKED OPEN. %s, DRAGONET OF THE DESERT, CRAWLED OUT INTO THE SUN.",
+    "KAINE BLACKFEATHER PACED HIS TOWER. FOUR FREED... ONLY TWO LEFT. HE BEGAN TO WORRY.",
+    "THE NEXT WHIRLWIND SPLASHED AND SPRAYED LIKE A WAVE. THE CORAL SEA ISLES WERE WAITING..." },
+  { "TIDEWING CRASHED INTO THE WAVES, AND THE CAGE FLOATED OPEN. %s, DRAGONET OF THE SEA, LEAPT FREE.",
+    "KAINE BLACKFEATHER CLIMBED INTO HIS MECH DRAGON. ONLY ONE LEFT. I WILL GUARD IT MYSELF!",
+    "THE LAST WHIRLWIND GLOWED RED WITH EMBERS. THE EMBER VOLCANO WAS WAITING..." },
+  { "MAGMAHORN TOPPLED INTO THE ASH, AND THE LAST CAGE MELTED OPEN. %s, DRAGONET OF THE LAVA, ROARED A TINY ROAR OF FIRE.",
+    "ALL SIX DRAGONS WERE FREE! FAR AWAY, KAINE BLACKFEATHER'S TOWER SHOOK.",
+    "BUT THE MASTER DRAGON, EVERWING, IS STILL MISSING... THE STORY CONTINUES IN A LATER UPDATE." } };
 static int g_tale_w;
 static int g_tale_i = -1; static float g_tale_t;
 static const char *active_name(void);
@@ -95,19 +131,27 @@ enum { G_TITLE = 0, G_NAME, G_STORY, G_PLAY, G_SLOT, G_DIFF, G_MODE, G_MPICK }; 
 static const char *NAMES[2] = {"FLO-RIDA", "LEAF BLOWER"};
 
 /* textures and meshes */
+static Texture *tx_grass0, *tx_dirt0, *tx_wg[WK_N][2];   /* the forest's ground, and each world's own (loaded when first visited) */
 static Texture *tx_grass, *tx_dirt, *tx_bark, *tx_leaves, *tx_fern, *tx_bush, *tx_rock, *tx_water, *tx_spark, *tx_font, *tx_tuft, *tx_flower, *tx_cloud;
 static Mesh *m_ground, *m_ground_dirt, *m_ground_rock, *m_water, *m_bark, *m_leaves, *m_fern, *m_bushes, *m_rock, *m_sky, *m_tufts, *m_flowers, *m_clouds, *m_mountains, *m_apron, *m_sun, *m_cloudsea;
-static int g_wk = WK_FOREST;   /* which world we are in */
+   /* g_wk: which world we are in (declared with the themes) */
 static float g_safe_x, g_safe_z;   /* the last solid ground the player stood on (sky world) */
 /* dragon powers (Y, once grown): forest Leafnado whirls round, sky breathes fire, snow breathes frost */
 static float g_power_t, g_power_cd; static int g_power_kind;
 /* Kaine Blackfeather sweeps over the Sky Kingdom on his black mech dragon the first time you arrive */
+static float g_upgrade_t;   /* the golden glow after a boss upgrade */
+static void boss_upgrades(Dragon *d);
 static float g_kaine_t = -1; static int g_kaine_done; static Anim3D g_mech; static int g_mech_ok = -1;   /* his own mech dragon model, loaded the first time he shows up */
 /* the wind column between worlds: in the forest it rises from the boss clearing once its captive is free; in the sky it waits on the first island */
 static float g_travel_t = -1; static int g_travel_to; static float g_travel_cd;
-static int column_at(float *cx, float *cz) {
-    if (g_wk == WK_FOREST) { if (!g_wrescued[WK_FOREST]) return 0; *cx = g_world.arena_x; *cz = g_world.arena_z; return 1; }
-    *cx = -12; *cz = 7; return 1; }
+/* whirlwinds: one near where you arrive leads back the way you came; once a world's boss falls, one rises from its
+   clearing to the next world. Each is coloured like the world it goes to, with that world's dragon spinning in it. */
+typedef struct { float x, z; int to; } Portal;
+static int portals(Portal *P) { int n = 0;
+    if (g_wk > 0) { P[n].x = -12; P[n].z = 7; P[n].to = g_wk - 1; n++; }
+    if (g_wrescued[g_wk] && g_wk + 1 < WK_N) { P[n].x = g_world.arena_x; P[n].z = g_world.arena_z; P[n].to = g_wk + 1; n++; }
+    return n; }
+static int column_at(float *cx, float *cz) { Portal P[2]; int n = portals(P); if (!n) return 0; *cx = P[n - 1].x; *cz = P[n - 1].z; return 1; }   /* the way onward (else the way back) */
 static Mesh *m_dynfood, *m_dynspark, *m_dynhud;   /* refilled per view (each at most twice a frame) */
 #define DYN_CAP 48000
 static Vertex g_dynv[DYN_CAP]; static Batch g_b;
@@ -148,6 +192,7 @@ static void build_ground(void) {
                 p[k] = v3(x, g_world.h[jj][ii] + (layer ? 0.03f * layer : 0), z); n[k] = world_normal(&g_world, x, z);
                 float hgt = clampf((p[k].y + 4) / 30.0f, 0, 1); float shade = 0.9f + 0.2f * vnoise2(x * 0.08f, z * 0.08f, 5);
                 float r = (0.7f + 0.2f * hgt) * shade, g = (0.9f - 0.05f * hgt) * shade, b = (0.62f + 0.15f * hgt) * shade;
+                if (strcmp(TH->gtex0, "grass")) { r = g = b = (0.92f + 0.12f * hgt) * shade; } r *= TH->gtint[0]; g *= TH->gtint[1]; b *= TH->gtint[2];   /* snow, sand, crystal, basalt: their own colour, no green */
                 if (layer == 1) { r = g = b = 1.0f * shade; } if (layer == 2) { r = g = b = 1.0f; }
                 float a = layer == 0 ? 1 : (layer == 1 ? dirtw[jj][ii] : rockw[jj][ii]); wsum += a;
                 c[k][0] = r; c[k][1] = g; c[k][2] = b; c[k][3] = a; }
@@ -245,11 +290,12 @@ static void build_props(void) {
     m_rock = tv_mesh();
     /* grass tufts and flowers: scattered everywhere the ground is not too steep, denser near the start */
     unsigned ts = 4242; tv_begin(6500 * 18);
-    for (int i = 0; i < 6500; i++) { float x = (frand01(&ts) - 0.5f) * (W_SIZE - 20), z = (frand01(&ts) - 0.5f) * (W_SIZE - 20); if (world_in_pond(&g_world, x, z) || world_height(&g_world, x, z) < W_CLOUDS + 6) continue; Vec3 n = world_normal(&g_world, x, z); if (n.y < 0.8f) continue;
+    int grassy = !strcmp(TH->gtex0, "grass");   /* tufts and flowers only where grass grows */
+    for (int i = 0; i < (grassy ? 6500 : 0); i++) { float x = (frand01(&ts) - 0.5f) * (W_SIZE - 20), z = (frand01(&ts) - 0.5f) * (W_SIZE - 20); if (world_in_pond(&g_world, x, z) || world_height(&g_world, x, z) < W_CLOUDS + 6) continue; Vec3 n = world_normal(&g_world, x, z); if (n.y < 0.8f) continue;
         float y = world_height(&g_world, x, z); float sc = 0.7f + frand01(&ts) * 0.8f; float tint = 0.85f + frand01(&ts) * 0.3f; tv_cross(v3(x, y - 0.05f, z), 1.1f * sc, 0.75f * sc, frand01(&ts) * 3.14f, 0.18f, 2, tint, tint, tint); }
     m_tufts = tv_mesh();
     tv_begin(700 * 12);
-    for (int i = 0; i < 700; i++) { float x = (frand01(&ts) - 0.5f) * (W_SIZE - 40), z = (frand01(&ts) - 0.5f) * (W_SIZE - 40); if (world_in_pond(&g_world, x, z) || world_height(&g_world, x, z) < W_CLOUDS + 6) continue; Vec3 n = world_normal(&g_world, x, z); if (n.y < 0.85f) continue;
+    for (int i = 0; i < (grassy ? 700 : 0); i++) { float x = (frand01(&ts) - 0.5f) * (W_SIZE - 40), z = (frand01(&ts) - 0.5f) * (W_SIZE - 40); if (world_in_pond(&g_world, x, z) || world_height(&g_world, x, z) < W_CLOUDS + 6) continue; Vec3 n = world_normal(&g_world, x, z); if (n.y < 0.85f) continue;
         float y = world_height(&g_world, x, z); float sc = 0.6f + frand01(&ts) * 0.5f; tv_cross(v3(x, y - 0.02f, z), 1.2f * sc, 0.7f * sc, frand01(&ts) * 3.14f, 0.1f, 2, 1, 1, 1); }
     m_flowers = tv_mesh();
     /* clouds: big soft quads high up, facing down-ish so they read from below and from the air */
@@ -262,7 +308,7 @@ static void build_props(void) {
         tv_tri(q0, q1, q2, nn, nn, nn, 0, 1, 1, 1, 1, 0, 1, 1, 1); tv_tri(q0, q2, q3, nn, nn, nn, 0, 1, 1, 0, 0, 0, 1, 1, 1); tv_tri(q0, q2, q1, nn, nn, nn, 0, 1, 1, 0, 1, 1, 1, 1, 1); tv_tri(q0, q3, q2, nn, nn, nn, 0, 1, 0, 0, 1, 0, 1, 1, 1); }
     m_clouds = tv_mesh();
     m_mountains = m_apron = m_cloudsea = NULL;
-    if (g_wk == WK_FOREST) {
+    if (!WK_ISLES(g_wk)) {
     /* a ring of far mountains: a lit heightfield band (rock, snow on the high ground), hazed by the fog like the real thing */
     { const int M = 160, K = 7; static Vec3 P[7][161];
         for (int k = 0; k < K; k++) for (int i = 0; i <= M; i++) { int ii = i % M; float a = ii * 6.2831853f / M; float R = 300 + k * 36.0f;
@@ -276,8 +322,8 @@ static void build_props(void) {
             Vec3 q[4] = {P[k][i], P[k][i + 1], P[k + 1][i + 1], P[k + 1][i]};
             Vec3 e1 = v3(q[1].x - q[0].x, q[1].y - q[0].y, q[1].z - q[0].z), e2 = v3(q[3].x - q[0].x, q[3].y - q[0].y, q[3].z - q[0].z);
             Vec3 nn = v3_norm(v3(e1.y * e2.z - e1.z * e2.y, e1.z * e2.x - e1.x * e2.z, e1.x * e2.y - e1.y * e2.x)); if (nn.y < 0) nn = v3(-nn.x, -nn.y, -nn.z);
-            float hm = 0.25f * (q[0].y + q[1].y + q[2].y + q[3].y); float snow = clampf((hm - 120) / 50.0f, 0, 1) * clampf((nn.y - 0.35f) * 2.5f, 0, 1);
-            float r = 0.46f + 0.5f * snow, g = 0.44f + 0.52f * snow, bl = 0.42f + 0.56f * snow; float tone = 0.85f + 0.3f * world_fbm(i * 0.15f, k * 0.6f, 782); r *= tone; g *= tone; bl *= tone;
+            float hm = 0.25f * (q[0].y + q[1].y + q[2].y + q[3].y); float snow = clampf((hm - TH->snowline) / 50.0f, 0, 1) * clampf((nn.y - 0.35f) * 2.5f, 0, 1);
+            float r = 0.46f + 0.5f * snow, g = 0.44f + 0.52f * snow, bl = 0.42f + 0.56f * snow; float tone = 0.85f + 0.3f * world_fbm(i * 0.15f, k * 0.6f, 782); r *= tone * TH->mount[0]; g *= tone * TH->mount[1]; bl *= tone * TH->mount[2];
             float u0 = i * 0.5f, u1 = (i + 1) * 0.5f, v0 = k * 0.8f, v1 = (k + 1) * 0.8f;
             tv_tri(q[0], q[1], q[2], nn, nn, nn, u0, v0, u1, v0, u1, v1, r, g, bl); tv_tri(q[0], q[2], q[3], nn, nn, nn, u0, v0, u1, v1, u0, v1, r, g, bl); } }
     m_mountains = tv_mesh();
@@ -373,9 +419,10 @@ int game_init(int gfx_status) {
     tx_grass = asset_texture("grass", 1, NULL, NULL); tx_dirt = asset_texture("dirt", 1, NULL, NULL); tx_bark = asset_texture("bark", 1, NULL, NULL);
     tx_leaves = asset_texture("leaves", 1, NULL, NULL); tx_fern = asset_texture("fern", 0, NULL, NULL); tx_bush = asset_texture("bush", 0, NULL, NULL);
     tx_rock = asset_texture("rock", 1, NULL, NULL); tx_water = asset_texture("water", 1, NULL, NULL); tx_spark = asset_texture("sparkle", 0, NULL, NULL);
+    tx_grass0 = tx_grass; tx_dirt0 = tx_dirt;
     tx_tuft = asset_texture("grasstuft", 0, NULL, NULL); tx_flower = asset_texture("flowers", 0, NULL, NULL); tx_cloud = asset_texture("cloud", 0, NULL, NULL);
     tx_sky = asset_texture("sky", 1, NULL, NULL); tx_iron_glow = asset_texture_file("models/ironhorn_glow.png", 1, NULL, NULL); tx_storm_glow = asset_texture_file("models/stormtalon_glow.png", 1, NULL, NULL); tx_font = asset_texture("font_hd", 0, NULL, NULL); if (tx_font) g_font_hd = 1;
-    for (int i = 0; i < PM_N; i++) propmodel_load(&g_pm[i], PM_NAMES[i]);
+    for (int i = 0; i < PM_N; i++) if (i < PM_SNOWPINE) propmodel_load(&g_pm[i], PM_NAMES[i]);   /* the other worlds' plants load when you get there */
     build_ground(); build_props();
     scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f); scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f); scenelayer_build(&g_lay_rock, &g_pm[PM_ROCK], &g_world, P_ROCK, 1.0f, 0.3f); scenelayer_build(&g_lay_spire, &g_pm[PM_SPIRE], &g_world, P_SPIRE, 1.0f, 0.6f);   /* the packed models are already life-size; the prop's own scale varies them */
     batch_init(&g_b, g_dynv, DYN_CAP); m_dynfood = gfx_mesh_dynamic(DYN_CAP); m_dynspark = gfx_mesh_dynamic(6000); m_dynhud = gfx_mesh_dynamic(36000);
@@ -389,7 +436,7 @@ int game_init(int gfx_status) {
     { static const char *RN[RB_N] = {"robot_drone", "robot_hound", "scale_thief"}; for (int r = 0; r < RB_N; r++) g_robot_ok[r] = anim3d_load(&g_robot[r], RN[r]); }
     g_bossa_ok[0] = anim3d_load(&g_bossa[0], "ironhorn"); g_bossa_ok[1] = anim3d_load(&g_bossa[1], "stormtalon");
     /* the other dragons load when they are needed (their world, their rescue, a save that has them): a quicker start */
-    ensure_kind(CAPTIVE[WK_FOREST], ST_DRAGONET);   /* the forest cage holds the sky dragonet */
+    ensure_kind(CAPTIVE[WK_SKY], ST_DRAGONET);   /* the first whirlwind shows the sky dragonet */
     gfx_log("Dragons Beyond ready: %d props, %d food, models %d %d %d", g_world.nprop, g_world.nfood, g_model_ok[0], g_model_ok[1], g_model_ok[2]);
     snprintf(g_msg, sizeof g_msg, "WALK TO THE BERRIES. PRESS X TO EAT"); g_msg_t = 8;
     return 1; }
@@ -419,7 +466,8 @@ static void save_progress(void) {
     if (g_side) return;   /* multiplayer runs are not saved: the story slots stay as they are */
     if (!g_save_path[0]) return; FILE *f = fopen(g_save_path, "w"); if (!f) return;
     g_wcrystal[g_wk] = g_world.crystal_found;
-    fprintf(f, "DB2 %d %d %d %d %d %.2f %.2f %.3f %d %d %d %d", g_name, g_diff, g_wk, g_kind, g_fk, g_dragon.x, g_dragon.z, g_dragon.yaw, g_wrescued[0], g_wrescued[1], g_wcrystal[0], g_wcrystal[1]);
+    fprintf(f, "DB3 %d %d %d %d %d %.2f %.2f %.3f", g_name, g_diff, g_wk, g_kind, g_fk, g_dragon.x, g_dragon.z, g_dragon.yaw);
+    for (int w = 0; w < WK_N; w++) fprintf(f, " %d %d", g_wrescued[w], g_wcrystal[w]);
     for (int k = 0; k < K_N; k++) { const Dragon *d = k == g_kind ? &g_dragon : &g_team[k]; fprintf(f, " %d %d %.1f %.1f", g_has[k], g_has[k] ? d->stage : 0, g_has[k] ? d->growth : 0, g_has[k] ? d->hearts : 3); }
     fprintf(f, "\n"); fclose(f); }
 /* a save line, either format, into plain numbers */
@@ -427,7 +475,12 @@ typedef struct { int name, diff, wk, kind, fk, wres[WK_N], wcry[WK_N], has[K_N],
 static int parse_save(FILE *f, SaveData *sd) {
     memset(sd, 0, sizeof *sd); sd->diff = 1; sd->fk = 1; sd->has[0] = 1; for (int k = 0; k < K_N; k++) sd->hearts[k] = 3;
     char line[400]; if (!fgets(line, sizeof line, f)) return 0;
-    if (!strncmp(line, "DB2", 3)) {
+    if (!strncmp(line, "DB3", 3)) {   /* every world's rescue and crystal, then every dragon */
+        char *p = line + 3; int used = 0;
+        if (sscanf(p, "%d %d %d %d %d %f %f %f%n", &sd->name, &sd->diff, &sd->wk, &sd->kind, &sd->fk, &sd->x, &sd->z, &sd->yaw, &used) < 8) return 0; p += used;
+        for (int w = 0; w < WK_N; w++) { if (sscanf(p, "%d %d%n", &sd->wres[w], &sd->wcry[w], &used) < 2) return 0; p += used; }
+        for (int k = 0; k < K_N; k++) { if (sscanf(p, "%d %d %f %f%n", &sd->has[k], &sd->stage[k], &sd->growth[k], &sd->hearts[k], &used) < 4) break; p += used; } }
+    else if (!strncmp(line, "DB2", 3)) {
         int n = sscanf(line + 3, "%d %d %d %d %d %f %f %f %d %d %d %d %d %d %f %f %d %d %f %f %d %d %f %f", &sd->name, &sd->diff, &sd->wk, &sd->kind, &sd->fk, &sd->x, &sd->z, &sd->yaw,
             &sd->wres[0], &sd->wres[1], &sd->wcry[0], &sd->wcry[1], &sd->has[0], &sd->stage[0], &sd->growth[0], &sd->hearts[0], &sd->has[1], &sd->stage[1], &sd->growth[1], &sd->hearts[1], &sd->has[2], &sd->stage[2], &sd->growth[2], &sd->hearts[2]);
         if (n < 16) return 0; }
@@ -442,7 +495,7 @@ static int parse_save(FILE *f, SaveData *sd) {
     for (int k = 0; k < K_N; k++) { if (sd->stage[k] < 0 || sd->stage[k] >= ST_N) sd->stage[k] = 0; }
     if (sd->kind < 0 || sd->kind >= K_N || !sd->has[sd->kind]) sd->kind = 0;
     return 1; }
-static void slot_summary(FILE *f, SlotInfo *si) { SaveData sd; if (!parse_save(f, &sd)) return; si->used = 1; si->name = sd.name; si->stage = sd.stage[0]; si->diff = sd.diff; si->wk = sd.wk; si->rescued = sd.has[1] + sd.has[2]; }
+static void slot_summary(FILE *f, SlotInfo *si) { SaveData sd; if (!parse_save(f, &sd)) return; si->used = 1; si->name = sd.name; si->stage = sd.stage[0]; si->diff = sd.diff; si->wk = sd.wk; si->rescued = 0; for (int k = 1; k < K_N; k++) si->rescued += sd.has[k]; }
 static void new_game(void) {   /* a fresh adventure: just the forest dragonet, in Everleaf Wilds */
     for (int k = 0; k < K_N; k++) g_has[k] = k == 0; for (int w = 0; w < WK_N; w++) { g_wrescued[w] = 0; g_wcrystal[w] = 0; }
     g_kind = 0; g_fk = 1; g_p2 = -1; g_friend.on = 0; dragon_init(&g_dragon, &g_world, 0, 0);
@@ -654,7 +707,7 @@ static void draw_food3d(Vec3 eye) {
     { /* the cage: iron bars hanging on a chain from the big tree; lowered and opened once Ironhorn falls */
       float open = g_boss.cage_open, ground = g_world.arena_y + 0.1f; float cy = g_world.cage_y - open * (g_world.cage_y - ground);
       float dx = g_world.cage_x - eye.x, dz = g_world.cage_z - eye.z;
-      if (dx * dx + dz * dz < 140 * 140) {
+      if (dx * dx + dz * dz < 140 * 140 && CAPTIVE[g_wk] >= 0) {   /* home has no cage: its boss guards the way out */
         if (g_pm[PM_CAGE].ok) {   /* the iron cage model, door toward the arena; when it opens the cage lifts off the dragonet */
             float facing = atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z); float lift = open > 0.6f ? (open - 0.6f) / 0.4f * 3.5f : 0;
             batch_cyl(v3(g_world.cage_x, cy + lift + 2.3f, g_world.cage_z), v3(g_world.cage_x, g_world.cage_y + 4.0f, g_world.cage_z), 0.05f, 0.05f, 5, 0.35f, 0.33f, 0.3f);   /* chain */
@@ -684,6 +737,16 @@ static float gait_time(int slot, const Anim3D *m, int clip, int anim, float spee
     float stride = (anim == DA_RUN ? 1.45f : 0.8f) * body_len;   /* metres covered by one full cycle of the clip */
     ph[slot] += dt * fmaxf(0.4f, fabsf(speed)) / fmaxf(0.2f, stride); if (ph[slot] > 1000) ph[slot] -= 1000;
     return ph[slot] * m->clip[clip].dur; }
+/* crossfades: when a character changes move (idle -> walk -> run, glide -> flap, ...) the old pose melts into the new
+   one over a fifth of a second instead of snapping. One slot per character on screen. */
+typedef struct { const Anim3D *m; int clip, pclip; float pt, w, last; } Fade;
+static Fade g_fades[8];
+static void fade_set(int slot, const Anim3D *m, int clip, float dur) {
+    Fade *f = &g_fades[slot]; float dt = g_time - f->last; f->last = g_time; if (dt < 0 || dt > 0.25f) { dt = 1.0f / 60; if (f->m == m) f->w = 0; }
+    if (f->m != m) { f->m = m; f->clip = clip; f->w = 0; return; }
+    if (clip != f->clip) { if (f->w <= 0.001f) f->pt = 0; f->pclip = f->clip; f->clip = clip; f->w = 1; }
+    if (f->w > 0) { f->pt += dt; f->w -= dt / dur; if (f->w < 0) f->w = 0; float sw = f->w * f->w * (3 - 2 * f->w); anim3d_set_blend(f->pclip, f->pt, sw); } }
+static void fade_again(int slot) { Fade *f = &g_fades[slot]; if (f->w > 0) anim3d_set_blend(f->pclip, f->pt, f->w * f->w * (3 - 2 * f->w)); }   /* the same pose once more (a glow pass on top) */
 static void draw_dragon(const Dragon *d) {
     int st = d->stage; float sc = kind_scale(0, st);
     if (d->evolve_t > 0) {   /* grows from the old size to the new in the first second, with a glow */
@@ -695,11 +758,12 @@ static void draw_dragon(const Dragon *d) {
     Mat4 base = dragon_matrix(d, sc); int clip = anim3d_clip(m, dragon_anim_name(d->anim)); if (clip < 0) clip = 0;
     if (d->mode == DM_AIR && d->anim == DA_GLIDE && d->pitch < -0.3f) { int dv = anim3d_clip(m, "dive"); if (dv >= 0) clip = dv; }   /* nose down: wings swept back in a dive */
     gfx_state(ST_SOLID);
-    float glow = d->evolve_t > 0 ? 0.5f + 0.5f * sinf(g_time * 20) : 0;
+    float glow = d->evolve_t > 0 ? 0.5f + 0.5f * sinf(g_time * 20) : (d == &g_dragon && g_upgrade_t > 0 ? (0.35f + 0.25f * sinf(g_time * 12)) * fminf(1, g_upgrade_t) : 0);
     { int air = d->mode == DM_AIR; float arc = clampf(g_turn * (air ? 0.55f : 0.35f), -1, 1);
       float climb = air ? clampf(d->vy / 5.0f, 0, 1) : 0; float side = air ? 0.35f + 0.25f * fabsf(arc) : (d->speed > 0.5f ? 0.25f : 0.0f);
       anim3d_set_bend(arc, side, air ? 0.3f + 0.9f * climb : 0, g_bodyph); }
     float at = gait_time(0, m, clip, d->anim, d->speed, dragon_length(st) * sc / dragon_scale(st), d->anim_t);
+    fade_set(0, m, clip, d->anim == DA_HIT || d->anim == DA_TAILWHIP || d->anim == DA_CLAW ? 0.1f : 0.22f);
     gfx_bump(2); anim3d_draw(m, clip, at, &base, 1.12f + glow, 1.12f + glow, 1.1f + 0.6f * glow, 1); gfx_bump(0); gfx_bind(NULL); }
 
 static void draw_sparkles(const Dragon *d, Vec3 eye) {
@@ -766,11 +830,13 @@ static void draw_sparkles(const Dragon *d, Vec3 eye) {
         float rise = fmodf(t * (0.8f + frand01(&s)) + ph, 2.0f); float sz = 0.08f * L * (1 - rise / 2) + 0.05f;
         Vec3 c = v3(d->x + cosf(a + t) * r, d->y + h + rise * L * 0.6f, d->z + sinf(a + t) * r);
         if (d->evolve_t > 0) batch_quad(&g_b, c, v3(right.x * sz, 0, right.z * sz), v3(up.x * sz, up.y * sz, up.z * sz), v3(0, 1, 0), 0, 0, 1, 1, 1, 1, 0.7f, 1 - rise / 2); }
-    if (col) { float gy = world_height(&g_world, ccx, ccz); Vec3 rt = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(v3(ccx, gy, ccz), eye)));   /* a rising spiral of light */
-        for (int i = 0; i < 220; i++) { float u = fmodf(i * 0.6180339f + g_time * 0.18f, 1.0f); float a = i * 2.39996f + g_time * 1.6f; float r = 1.2f + 1.8f * u + 0.4f * sinf(i * 1.3f);
-            float h = u * 34; float sz = 0.35f + 0.25f * sinf(i * 0.7f + g_time * 3); float al = (1 - u) * fminf(1, u * 8);
-            Vec3 c = v3(ccx + cosf(a) * r, gy + h, ccz + sinf(a) * r); float bl = g_wk == WK_FOREST ? 1.0f : 0.85f;
-            batch_quad(&g_b, c, v3(rt.x * sz, 0, rt.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, 0.75f, 0.9f * bl, 1.0f, al); } }
+    (void)col; { Portal PP[2]; int np = portals(PP); for (int q = 0; q < np; q++) { float ccx = PP[q].x, ccz = PP[q].z; if ((ccx - eye.x) * (ccx - eye.x) + (ccz - eye.z) * (ccz - eye.z) > 170 * 170) continue;
+        const Theme *T = &THEMES[PP[q].to]; float gy = world_height(&g_world, ccx, ccz); Vec3 rt = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(v3(ccx, gy, ccz), eye)));   /* a rising spiral in the colours of the world it leads to */
+        for (int i = 0; i < 420; i++) { float u = fmodf(i * 0.6180339f + g_time * 0.18f, 1.0f); float a = i * 2.39996f + g_time * (1.6f + 1.4f * (1 - u)); float r = 1.0f + 3.2f * u * u + 0.5f * sinf(i * 1.3f);   /* a funnel: tight and fast at the bottom, wide at the top */
+            float h = u * 30; float sz = 0.55f + 0.35f * sinf(i * 0.7f + g_time * 3); float al = (1 - u) * fminf(1, u * 8); const float *pc = (i % 3 == 0) ? T->portal2 : T->portal;
+            Vec3 c = v3(ccx + cosf(a) * r, gy + h, ccz + sinf(a) * r);
+            batch_quad(&g_b, c, v3(rt.x * sz, 0, rt.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, pc[0], pc[1], pc[2], al); }
+        for (int i = 0; i < 3; i++) { float hs = 2.6f + i * 1.2f; batch_quad(&g_b, v3(ccx, gy + 1.0f + i * 0.2f, ccz), v3(rt.x * hs, 0, rt.z * hs), v3(0, hs * 0.35f, 0), v3(0, 1, 0), 0, 0, 1, 1, T->portal[0], T->portal[1], T->portal[2], 0.35f); } } }
     if (g_power_t > 0) { float L2 = dragon_length(d->stage); float fx = sinf(d->yaw), fz = cosf(d->yaw); float age = 1.4f - g_power_t; Vec3 hd = v3(d->x + fx * 0.55f * L2, d->y + 0.55f * L2, d->z + fz * 0.55f * L2);
         Vec3 rt2 = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(hd, eye)));
         for (int i = 0; i < 150; i++) { float u = fmodf(i * 0.618034f + age * 1.7f, 1.0f); float a = i * 2.39996f; Vec3 c; float r, g, b, sz;
@@ -790,37 +856,37 @@ static void draw_sparkles(const Dragon *d, Vec3 eye) {
 
 static const float BOSSA_SCALE[2] = {2.47f, 2.61f};      /* the animated models are baked at a smaller size than the still ones */
 static void draw_ironhorn(Vec3 eye) {
-    const PropModel *m = &g_pm[g_wk == WK_SKY ? PM_STORM : PM_IRON]; if (!m->ok) return; const Boss *b = &g_boss;
+    const PropModel *m = &g_pm[TH->boss_isles ? PM_STORM : PM_IRON]; if (!m->ok) return; const Boss *b = &g_boss;
     float dx = b->x - eye.x, dz = b->z - eye.z; int lod = dx * dx + dz * dz > 45 * 45;
     float pitch = 0, roll = 0, yaw = b->yaw, y = b->y;
-    if (g_wk == WK_SKY && b->state != B_DOWN) y += 0.6f + 0.25f * sinf(g_time * 3);   /* the eagle hops on its talons, wings half open */
-    if (b->state == B_CHARGE) { pitch = g_wk == WK_SKY ? 0.45f : 0.12f; y += g_wk == WK_SKY ? 1.0f : 0.15f * fabsf(sinf(g_time * 14)); }
+    if (TH->boss_isles && b->state != B_DOWN) y += 0.6f + 0.25f * sinf(g_time * 3);   /* the eagle hops on its talons, wings half open */
+    if (b->state == B_CHARGE) { pitch = TH->boss_isles ? 0.45f : 0.12f; y += TH->boss_isles ? 1.0f : 0.15f * fabsf(sinf(g_time * 14)); }
     else if (b->state == B_STALK) { pitch = 0.04f * sinf(g_time * 6); if (b->speed < 0) y += 0.05f * fabsf(sinf(g_time * 8)); }
     else if (b->state == B_STUCK) { pitch = 0.18f; yaw += 0.06f * sinf(g_time * 30); }
     else if (b->state == B_STUNNED || b->state == B_HURT) { roll = 0.12f * sinf(g_time * 9); pitch = -0.05f; }
     else if (b->state == B_DOWN) { float k = fminf(1, b->t / 0.8f); roll = 1.35f * k; y -= 0.6f * k; }
     Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(b->x, y, b->z), m4_rotate_y(yaw)), m4_rotate_x(pitch)), m4_rotate_z(roll));
     mm = m4_mul(mm, m4_scale(BOSS_SCALE, BOSS_SCALE, BOSS_SCALE));
-    int bk = g_wk == WK_SKY; Anim3D *ba = g_bossa_ok[bk] ? &g_bossa[bk] : NULL;
+    int bk = TH->boss_isles; Anim3D *ba = g_bossa_ok[bk] ? &g_bossa[bk] : NULL;
     if (ba) {   /* walk / run / paw / swoop with real moving legs and wings; the clip's time runs with its speed */
         static float at, last_time; static int last_clip = -1; const char *cn; float g_dt = g_time - last_time; last_time = g_time; if (g_dt < 0 || g_dt > 0.1f) g_dt = 0.016f;
         float sp = fabsf(b->speed);
         if (!bk) cn = b->state == B_CHARGE ? (b->t < 0.3f ? "crouch" : "run") : b->state == B_STALK ? (sp > 6 ? "run" : sp > 0.8f ? "walk" : (b->t > b->prowl ? "crouch" : "idle")) : "idle";
         else cn = b->state == B_CHARGE ? (b->t < 0.3f ? "fly" : "dive") : b->state == B_STALK ? (sp > 0.8f || b->t > b->prowl ? "fly" : "glide") : "glide";
         int c = anim3d_clip(ba, cn); if (c < 0) c = 0; float rate = !bk && (c == anim3d_clip(ba, "walk")) ? sp / 4.5f : (!bk && c == anim3d_clip(ba, "run") ? fmaxf(0.8f, sp / 11) : 1);
-        if (c != last_clip) { at = 0; last_clip = c; } at += g_dt * rate;
+        if (c != last_clip) { at = 0; last_clip = c; } at += g_dt * rate; fade_set(2 + bk, ba, c, 0.3f);
         if (b->state == B_STUCK || b->state == B_STUNNED || b->state == B_HURT || b->state == B_DOWN) at -= g_dt * rate * 0.7f;   /* slow, dazed */
         float k = BOSSA_SCALE[bk] * BOSS_SCALE; Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
-        gfx_state(ST_SOLID); anim3d_draw(ba, c, at, &am, 1.1f, 1.1f, 1.15f, 1);
+        gfx_state(ST_SOLID); anim3d_draw(ba, c, at, &am, TH->boss_tint[0], TH->boss_tint[1], TH->boss_tint[2], 1);
         Texture *glow = bk ? tx_storm_glow : tx_iron_glow;
         if (glow && b->state != B_DOWN) { float pulse = 0.65f + 0.35f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4)); Texture *keep = ba->tex; ba->tex = glow;   /* eyes, core and vents glowing on top (same pose, reused) */
-            gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse * 0.6f); ba->tex = keep; }
+            gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse * 0.6f); ba->tex = keep; }
         if (m_bossring && b->woke && b->state != B_DOWN) { float rp = 0.5f + 0.5f * sinf(g_time * 5); Mat4 rm = m4_mul(m4_translate(b->x, world_height(&g_world, b->x, b->z) + 0.12f, b->z), m4_scale(BOSS_SCALE, 1, BOSS_SCALE));
             gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_bind(tx_font); gfx_draw_ex(m_bossring, &rm, 1, 0.25f, 0.1f, 0.35f + 0.35f * rp, 0, 1, 0, 0); }
         gfx_state(ST_SOLID); gfx_bind(NULL); return; }
     /* polished steel that catches the sun, then its eyes, core and vents glowing on top, brighter while it charges */
     gfx_state(ST_SOLID); gfx_bind(m->tex); gfx_draw_ex(m->mesh[lod], &mm, 1.1f, 1.1f, 1.15f, 1, 0.9f, 0, 0, 0);
-    Texture *glow = g_wk == WK_SKY ? tx_storm_glow : tx_iron_glow;
+    Texture *glow = TH->boss_isles ? tx_storm_glow : tx_iron_glow;
     if (glow && b->state != B_DOWN) { float pulse = 0.65f + 0.35f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4));
         gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_bind(glow); gfx_draw_ex(m->mesh[lod], &mm, 1, 1, 1, pulse, 0, 1, 0, 0);
         gfx_draw_ex(m->mesh[lod], &mm, 1, 1, 1, pulse * 0.6f, 0, 1, 0, 0); }
@@ -829,11 +895,13 @@ static void draw_ironhorn(Vec3 eye) {
         gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_bind(tx_font); gfx_draw_ex(m_bossring, &rm, 1, 0.25f, 0.1f, 0.35f + 0.35f * rp, 0, 1, 0, 0); }
     gfx_state(ST_SOLID); gfx_bind(NULL); }
 static float g_kd_speed = -1;   /* set just before draw_kind_dragon: that dragon's ground speed, for its walk / run */
+static int g_kd_fade = -1;      /* and its crossfade slot, if it has one */
 static void draw_kind_dragon(int k, int st, float x, float y, float z, float yaw, int anim, float anim_t, int air) {
     Anim3D *m = kind_model(k, st); if (!m) return; float scale = kind_scale(k, st); int clip = anim3d_clip(m, dragon_anim_name(anim)); if (clip < 0) clip = 0;
     Mat4 mm = m4_mul(m4_mul(m4_translate(x, y, z), m4_rotate_y(yaw)), m4_scale(scale, scale, scale));
     anim3d_set_bend(0, air ? 0.35f : 0, air ? 0.4f : 0, g_time * 5.5f + 1.3f);
     if (g_kd_speed >= 0) { anim_t = gait_time(1, m, clip, anim, g_kd_speed, dragon_length(st) * scale / dragon_scale(st), anim_t); g_kd_speed = -1; }
+    if (g_kd_fade >= 0) { fade_set(g_kd_fade, m, clip, 0.22f); g_kd_fade = -1; }
     gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(m, clip, anim_t, &mm, 1.1f, 1.1f, 1.1f, 1); gfx_bump(0); gfx_bind(NULL); }
 static void draw_kaine(void) {
     if (g_kaine_t < 1.5f || g_kaine_t > 13) return;
@@ -850,8 +918,11 @@ static void draw_arena(Vec3 eye) {
     draw_ironhorn(eye); draw_kaine();
     if (!g_rescued) { float open = g_boss.cage_open, ground = g_world.arena_y + 0.1f; float cy = g_world.cage_y - open * (g_world.cage_y - ground);
         float dx = g_world.cage_x - eye.x, dz = g_world.cage_z - eye.z;
-        if (dx * dx + dz * dz < 140 * 140) draw_kind_dragon(CAPTIVE[g_wk], ST_DRAGONET, g_world.cage_x, cy + 0.08f, g_world.cage_z, atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z) + 0.4f * sinf(g_time * 0.7f), DA_IDLE, g_time, 0); }
-    if (g_friend.on) { g_kd_speed = g_p2 >= 0 ? g_other.speed : g_friend.speed; draw_kind_dragon(g_fk, g_other.stage, g_friend.x, g_friend.y, g_friend.z, g_friend.yaw, g_friend.anim, g_friend.anim_t, g_friend.mode); } }
+        if (dx * dx + dz * dz < 140 * 140 && CAPTIVE[g_wk] >= 0) draw_kind_dragon(CAPTIVE[g_wk], ST_DRAGONET, g_world.cage_x, cy + 0.08f, g_world.cage_z, atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z) + 0.4f * sinf(g_time * 0.7f), DA_IDLE, g_time, 0); }
+    { Portal PP[2]; int np = portals(PP); for (int q = 0; q < np; q++) { float dx = PP[q].x - eye.x, dz = PP[q].z - eye.z; if (dx * dx + dz * dz > 110 * 110) continue;   /* the world's dragon spins in its whirlwind */
+        int k = PP[q].to == 0 ? 0 : CAPTIVE[PP[q].to]; float gy = world_height(&g_world, PP[q].x, PP[q].z);
+        draw_kind_dragon(k, ST_DRAGONET, PP[q].x + cosf(g_time * 1.6f) * 1.2f, gy + 5.5f + 1.2f * sinf(g_time * 1.3f), PP[q].z + sinf(g_time * 1.6f) * 1.2f, g_time * 1.6f + 1.57f, DA_GLIDE, g_time, 1); } }
+    if (g_friend.on) { g_kd_speed = g_p2 >= 0 ? g_other.speed : g_friend.speed; g_kd_fade = 1; draw_kind_dragon(g_fk, g_other.stage, g_friend.x, g_friend.y, g_friend.z, g_friend.yaw, g_friend.anim, g_friend.anim_t, g_friend.mode); } }
 static void draw_scene(int drc) {
     float aspect = gfx_aspect(drc); Vec3 eye = g_eye, at = g_at;
     if (g_shake_t > 0) { float a = g_shake_t * 0.6f; Vec3 o = v3(sinf(g_time * 71) * a, sinf(g_time * 83 + 1) * a, cosf(g_time * 67) * a); eye = v3(eye.x + o.x, eye.y + o.y, eye.z + o.z); at = v3(at.x + o.x * 0.5f, at.y + o.y * 0.5f, at.z + o.z * 0.5f); }
@@ -860,12 +931,12 @@ static void draw_scene(int drc) {
     Mat4 proj = m4_perspective((g_side ? 0.85f : g_cam_mode == 2 ? 1.25f : 1.05f) + 0.28f * g_dragon.dive, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir();
     gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye);
-    gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620);   /* fog fades into the sky picture's horizon */ gfx_shadow_use(0);
+    gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, FOGC(0), FOGC(1), FOGC(2), 140, 620);   /* fog fades into the sky picture's horizon */ gfx_shadow_use(0);
     Mat4 id = m4_identity();
     /* sky, around the camera, no depth */
-    Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(g_sky_photo ? tx_sky : NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); }
+    Mat4 skym = m4_translate(eye.x, eye.y - 60, eye.z); gfx_state(0); gfx_bind(g_sky_photo ? tx_sky : NULL); gfx_draw_ex(m_sky, &skym, TH->sky[0], TH->sky[1], TH->sky[2], 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); }
     gfx_state(ST_DEPTH | ST_DEPTH_WRITE); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); }
-    if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, 1, 1, 1, 1, 0, 0, 0, 0); }   /* lit: the sun shapes the billows */
+    if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, g_wk == WK_WATER ? 0.22f : 1, g_wk == WK_WATER ? 0.55f : 1, g_wk == WK_WATER ? 0.85f : 1, 1, 0, 0, 0, 0); }   /* lit: the sun shapes the billows */
     gfx_clear_depth(drc);
     gfx_state(ST_SOLID);
     gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1);
@@ -886,11 +957,12 @@ static void draw_scene(int drc) {
                                 brighter fill, so the side we see (usually its back) shows its shape and colours instead of a dark flat cut-out */
         Vec3 tc = v3_norm(v3(eye.x - g_dragon.x, 0, eye.z - g_dragon.z)); Vec3 L2 = v3_norm(v3(L.x * 0.5f + tc.x * 0.6f, L.y * 0.7f + 0.35f, L.z * 0.5f + tc.z * 0.6f));
         gfx_light(v3(1.05f, 0.98f, 0.86f), v3(0.62f, 0.72f, 0.86f), v3(0.42f, 0.44f, 0.32f), eye);
-        gfx_shadow_use(1); gfx_camera(&vp, L2, 0.44f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620); gfx_shadow_use(0);
+        gfx_shadow_use(1); gfx_camera(&vp, L2, 0.44f, FOGC(0), FOGC(1), FOGC(2), 140, 620); gfx_shadow_use(0);
         draw_dragon(&g_dragon);
         gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye);
-        gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620); gfx_shadow_use(0); }
-    if (m_water) { gfx_state(ST_TRANSPARENT); gfx_bind(tx_water); gfx_draw_ex(m_water, &id, 1, 1, 1, 0.8f, 0.9f, 0, g_time * 0.02f, g_time * 0.013f); }
+        gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, FOGC(0), FOGC(1), FOGC(2), 140, 620); gfx_shadow_use(0); }
+    if (m_water) { gfx_state(ST_TRANSPARENT); gfx_bind(tx_water); { float wr = 1, wg = 1, wb = 1, wa = 0.8f; if (g_wk == WK_LAVA) { wr = 1.8f; wg = 0.7f; wb = 0.2f; wa = 1; } else if (g_wk == WK_SNOW) { wr = 0.92f; wg = 1.02f; wb = 1.15f; } else if (g_wk == WK_CRYSTAL) { wr = 1.0f; wg = 0.75f; wb = 1.25f; }
+        gfx_draw_ex(m_water, &id, wr, wg, wb, wa, 0.9f, 0, g_time * 0.02f, g_time * 0.013f); } }
     scenelayer_draw_faded();   /* trees and rocks between the camera and the dragon, see-through */
     draw_sparkles(&g_dragon, eye);
     { Mat4 cm = m4_translate(fmodf(g_time * 1.5f, 900.0f) - 450.0f, 0, 0); gfx_state(ST_DEPTH | ST_BLEND); gfx_bind(tx_cloud); if (m_clouds) { gfx_draw_ex(m_clouds, &cm, 1, 1, 1, 0.9f, 0, 1, 0, 0); Mat4 cm2 = m4_translate(cm.m[12] + 900.0f, 0, 0); gfx_draw_ex(m_clouds, &cm2, 1, 1, 1, 0.9f, 0, 1, 0, 0); } }
@@ -1028,8 +1100,13 @@ static void draw_hud(int drc) {
         if (o->stage < ST_BEYONDER) { float k = clampf(o->growth / dragon_need(o->stage), 0, 1); ui_bar(1040, 144, 200, 10, k, 0.2f, 0.85f, 0.35f); } }
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
-        if (dx * dx + dz * dz < 60 * 60) { ui_panel(440, 132, 400, 90, 0.9f, 0); text_cg(BOSS_NAME[g_wk], 150, 26, 1);
+        if (dx * dx + dz * dz < 60 * 60) { ui_panel(440, 132, 400, 90, 0.9f, 0); text_cg(TH->boss, 150, 26, 1);
             for (int i = 0; i < BOSS_HITS[g_diff]; i++) { float x = 640 - BOSS_HITS[g_diff] * 34 + i * 68; ui_bar(x + 8, 188, 52, 10, i < g_boss.hp, 1.0f, 0.4f, 0.08f); } } }
+    /* near a whirlwind: where it goes, and who is caged there */
+    { Portal PP[2]; int np = portals(PP); for (int q = 0; q < np; q++) { float dx = d->x - PP[q].x, dz = d->z - PP[q].z; if (dx * dx + dz * dz > 26 * 26) continue;
+        const Theme *T = &THEMES[PP[q].to]; char l1[64], l2[80]; snprintf(l1, sizeof l1, "WHIRLWIND TO %s", T->name);
+        int cap = CAPTIVE[PP[q].to]; if (PP[q].to == 0) snprintf(l2, sizeof l2, "BACK HOME"); else if (g_wrescued[PP[q].to]) snprintf(l2, sizeof l2, "THE %s IS ALREADY FREE", KIND_TITLE[cap]); else snprintf(l2, sizeof l2, "FREE THE %s!", KIND_TITLE[cap]);
+        ui_panel(400, 530, 480, 92, 0.9f, 0); batch_text_g(&g_b, l1, 640 - text_width(l1, 24) / 2, 548, 24, T->portal[0], T->portal[1], T->portal[2], 1, 1); text_cg(l2, 584, 20, 1); break; } }   /* low on the screen, so the whirlwind itself stays in view */
     /* growth bar */
     float need = dragon_need(d->stage); float gf = need > 1e8f ? 1 : clampf(d->growth / need, 0, 1);
     ui_bar(42, 82, 356, 16, gf, 0.25f, 0.8f, 0.2f);
@@ -1045,12 +1122,12 @@ static void draw_hud(int drc) {
     }
     if (g_msg_t > 0 && !g_swap_open && !g_pause_open && g_tale_i < 0) { float ma = clampf(g_msg_t, 0, 1), mw = fminf(text_width(g_msg, 26), 1060); int nl = text_wrap_n(g_msg, 0, 26, 1060, 0, 0, 0, 0, 0); float my = 644 - (nl - 1) * 39;
         ui_panel(640 - mw / 2 - 70, my - 36, mw + 140, 100 + (nl - 1) * 39, 0.9f * ma, 0); text_wrap_c(g_msg, my, 26, 1060, 1, 0.96f, 0.86f, ma); }
-    if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(g_wk == WK_SKY ? "SKY KINGDOM" : "EVERLEAF WILDS", 352, 34, a); }
+    if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(TH->name, 352, 34, a); }
     static const char *cams[3] = {"OVERHEAD VIEW", "RIDER VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST", "SHARDS", "SANDSTORM", "WATER", "LAVA"}; char cl[160]; snprintf(cl, sizeof cl, "A : JUMP/FLY   B : TAIL (AIR: %s)   X : CLAW/EAT%s   Y : %s   + : MENU", d->stage >= ST_DRAGON ? "ROLL" : "POUNCE", d->stage >= ST_DRAGON ? " (AIR: TALONS)" : "", d->stage >= ST_DRAGON ? PW[g_kind] : "SPARK CHIRP");
       batch_text(&g_b, cl, 640 - text_width(cl, 16) / 2, 692, 16, 1, 1, 1, 0.5f); }
     if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, -700, 0, 2680, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }   /* wider than the TV for wide phone screens */
-    if (g_tale_i >= 0) { char line[200]; snprintf(line, sizeof line, TALE[g_tale_w][g_tale_i], kind_name(CAPTIVE[g_tale_w])); float fade = clampf(g_tale_t * 2, 0, 1);
+    if (g_tale_i >= 0) { char line[200]; snprintf(line, sizeof line, TALE[g_tale_w][g_tale_i], CAPTIVE[g_tale_w] >= 0 ? kind_name(CAPTIVE[g_tale_w]) : active_name()); float fade = clampf(g_tale_t * 2, 0, 1);
         ui_shade(fade); ui_embers(40, fade); ui_panel(90, 150, 1100, 440, 0.95f * fade, 0); ui_divider(640, 200, 520, fade); text_wrap_c(line, 250, 30, 960, 1, 0.95f, 0.82f, fade);
         char pg[16]; snprintf(pg, sizeof pg, "%d / 3", g_tale_i + 1); text_cg(pg, 556, 18, 0.7f * fade); text_c("A : NEXT", 620, 24, 1, 1, 1, 0.6f + 0.4f * sinf(g_time * 3)); }
     else if (g_pause_open) {   /* the pause menu */
@@ -1146,7 +1223,7 @@ static void draw_map(void) {
 #define MY(z) (CY - (z) * S)
     batch_clear(&g_b);
     batch_rect(&g_b, 0, 0, 1280, 720, 0.08f, 0.14f, 0.08f, 1);
-    if (g_wk == WK_SKY) {   /* the Sky Kingdom: white cloud, green islands */
+    if (WK_ISLES(g_wk)) {   /* islands: white cloud (or blue sea) round green islands */
         batch_rect(&g_b, MX(-W_SIZE / 2), MY(W_SIZE / 2), W_SIZE * S, W_SIZE * S, 0.86f, 0.9f, 0.96f, 1);
         float cs = W_SIZE / (W_GRID - 1);
         for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) { float h = g_world.h[j][i]; if (h < W_CLOUDS + 4) continue; float x = -W_SIZE / 2 + cs * i, z = -W_SIZE / 2 + cs * j; float t = clampf(h / 22.0f, 0, 1);
@@ -1154,7 +1231,7 @@ static void draw_map(void) {
     else batch_rect(&g_b, MX(-W_SIZE / 2), MY(W_SIZE / 2), W_SIZE * S, W_SIZE * S, 0.3f, 0.55f, 0.25f, 1);
     { float ccx, ccz; if (column_at(&ccx, &ccz)) { batch_rect(&g_b, MX(ccx) - 7, MY(ccz) - 7, 14, 14, 0.7f, 0.9f, 1, 1); batch_rect(&g_b, MX(ccx) - 3, MY(ccz) - 20, 6, 40, 0.9f, 1, 1, 0.8f); } }   /* the wind column */
     /* hills: darker where the ground is high */
-    for (int j = 0; j < W_GRID - 1 && g_wk == WK_FOREST; j += 2) for (int i = 0; i < W_GRID - 1; i += 2) { float h = g_world.h[j][i]; if (h < 6) continue; float t = clampf((h - 6) / 20.0f, 0, 1); float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1); batch_rect(&g_b, MX(x), MY(z) - 2 * S, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 0.3f + 0.3f * t, 0.45f + 0.1f * t, 0.2f + 0.1f * t, 0.9f); }
+    for (int j = 0; j < W_GRID - 1 && !WK_ISLES(g_wk); j += 2) for (int i = 0; i < W_GRID - 1; i += 2) { float h = g_world.h[j][i]; if (h < 6) continue; float t = clampf((h - 6) / 20.0f, 0, 1); float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1); batch_rect(&g_b, MX(x), MY(z) - 2 * S, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 2 * S * W_SIZE / (W_GRID - 1) / 2.5f + 1, 0.3f + 0.3f * t, 0.45f + 0.1f * t, 0.2f + 0.1f * t, 0.9f); }
     map_disc(MX(g_world.pond_x), MY(g_world.pond_z), g_world.pond_r * 1.25f * S, 24, 0.25f, 0.55f, 0.85f, 1);
     for (int i = 0; i < g_world.nprop; i++) { const Prop *p = &g_world.prop[i]; float r = p->kind == P_TREE || p->kind == P_PALM ? 4.5f : 2.5f; float cr = p->kind == P_ROCK ? 0.5f : 0.12f, cg = p->kind == P_ROCK ? 0.5f : 0.35f, cb = p->kind == P_ROCK ? 0.48f : 0.1f; map_disc(MX(p->x), MY(p->z), r, 6, cr, cg, cb, 1); }
     for (int i = 0; i < g_world.nfood; i++) { const Food *f = &g_world.food[i]; if (!f->alive) continue; float cr = 1, cg = 1, cb = 1;
@@ -1172,7 +1249,7 @@ static void draw_map(void) {
     map_disc(ax, ay, pulse, 16, 0.7f, 1, 0.5f, 0.35f);
     map_tri2d(ax + sy * 14, ay - cy * 14, ax - cy * 8 - sy * 8, ay - sy * 8 + cy * 8, ax + cy * 8 - sy * 8, ay + sy * 8 + cy * 8, 0.85f, 1, 0.6f, 1);
     /* words */
-    batch_text_g(&g_b, g_wk == WK_SKY ? "SKY KINGDOM" : "EVERLEAF WILDS", 90, 70, 34, 1, 1, 1, 1, 1);
+    batch_text_g(&g_b, TH->name, 90, 70, 34, 1, 1, 1, 1, 1);
     char line[64]; snprintf(line, sizeof line, "%s", dragon_stage_name(d->stage)); batch_text(&g_b, line, 90, 116, 26, 1, 0.95f, 0.85f, 0.9f);
     float need = dragon_need(d->stage); if (need < 1e8f) { snprintf(line, sizeof line, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, line, 90, 148, 22, 0.8f, 1, 0.7f, 0.9f); }
     batch_text(&g_b, "RED: BERRIES  WHITE: MUSHROOMS", 90, 612, 18, 1, 1, 1, 0.8f); batch_text(&g_b, "YELLOW: GRUBS  BLUE: FISH (MEAT)  DARK RED: DRONES", 90, 640, 18, 1, 1, 1, 0.8f);
@@ -1207,6 +1284,18 @@ static int text_wrap_n(const char *txt, float y, float size, float maxw, float r
 static void text_wrap_c(const char *txt, float y, float size, float maxw, float r, float g, float b, float a) { text_wrap_n(txt, y, size, maxw, r, g, b, a, 1); }
 
 /* ---------- title and name screens: dragons flying everywhere over the meadow ---------- */
+/* the multiplayer pick: each player's dragon, big and turning, inside their panel (drawn over the menu) */
+static void mpick_dragons(void) {
+    gfx_clear_depth(0); float aspect = gfx_aspect(0); Vec3 eye = v3(0, 0.6f, 10);
+    Mat4 vp = m4_mul(m4_perspective(0.6f, aspect, 0.5f, 60), m4_look_at(eye, v3(0, 0.6f, 0), v3(0, 1, 0)));
+    gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.1f, 1.0f, 0.9f), v3(0.6f, 0.68f, 0.85f), v3(0.4f, 0.38f, 0.32f), eye); gfx_camera(&vp, v3_norm(v3(0.4f, 0.7f, 0.6f)), 0.42f, 0.7f, 0.8f, 0.9f, 200, 400);
+    float hw = tanf(0.3f) * 10 * aspect, hh = tanf(0.3f) * 10;
+    for (int pl = 0; pl < 2; pl++) { if (pl == 1 && g_p2 < 0) continue; int k = g_pick[pl]; ensure_kind(k, ST_DRAGON); Anim3D *m = kind_model(k, ST_DRAGON); if (!m) continue;
+        float sx = (150 + pl * 520 + 230 - 640) / (360.0f * aspect) * hw, sy = (1 - (175 + 205) / 360.0f) * hh;   /* feet just above the name, in the middle of the panel (the menu is laid out on a 720-high page) */
+        float sc = 1.1f; int clip = anim3d_clip(m, g_ready[pl] ? "roar" : "idle"); if (clip < 0) clip = 0;
+        Mat4 mm = m4_mul(m4_mul(m4_translate(sx, sy, 0), m4_rotate_y(g_time * 0.7f + pl * 3.1f)), m4_scale(sc, sc, sc));
+        anim3d_set_bend(0, 0, 0, 0); gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(m, clip, g_ready[pl] ? fmodf(g_time, 2.0f) : g_time, &mm, 1.12f, 1.12f, 1.1f, 1); gfx_bump(0); }
+    gfx_bind(NULL); }
 static void draw_title_dragons(void) {
     /* three dragons (one of each size) circling at different heights, plus the dragonet looping low */
     for (int k = 0; k < 4; k++) { int st = k % 3; Anim3D *m = &g_model[st]; if (!m->ok) continue; float sc = dragon_scale(st) * (k == 3 ? 1 : 1.0f);
@@ -1249,23 +1338,25 @@ static void draw_title_hud(void) {
     if (g_state == G_MPICK) {
         ui_shade(1); ui_embers(30, 0.8f); ui_panel(90, 60, 1100, 600, 0.97f, 0); text_cg("MULTIPLAYER: PICK YOUR DRAGONS", 104, 38, 1); ui_divider(640, 160, 560, 1);
         static const char *KD[K_N] = {"FOREST  -  LEAFNADO", "SKY  -  FIRE BREATH", "SNOW  -  FROST BREATH", "CRYSTAL  -  CRYSTAL SHARDS", "SAND  -  SANDSTORM", "WATER  -  WATER BLAST", "LAVA  -  LAVA SPIT"};
-        for (int pl = 0; pl < 2; pl++) { float x = 150 + pl * 520, y = 190; int joined = pl == 0 || g_p2 >= 0; ui_panel(x, y, 460, 330, 1, joined && !g_ready[pl]);
+        for (int pl = 0; pl < 2; pl++) { float x = 150 + pl * 520, y = 175; int joined = pl == 0 || g_p2 >= 0; ui_panel(x, y, 460, 405, 0.55f, joined && !g_ready[pl]);   /* see-through: the chosen dragon turns inside it */
             char t[32]; snprintf(t, sizeof t, "PLAYER %d", pl + 1); batch_text_g(&g_b, t, x + 230 - text_width(t, 30) / 2, y + 30, 30, 1, 1, 1, 1, 1);
             if (!joined) { const char *j1 = "PRESS A ON ANOTHER", *j2 = "CONTROLLER TO JOIN"; batch_text(&g_b, j1, x + 230 - text_width(j1, 22) / 2, y + 130, 22, 1, 0.95f, 0.85f, 0.6f + 0.4f * pulse); batch_text(&g_b, j2, x + 230 - text_width(j2, 22) / 2, y + 162, 22, 1, 0.95f, 0.85f, 0.6f + 0.4f * pulse);
                 batch_text(&g_b, "(OR PLAY ALONE)", x + 230 - text_width("(OR PLAY ALONE)", 16) / 2, y + 220, 16, 1, 0.95f, 0.85f, 0.6f); continue; }
-            const char *nm = kind_name(g_pick[pl]); float ns = 36; while (ns > 18 && text_width(nm, ns) > 400) ns -= 2;
-            batch_text_g(&g_b, nm, x + 230 - text_width(nm, ns) / 2, y + 110, ns, 1, 1, 1, 1, 1);
-            batch_text(&g_b, KD[g_pick[pl]], x + 230 - text_width(KD[g_pick[pl]], 18) / 2, y + 170, 18, 0.85f, 1, 0.8f, 0.9f);
-            if (!g_ready[pl]) { batch_text(&g_b, "<", x + 30, y + 112, 36, 1, 0.85f, 0.4f, pulse); batch_text(&g_b, ">", x + 410, y + 112, 36, 1, 0.85f, 0.4f, pulse); }
-            const char *rd = g_ready[pl] ? "READY!" : "A : READY"; batch_text_g(&g_b, rd, x + 230 - text_width(rd, 26) / 2, y + 250, 26, 1, 1, 1, g_ready[pl] ? 1 : 0.6f + 0.4f * pulse, 1); }
-        text_c("LEFT / RIGHT : CHOOSE    A : READY    B : BACK", 600, 20, 1, 0.95f, 0.85f, 0.85f); }
+            const char *nm = kind_name(g_pick[pl]); float ns = 32; while (ns > 18 && text_width(nm, ns) > 400) ns -= 2;
+            batch_text_g(&g_b, nm, x + 230 - text_width(nm, ns) / 2, y + 268, ns, 1, 1, 1, 1, 1);
+            batch_text(&g_b, KD[g_pick[pl]], x + 230 - text_width(KD[g_pick[pl]], 18) / 2, y + 314, 18, 0.85f, 1, 0.8f, 0.9f);
+            for (int k = 0; k < K_N; k++) { const float *c = THEMES[k == 0 ? 0 : k].portal; float cx = x + 230 + (k - 3) * 44; int on = k == g_pick[pl];   /* every dragon, as a row of coloured gems */
+                batch_rect(&g_b, cx - (on ? 15 : 10), y + 344 - (on ? 15 : 10), on ? 30 : 20, on ? 30 : 20, c[0], c[1], c[2], on ? 1 : 0.55f); }
+            if (!g_ready[pl]) { batch_text(&g_b, "<", x + 22, y + 140, 44, 1, 0.85f, 0.4f, pulse); batch_text(&g_b, ">", x + 410, y + 140, 44, 1, 0.85f, 0.4f, pulse); }
+            const char *rd = g_ready[pl] ? "READY!" : "A : READY"; batch_text_g(&g_b, rd, x + 230 - text_width(rd, 24) / 2, y + 372, 24, 1, 1, 1, g_ready[pl] ? 1 : 0.6f + 0.4f * pulse, 1); }
+        text_c("LEFT / RIGHT : CHOOSE    A : READY    B : BACK", 612, 20, 1, 0.95f, 0.85f, 0.85f); }
     if (g_state == G_SLOT) {
         ui_shade(1); ui_embers(30, 0.8f); ui_panel(200, 50, 880, 640, 0.97f, 0); text_cg("CHOOSE A SAVE", 100, 44, 1); ui_divider(640, 172, 520, 1);
         for (int k = 0; k < 3; k++) { const SlotInfo *si = &g_slots[k]; float y = 196 + k * 132; int sel = k == g_slot_sel;
             ui_panel(290, y, 700, 124, 1, sel);
             char a[64], b[96]; snprintf(a, sizeof a, "SAVE %d", k + 1); batch_text_g(&g_b, a, 340, y + 36, 24, 1, 1, 1, sel ? 1 : 0.75f, 1);
             if (!si->used) snprintf(b, sizeof b, "EMPTY - START A NEW ADVENTURE");
-            else { static const char *WN[WK_N] = {"EVERLEAF WILDS", "SKY KINGDOM"}; snprintf(b, sizeof b, "%s THE %s  -  %s  -  %s  -  %d FRIEND%s", NAMES[si->name], dragon_stage_name(si->stage), DIFF_NAMES[si->diff], WN[si->wk], si->rescued, si->rescued == 1 ? "" : "S"); }
+            else { snprintf(b, sizeof b, "%s THE %s  -  %s  -  %s  -  %d FRIEND%s", NAMES[si->name], dragon_stage_name(si->stage), DIFF_NAMES[si->diff], THEMES[si->wk].name, si->rescued, si->rescued == 1 ? "" : "S"); }
             { float bs = 17; while (bs > 11 && text_width(b, bs) > 600) bs -= 1; batch_text(&g_b, b, 340, y + 74, bs, 1, 0.95f, 0.85f, 0.9f); }
             if (g_slot_erase == k) batch_text(&g_b, "PRESS X AGAIN TO ERASE", 940 - text_width("PRESS X AGAIN TO ERASE", 18), y + 38, 18, 1, 0.4f, 0.3f, 1); }
         text_c("UP / DOWN : CHOOSE    A : PLAY    X : ERASE    B : BACK", 606, 18, 1, 0.95f, 0.85f, 0.85f); }
@@ -1284,6 +1375,17 @@ static void draw_title_hud(void) {
 
 /* ---------- the frame ---------- */
 
+/* the world's ground textures and plant models (loaded the first time each world is visited) */
+static void theme_textures(void) {
+    if (!tx_grass0) return;
+    for (int k = 0; k < 2; k++) { const char *nm = k ? TH->gtex1 : TH->gtex0; if (!tx_wg[g_wk][k]) tx_wg[g_wk][k] = !strcmp(nm, "grass") ? tx_grass0 : !strcmp(nm, "dirt") ? tx_dirt0 : asset_texture(nm, 1, NULL, NULL);
+        if (!tx_wg[g_wk][k]) tx_wg[g_wk][k] = k ? tx_dirt0 : tx_grass0; }
+    tx_grass = tx_wg[g_wk][0]; tx_dirt = tx_wg[g_wk][1];
+    for (int i = 0; i < 6; i++) { int m = TH->pm[i]; if (!g_pm[m].ok) propmodel_load(&g_pm[m], PM_NAMES[m]); } }
+static void build_layers(void) {
+    static const int PK[6] = {P_TREE, P_PALM, P_FERN, P_BUSH, P_ROCK, P_SPIRE}; static const float SINK[6] = {0.2f, 0.2f, 0.05f, 0.1f, 0.3f, 0.6f};
+    SceneLayer *L[6] = {&g_lay_tree, &g_lay_palm, &g_lay_fern, &g_lay_bush, &g_lay_rock, &g_lay_spire};
+    for (int i = 0; i < 6; i++) { int m = TH->pm[i]; if (!g_pm[m].ok) m = THEMES[0].pm[i]; scenelayer_build(L[i], &g_pm[m], &g_world, PK[i], TH->lscale[i], SINK[i]); } }
 /* go to a world: make it, rebuild its meshes (waiting for the GPU first), set up its boss and cage, put the team at (x, z) */
 static void enter_world(int wk, float x, float z, float yaw) {
     g_wk = wk; world_make_kind(&g_world, 2026 + wk * 101, wk); g_world.crystal_found = g_wcrystal[wk]; if (g_side) side_clear_lane();
@@ -1291,11 +1393,9 @@ static void enter_world(int wk, float x, float z, float yaw) {
         gfx_sync();
         Mesh **ms[] = {&m_ground, &m_ground_dirt, &m_ground_rock, &m_water, &m_bark, &m_leaves, &m_fern, &m_bushes, &m_rock, &m_tufts, &m_flowers, &m_clouds, &m_mountains, &m_apron, &m_cloudsea, &m_sky, &m_sun};
         for (int i = 0; i < (int)(sizeof ms / sizeof ms[0]); i++) if (*ms[i]) { gfx_mesh_free(*ms[i]); *ms[i] = NULL; }
-        build_ground(); build_props();
-        scenelayer_build(&g_lay_tree, &g_pm[PM_OAK], &g_world, P_TREE, 1.0f, 0.2f); scenelayer_build(&g_lay_palm, &g_pm[PM_PALM], &g_world, P_PALM, 1.0f, 0.2f);
-        scenelayer_build(&g_lay_fern, &g_pm[PM_FERN], &g_world, P_FERN, 1.0f, 0.05f); scenelayer_build(&g_lay_bush, &g_pm[PM_BUSH], &g_world, P_BUSH, 1.6f, 0.1f); scenelayer_build(&g_lay_rock, &g_pm[PM_ROCK], &g_world, P_ROCK, 1.0f, 0.3f); scenelayer_build(&g_lay_spire, &g_pm[PM_SPIRE], &g_world, P_SPIRE, 1.0f, 0.6f); }
-    ensure_kind(CAPTIVE[wk], ST_DRAGONET); for (int k = 1; k < K_N; k++) if (g_has[k]) ensure_kind(k, ST_BEYONDER);
-    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff]; if (wk == WK_SKY) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
+        theme_textures(); build_ground(); build_props(); build_layers(); }
+    if (CAPTIVE[wk] >= 0) ensure_kind(CAPTIVE[wk], ST_DRAGONET); if (wk + 1 < WK_N) ensure_kind(CAPTIVE[wk + 1], ST_DRAGONET); for (int k = 1; k < K_N; k++) if (g_has[k]) ensure_kind(k, ST_BEYONDER);
+    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff]; if (THEMES[wk].boss_isles) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
     if (g_wrescued[wk]) { g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_boss.t = 10; }
     float sx, sz; world_safe_spot(&g_world, clampf(x, -110, 110), clampf(z, -110, 110), &sx, &sz);
     g_dragon.x = sx; g_dragon.z = sz; g_dragon.y = world_height(&g_world, sx, sz); g_dragon.yaw = yaw; g_dragon.mode = DM_GROUND; g_dragon.vy = 0; g_dragon.speed = 0; g_dragon.act_t = 0; g_dragon.anim = DA_IDLE;
@@ -1309,11 +1409,11 @@ static void kind_quirks(Dragon *d, int kind, const DragonInput *in, float dt, in
     if (kind == 1 && d->mode == DM_AIR && in->a && d->vy < 0) d->vy += 6.0f * dt;   /* sky: rides the air, much longer glides */
     if (kind == 2 && d->mode == DM_GROUND && in->zr && d->speed > 1) {           /* snow: ice claws, runs faster */
         float nx = d->x + sinf(d->yaw) * d->speed * 0.3f * dt, nz = d->z + cosf(d->yaw) * d->speed * 0.3f * dt;
-        if (!(g_world.kind == WK_SKY && world_is_void(&g_world, nx, nz))) { d->x = nx; d->z = nz; d->y = world_height(&g_world, d->x, d->z); } }
+        if (!(WK_ISLES(g_world.kind) && world_is_void(&g_world, nx, nz))) { d->x = nx; d->z = nz; d->y = world_height(&g_world, d->x, d->z); } }
     if (kind == 3 && d->mode == DM_AIR && !in->a && d->vy < -1) d->vy += 3.0f * dt;   /* crystal: careful, smooth glides */
     if (kind == 4 && d->mode == DM_GROUND && d->speed > 1) {                          /* sand: skitters low and fast like a lizard */
         float nx = d->x + sinf(d->yaw) * d->speed * 0.25f * dt, nz = d->z + cosf(d->yaw) * d->speed * 0.25f * dt;
-        if (!(g_world.kind == WK_SKY && world_is_void(&g_world, nx, nz))) { d->x = nx; d->z = nz; d->y = world_height(&g_world, d->x, d->z); } }
+        if (!(WK_ISLES(g_world.kind) && world_is_void(&g_world, nx, nz))) { d->x = nx; d->z = nz; d->y = world_height(&g_world, d->x, d->z); } }
     if (kind == 5 && d->mode == DM_SWIM && d->speed > 0.5f) { d->x += sinf(d->yaw) * d->speed * 0.6f * dt; d->z += cosf(d->yaw) * d->speed * 0.6f * dt; }   /* water: a born swimmer */
     if (kind == 6 && (*ev & 8) && d == &g_dragon) { g_shake_t = fmaxf(g_shake_t, 0.25f); platform_rumble(0.5f, 0.15f); }   /* lava: lands with a heavy stomp */
     if (d->stage > ST_DRAGONET && !kind_has_stage(kind, d->stage)) {
@@ -1322,18 +1422,22 @@ static void kind_quirks(Dragon *d, int kind, const DragonInput *in, float dt, in
 
 /* the Sky Kingdom has edges: off one, or down into the clouds, and the dragon is put back on the last solid ground */
 static int sky_fall(Dragon *d, float *sx, float *sz) {
-    if (g_world.kind != WK_SKY) return 0;
+    if (!WK_ISLES(g_world.kind)) return 0;
     int over_void = world_is_void(&g_world, d->x, d->z);
-    if (!over_void && d->mode != DM_AIR) { if (world_height(&g_world, d->x, d->z) > W_CLOUDS + 18) { *sx = d->x; *sz = d->z; } return 0; }   /* remember only real island tops, not the cliff faces */
+    if (!over_void && d->mode != DM_AIR) {   /* remember only flat island tops well away from any edge, never a cliff face (coming back onto one slid you straight off again, over and over) */
+        if (world_height(&g_world, d->x, d->z) > W_CLOUDS + 18 && world_normal(&g_world, d->x, d->z).y > 0.9f) { int ok = 1;
+            for (int k = 0; k < 8 && ok; k++) { float a = k * 0.785398f; if (world_is_void(&g_world, d->x + cosf(a) * 5, d->z + sinf(a) * 5) || world_normal(&g_world, d->x + cosf(a) * 3, d->z + sinf(a) * 3).y < 0.8f) ok = 0; }
+            if (ok) { *sx = d->x; *sz = d->z; } }
+        return 0; }
     if ((d->mode != DM_AIR && over_void) || d->y < W_CLOUDS) {
-        d->x = *sx; d->z = *sz; d->y = world_height(&g_world, d->x, d->z); d->mode = DM_GROUND; d->vy = 0; d->speed = 0; return 1; }
+        d->x = *sx; d->z = *sz; d->y = world_height(&g_world, d->x, d->z); d->mode = DM_GROUND; d->vy = 0; d->speed = 0; d->dive = 0; d->slam = 0; d->act_t = 0; d->air_act = 0; d->invuln_t = 1.5f; return 1; }
     return 0; }
 /* scenery and the boss are solid: the dragon goes round them, not through */
 static void solid_body(Dragon *d) {
     float r = 0.3f * dragon_length(d->stage) + 0.2f; int air = d->mode == DM_AIR;
     if (world_push_out(&g_world, &d->x, &d->y, &d->z, r, air) && !air) d->y = world_height(&g_world, d->x, d->z);
-    if (g_boss.state != B_DOWN && g_boss.state != B_STUCK && g_boss.state != B_STUNNED && g_boss.state != B_HURT) { float bx = d->x - g_boss.x, bz = d->z - g_boss.z, R = r + (g_wk == WK_SKY ? 1.6f : 1.5f) * BOSS_SCALE, d2 = bx * bx + bz * bz;
-        if (d2 < R * R && d->y < g_boss.y + (g_wk == WK_SKY ? 4.5f : 3.5f) * BOSS_SCALE) { float dd = sqrtf(d2) + 1e-4f; d->x = g_boss.x + bx / dd * R; d->z = g_boss.z + bz / dd * R; } } }
+    if (g_boss.state != B_DOWN && g_boss.state != B_STUCK && g_boss.state != B_STUNNED && g_boss.state != B_HURT) { float bx = d->x - g_boss.x, bz = d->z - g_boss.z, R = r + (TH->boss_isles ? 1.6f : 1.5f) * BOSS_SCALE, d2 = bx * bx + bz * bz;
+        if (d2 < R * R && d->y < g_boss.y + (TH->boss_isles ? 4.5f : 3.5f) * BOSS_SCALE) { float dd = sqrtf(d2) + 1e-4f; d->x = g_boss.x + bx / dd * R; d->z = g_boss.z + bz / dd * R; } } }
 /* ---------- Ironhorn, the cage and the rescued friend ---------- */
 static void hurt_dragon(Dragon *D, float amount, const char *msg) {
     if (D->evolve_t > 0) return;
@@ -1346,25 +1450,28 @@ static void boss_frame(float dt) {
     float L = dragon_length(d->stage);
     int whip = d->atk_r > 0; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
     int bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar);
-    if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_GUARD[g_wk]); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
+    if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", TH->guard); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
-    if (bev & 2) { hurt_dragon(d, 0.75f, g_wk == WK_SKY ? "STORMTALON HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : (g_side ? "IRONHORN RAMMED YOU! JUMP (A) OVER IT WHEN IT CHARGES" : "IRONHORN RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES"));
+    if (bev & 2) { { char hm[96]; snprintf(hm, sizeof hm, TH->boss_isles ? "%s HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : (g_side ? "%s RAMMED YOU! JUMP (A) OVER IT WHEN IT CHARGES" : "%s RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES"), TH->boss); hurt_dragon(d, 0.75f, hm); }
         d->x += g_boss.cx * 3; d->z += g_boss.cz * 3; }
-    if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", BOSS_STUCK[g_wk]); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
+    if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", TH->stuck); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
     if (bev & 32) { snprintf(g_msg, sizeof g_msg, "IT IS DIZZY! QUICK, HIT IT: TAIL (B) OR CLAW"); g_msg_t = 3; }
     if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
-    if (bev & 8) { snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", BOSS_NAME[g_wk]); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
+    if (bev & 8) { snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", TH->boss); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
     if (g_side && g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) { g_rescued = 1; sfx_play(SFX_CHIRP, 1.0f, 0); }   /* multiplayer: freeing it ends the level */
     else if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
-        int c = CAPTIVE[g_wk]; ensure_kind(c, ST_BEYONDER); g_rescued = 1; g_has[c] = 1; g_fk = c; g_friend.on = 1; g_friend.x = g_world.cage_x; g_friend.y = g_world.arena_y + 1.2f; g_friend.z = g_world.cage_z; g_friend.yaw = 0;
-        dragon_init(&g_other, &g_world, g_friend.x, g_friend.z);
-        snprintf(g_msg, sizeof g_msg, "%s IS FREE AND JOINS YOUR TEAM! PRESS + THEN SWAP DRAGONS TO PLAY AS THEM", kind_name(c)); g_msg_t = 8; g_tale_i = 0; g_tale_t = 0; g_tale_w = g_wk; sfx_play(SFX_CHIRP, 1.0f, 0); save_progress(); }
+        int c = CAPTIVE[g_wk]; g_rescued = 1; g_upgrade_t = 3.0f; boss_upgrades(&g_dragon); g_dragon.hearts = g_dragon.max_hearts;
+        if (c >= 0) { int had = g_has[c]; ensure_kind(c, ST_BEYONDER); g_has[c] = 1; g_fk = c; g_friend.on = 1; g_friend.x = g_world.cage_x; g_friend.y = g_world.arena_y + 1.2f; g_friend.z = g_world.cage_z; g_friend.yaw = 0;
+            if (!had) dragon_init(&g_other, &g_world, g_friend.x, g_friend.z);
+            snprintf(g_msg, sizeof g_msg, "%s IS FREE! HUGE UPGRADE: +2 HEARTS, FASTER, STRONGER ATTACKS. PRESS + TO SWAP DRAGONS", kind_name(c)); }
+        else snprintf(g_msg, sizeof g_msg, "THE WIND GATE IS OPEN! HUGE UPGRADE: +2 HEARTS, FASTER, STRONGER ATTACKS. RIDE THE WHIRLWIND TO THE %s!", THEMES[g_wk + 1].name);
+        g_msg_t = 9; g_tale_i = 0; g_tale_t = 0; g_tale_w = g_wk; sfx_play(SFX_CHIRP, 1.0f, 0); sfx_play(SFX_GROW, 1.0f, 0); platform_rumble(1, 1); save_progress(); }
     /* the friend: keeps to the player's side, a little behind; flies when the player flies (unless player 2 is steering it) */
     if (g_friend.on && g_p2 < 0 && !g_side) {
         float fx = sinf(d->yaw), fz = cosf(d->yaw); float back = 2.5f + L, side = 1.8f + 0.5f * L;
         float tx = d->x - fx * back + fz * side, tz = d->z - fz * back - fx * side; float gy = world_height(&g_world, tx, tz);
-        int air = d->mode == DM_AIR || g_friend.y > world_height(&g_world, g_friend.x, g_friend.z) + 0.6f || (g_world.kind == WK_SKY && (world_is_void(&g_world, g_friend.x, g_friend.z) || world_is_void(&g_world, tx, tz)));
-        float ty = d->mode == DM_AIR ? d->y + 0.8f : (g_world.kind == WK_SKY && gy < W_CLOUDS + 4 ? d->y + 1.5f : gy);
+        int air = d->mode == DM_AIR || g_friend.y > world_height(&g_world, g_friend.x, g_friend.z) + 0.6f || (WK_ISLES(g_world.kind) && (world_is_void(&g_world, g_friend.x, g_friend.z) || world_is_void(&g_world, tx, tz)));
+        float ty = d->mode == DM_AIR ? d->y + 0.8f : (WK_ISLES(g_world.kind) && gy < W_CLOUDS + 4 ? d->y + 1.5f : gy);
         float dx = tx - g_friend.x, dz = tz - g_friend.z, dy = ty - g_friend.y, dist = sqrtf(dx * dx + dz * dz);
         float cap = fmaxf(d->mode == DM_AIR ? 22.0f : 11.0f, fabsf(d->speed) * 1.3f + 3); float want = dist > 0.3f ? fminf(dist * 1.8f, cap) : 0;   /* always fast enough to keep up */ g_friend.speed += (want - g_friend.speed) * (1 - expf(-dt * 4));
         if (dist > 28) { g_friend.x = tx; g_friend.z = tz; g_friend.y = ty; }   /* fell far behind: catch up */
@@ -1403,6 +1510,22 @@ static void coop_frame(const Pad *pads, int npads, float dt) {
 
 #include "side.inc"
 
+/* every boss beaten is a big upgrade for the whole team: 2 more hearts, faster, longer reach on every attack */
+static int bosses_beaten(void) { if (g_side) return g_lv > 2 ? g_lv - 2 : 0; int n = 0; for (int w = 0; w < WK_N; w++) n += g_wrescued[w] != 0; return n; }
+static void boss_upgrades(Dragon *d) { int n = bosses_beaten(); d->power = (float)n; float want = 3 + 2 * d->stage + 2 * n;
+    if (d->max_hearts < want) { d->hearts += want - d->max_hearts; d->max_hearts = want; } }
+/* a knocked-out robot heals whoever is nearest a little and drops a treat on the ground where it fell (a dead food slot moves there) */
+static void robot_drops(void) {
+    for (int k = 0; k < g_world.nkill; k++) { float x = g_world.kill_x[k], z = g_world.kill_z[k];
+        Dragon *D = &g_dragon; if (g_side && g_side_n > 1) { float a = (g_dragon.x - x) * (g_dragon.x - x) + (g_dragon.z - z) * (g_dragon.z - z), b = (g_other.x - x) * (g_other.x - x) + (g_other.z - z) * (g_other.z - z); if (b < a) D = &g_other; }
+        D->hearts = fminf(D->max_hearts, D->hearts + 0.5f);
+        if (!(WK_ISLES(g_world.kind) && world_is_void(&g_world, x, z)) && !world_in_pond(&g_world, x, z)) {
+            int best = -1; float bd = -1; for (int i = 0; i < g_world.nfood; i++) { Food *f = &g_world.food[i]; if (f->alive || f->kind == F_FISH) continue; float d2 = (f->x - x) * (f->x - x) + (f->z - z) * (f->z - z); if (d2 > bd) { bd = d2; best = i; } }
+            if (best < 0) for (int i = 0; i < g_world.nfood; i++) { Food *f = &g_world.food[i]; if (f->kind == F_FISH) continue; float d2 = (f->x - x) * (f->x - x) + (f->z - z) * (f->z - z); if (d2 > bd) { bd = d2; best = i; } }
+            if (best >= 0) { Food *f = &g_world.food[best]; f->alive = 1; f->regrow = 0; f->kind = (k + (int)(g_time * 3)) % 2 ? F_MUSHROOM : F_GRUB; f->x = x; f->z = z; f->y = world_height(&g_world, x, z); f->phase = g_time; } }
+        sfx_play(SFX_PICKUP, 0.6f, 0); }
+    if (g_world.nkill) { size_t l = strlen(g_msg); if (l + 24 < sizeof g_msg && !strstr(g_msg, "HEALTH")) strcat(g_msg, "  +HEALTH, IT DROPPED FOOD!"); g_msg_t = fmaxf(g_msg_t, 2.5f); }
+    g_world.nkill = 0; }
 /* Kaine's robots against one dragon: their moves this step, and any attack the dragon is doing (claw, tail, pounce, talons, barrel roll, spark chirp) */
 static void robots_vs(Dragon *D, float dt) {
     { /* whatever attack the dragon is doing this step (claw, tail, pounce, talons, barrel roll, spark chirp) hits anything in its reach */
@@ -1430,12 +1553,15 @@ void game_frame(const Pad *pads, int npads, float dt) {
 #ifdef DB_TOUR
     static Pad tourpad; static int tour_once; if (!tour_once && g_state == G_PLAY) { tour_once = 1;   /* the emulator is slow: start grown, in the Sky Kingdom, with Scarlet */
         g_dragon.stage = ST_DRAGON; g_dragon.max_hearts = g_dragon.hearts = 5; g_dragon.growth = 0;
-        g_wrescued[WK_FOREST] = 1; g_has[1] = 1; g_fk = 1; g_diff = 0; dragon_init(&g_team[1], &g_world, 0, 0); enter_world(WK_SKY, 4, -4, 2.3f); g_kaine_done = 1; g_kaine_t = 0; }
+        g_wrescued[WK_FOREST] = 1; g_has[1] = 0; g_fk = 1; g_diff = 0; dragon_init(&g_team[1], &g_world, 0, 0); enter_world(WK_SKY, 4, -4, 2.3f); g_kaine_done = 1; g_kaine_t = 0; }
     g_tour_real_dt = g_tour_real_dt * 0.9f + dt * 0.1f;
     if (dt < 0.08f) dt = 0.08f;   /* the cloud emulator is slow: let game time run ahead so the clip covers more */
     tour_input(&tourpad, g_time); pads = &tourpad; npads = 1;
 #endif
 #ifndef __wiiu__
+    if (getenv("DB_MPICK") && g_time > 0.3f && g_state != G_MPICK) { g_state = G_MPICK; g_state_t = 1; g_p2 = 1; g_pick[0] = 3; g_pick[1] = 6; g_ready[1] = 1; }   /* PC look check: the multiplayer pick */
+    if (getenv("DB_WORLDVIEW") && g_time > 0.3f && g_state != G_PLAY) { int wk = atoi(getenv("DB_WORLDVIEW")); g_state = G_PLAY; new_game(); g_wrescued[wk] = getenv("DB_RESCUED") != NULL;
+        enter_world(wk, getenv("DB_NEAR") ? -3 : 4, getenv("DB_NEAR") ? 0.5f : -4, -0.97f); g_msg_t = 0; g_title_t = 0; }   /* PC look check: stand in a world facing the whirlwind back */
     static Pad sidepads[2]; if (getenv("DB_SIDETEST")) {   /* PC look check: two scripted players in the multiplayer levels */
         memset(sidepads, 0, sizeof sidepads); sidepads[0].source = 1; sidepads[1].source = 4;
         if (g_state != G_PLAY) { if (g_time > 0.5f) { g_p1pad = 0; g_p2 = 1; g_pick[0] = 0; g_pick[1] = 1; if (getenv("DB_SIDEKINDS")) sscanf(getenv("DB_SIDEKINDS"), "%d,%d", &g_pick[0], &g_pick[1]); side_new_game(); { const char *lv = getenv("DB_SIDETEST"); int l = atoi(lv); if (l > 0 && l < SLV_N) side_start_level(l); } } }
@@ -1503,13 +1629,13 @@ void game_frame(const Pad *pads, int npads, float dt) {
         g_dragon.anim_t += dt; title_camera();
         gfx_frame_begin(); gfx_shadow_none();
         gfx_view_begin(0, 0.55f, 0.75f, 0.95f); { float aspect = gfx_aspect(0); Mat4 proj = m4_perspective(1.1f, aspect, 0.2f, 1500.0f), view = m4_look_at(g_eye, g_at, v3(0, 1, 0)); Mat4 vp = m4_mul(proj, view); Mat4 id = m4_identity();
-            gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, g_sky_photo ? 0.66f : 0.74f, g_sky_photo ? 0.70f : 0.82f, g_sky_photo ? 0.80f : 0.92f, 140, 620);
-            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(g_sky_photo ? tx_sky : NULL); gfx_draw_ex(m_sky, &skym, 1, 1, 1, 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); } gfx_state(ST_DEPTH | ST_DEPTH_WRITE); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, 1, 1, 1, 1, 0, 0, 0, 0); } gfx_clear_depth(0);
+            gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), g_eye); gfx_camera(&vp, sun_dir(), 0.34f, FOGC(0), FOGC(1), FOGC(2), 140, 620);
+            Mat4 skym = m4_translate(g_eye.x, g_eye.y - 60, g_eye.z); gfx_state(0); gfx_bind(g_sky_photo ? tx_sky : NULL); gfx_draw_ex(m_sky, &skym, TH->sky[0], TH->sky[1], TH->sky[2], 1, 0, 1, 0, 0); if (m_sun) { gfx_state(ST_BLEND); gfx_bind(tx_font); gfx_draw_ex(m_sun, &skym, 1, 1, 1, 1, 0, 1, 0, 0); gfx_state(0); gfx_bind(NULL); } gfx_state(ST_DEPTH | ST_DEPTH_WRITE); if (m_mountains) { gfx_bind(tx_rock); gfx_draw(m_mountains, &id, 1, 1, 1, 1); } if (m_apron) { gfx_bind(tx_grass); gfx_draw(m_apron, &id, 1, 1, 1, 1); } if (m_cloudsea) { gfx_bind(tx_font); gfx_draw_ex(m_cloudsea, &id, g_wk == WK_WATER ? 0.22f : 1, g_wk == WK_WATER ? 0.55f : 1, g_wk == WK_WATER ? 0.85f : 1, 1, 0, 0, 0, 0); } gfx_clear_depth(0);
             gfx_state(ST_SOLID); gfx_bind(tx_grass); gfx_bump(3); gfx_draw(m_ground, &id, 1, 1, 1, 1); gfx_state(ST_TRANSPARENT); if (m_ground_dirt) { gfx_bind(tx_dirt); gfx_draw(m_ground_dirt, &id, 1, 1, 1, 1); } if (m_ground_rock) { gfx_bind(tx_rock); gfx_draw(m_ground_rock, &id, 1, 1, 1, 1); } gfx_bump(0); gfx_state(ST_SOLID); gfx_bind(tx_bark); if (m_bark) gfx_draw(m_bark, &id, 1, 1, 1, 1); scenelayer_draw(&g_lay_tree, g_eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_palm, g_eye, LD_HI, LD_SKIP); scenelayer_draw(&g_lay_fern, g_eye, LD_HI * 0.6f, 150); scenelayer_draw(&g_lay_bush, g_eye, LD_HI * 0.7f, 170); scenelayer_draw(&g_lay_rock, g_eye, LD_HI * 0.7f, 220); scenelayer_draw(&g_lay_spire, g_eye, LD_HI, LD_SKIP);
             gfx_state(ST_CUTOUT); gfx_bind(tx_leaves); if (m_leaves) gfx_draw(m_leaves, &id, 1, 1, 1, 1); gfx_bind(tx_fern); if (m_fern) gfx_draw(m_fern, &id, 1, 1, 1, 1); gfx_bind(tx_tuft); if (m_tufts) gfx_draw(m_tufts, &id, 1, 1, 1, 1);
             draw_title_dragons();
             { Mat4 cm = m4_translate(fmodf(g_time * 1.5f, 900.0f) - 450.0f, 0, 0); gfx_state(ST_DEPTH | ST_BLEND); gfx_bind(tx_cloud); if (m_clouds) { gfx_draw_ex(m_clouds, &cm, 1, 1, 1, 0.9f, 0, 1, 0, 0); Mat4 cm2 = m4_translate(cm.m[12] + 900.0f, 0, 0); gfx_draw_ex(m_clouds, &cm2, 1, 1, 1, 0.9f, 0, 1, 0, 0); } }
-            gfx_post(0, 0.9f, 0.35f, 0.35f); draw_title_hud(); }
+            gfx_post(0, 0.9f, 0.35f, 0.35f); draw_title_hud(); if (g_state == G_MPICK) mpick_dragons(); }
         gfx_view_end(0);
         gfx_view_begin(1, 0.08f, 0.14f, 0.08f); draw_title_hud(); gfx_view_end(1);
         gfx_frame_end(); return; }
@@ -1546,6 +1672,9 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (p->up && !q->up && !g_side) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
     g_look_x = p->rx;
     float yaw_before = g_dragon.yaw;
+    boss_upgrades(&g_dragon); if (g_friend.on) boss_upgrades(&g_other); if (g_upgrade_t > 0) g_upgrade_t -= dt;
+    { static float lava_cd; if (lava_cd > 0) lava_cd -= dt;   /* the volcano's pool is lava: it burns */
+      if (g_wk == WK_LAVA && g_dragon.mode != DM_AIR && world_in_pond(&g_world, g_dragon.x, g_dragon.z) && lava_cd <= 0 && g_dragon.invuln_t <= 0) { lava_cd = 1.0f; hurt_dragon(&g_dragon, 0.5f, "HOT HOT HOT! THAT IS LAVA: GET OUT!"); } }
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt); solid_body(&g_dragon);
     kind_quirks(&g_dragon, g_kind, &in, dt, &ev);
     if (g_power_cd > 0) g_power_cd -= dt; if (g_power_t > 0) g_power_t -= dt;
@@ -1555,20 +1684,23 @@ void game_frame(const Pad *pads, int npads, float dt) {
         int hit = g_power_kind == 0 ? world_blast(&g_world, g_dragon.x, g_dragon.y + 0.5f * L, g_dragon.z, fx, fz, 7 + 2 * L, -1)
                                     : world_blast(&g_world, g_dragon.x + fx * L, g_dragon.y + 0.5f * L, g_dragon.z + fz * L, fx, fz, 10 + 3 * L, 0.75f);
         if (hit) { g_dragon.growth += 5 * hit; sfx_play(SFX_BLOCK, 0.6f, 0); { static const char *HIT[K_N] = {"BLOWN AWAY!", "TOASTED!", "FROZEN SOLID!", "SHATTERED!", "STUNG AND BURIED!", "WASHED AWAY!", "MELTED!"}; snprintf(g_msg, sizeof g_msg, "%s", HIT[g_power_kind]); } g_msg_t = 2; } }
-    if (sky_fall(&g_dragon, &g_safe_x, &g_safe_z)) { g_dragon.hearts -= 0.5f * DMG[g_diff]; if (g_dragon.hearts < 1) g_dragon.hearts = 1; snprintf(g_msg, sizeof g_msg, "LOST IN THE CLOUDS! BACK TO SOLID GROUND"); g_msg_t = 3; sfx_play(SFX_SPLASH, 0.6f, 0); platform_rumble(0.6f, 0.3f); }
-    { float ccx, ccz; if (g_travel_cd > 0) g_travel_cd -= dt;
-      if (g_travel_t < 0 && g_travel_cd <= 0 && !g_side && column_at(&ccx, &ccz)) { float dx = g_dragon.x - ccx, dz = g_dragon.z - ccz; float gy = world_height(&g_world, ccx, ccz);
-          if (dx * dx + dz * dz < 3.5f * 3.5f && g_dragon.y < gy + 30) { g_travel_t = 0; g_travel_to = g_wk == WK_FOREST ? WK_SKY : WK_FOREST; sfx_play(SFX_FLAP, 1.0f, 0); sfx_play(SFX_GROW, 0.7f, 0); platform_rumble(0.5f, 1.0f);
-              snprintf(g_msg, sizeof g_msg, g_travel_to == WK_SKY ? "THE WIND CARRIES YOU UP TO THE SKY KINGDOM..." : "THE WIND CARRIES YOU DOWN TO EVERLEAF WILDS..."); g_msg_t = 4; } } }
+    if (sky_fall(&g_dragon, &g_safe_x, &g_safe_z)) { g_dragon.hearts -= 1.0f * DMG[g_diff]; sfx_play(SFX_SPLASH, 0.6f, 0); platform_rumble(0.6f, 0.3f);
+        if (g_dragon.hearts <= 0) { g_dragon.hearts = g_dragon.max_hearts; dragon_respawn(&g_dragon); world_safe_spot(&g_world, g_dragon.x, g_dragon.z, &g_dragon.x, &g_dragon.z); g_dragon.y = world_height(&g_world, g_dragon.x, g_dragon.z); g_safe_x = g_dragon.x; g_safe_z = g_dragon.z;
+            snprintf(g_msg, sizeof g_msg, "YOU FELL TOO MANY TIMES! BACK TO THE START"); }
+        else snprintf(g_msg, sizeof g_msg, "YOU FELL INTO THE CLOUDS! YOU LOST A HEART"); g_msg_t = 3; }
+    { if (g_travel_cd > 0) g_travel_cd -= dt; Portal PP[2]; int np = g_side ? 0 : portals(PP);
+      for (int q = 0; q < np && g_travel_t < 0 && g_travel_cd <= 0; q++) { float dx = g_dragon.x - PP[q].x, dz = g_dragon.z - PP[q].z; float gy = world_height(&g_world, PP[q].x, PP[q].z);
+          if (dx * dx + dz * dz < 3.5f * 3.5f && g_dragon.y < gy + 30) { g_travel_t = 0; g_travel_to = PP[q].to; sfx_play(SFX_FLAP, 1.0f, 0); sfx_play(SFX_GROW, 0.7f, 0); platform_rumble(0.5f, 1.0f);
+              snprintf(g_msg, sizeof g_msg, "THE WIND CARRIES YOU TO %s...", THEMES[g_travel_to].name); g_msg_t = 4; } } }
     if (g_kaine_t >= 0) { float before = g_kaine_t; g_kaine_t += dt;
         if (before < 2.5f && g_kaine_t >= 2.5f) { snprintf(g_msg, sizeof g_msg, "KAINE BLACKFEATHER! HE SWOOPS PAST ON HIS MECH DRAGON: YOU WILL NEVER FREE THEM ALL!"); g_msg_t = 6; sfx_play(SFX_ROAR, 1.0f, 0); platform_rumble(0.8f, 0.8f); }
         if (g_kaine_t > 13) g_kaine_t = -1; }
     if (g_travel_t >= 0) { float before = g_travel_t; g_travel_t += dt; g_dragon.y += 12 * dt; g_dragon.mode = DM_AIR; g_dragon.vy = 0;
-        if (before < 0.9f && g_travel_t >= 0.9f) { float ax = g_travel_to == WK_SKY ? 4 : g_world.arena_x, az = g_travel_to == WK_SKY ? -4 : g_world.arena_z;
-            if (g_travel_to == WK_FOREST) { ax = -62 + 8; az = 60 - 8; }   /* beside the forest column */
-            enter_world(g_travel_to, ax, az, g_travel_to == WK_SKY ? 2.3f : 0.8f); g_travel_cd = 4; save_progress();
-            snprintf(g_msg, sizeof g_msg, g_wk == WK_SKY ? (g_wrescued[WK_SKY] ? "THE SKY KINGDOM" : "THE SKY KINGDOM! A DRAGONET IS CAGED ON THE BIG ISLAND") : "EVERLEAF WILDS"); g_msg_t = 5;
-            if (g_wk == WK_SKY && !g_wrescued[WK_SKY] && !g_kaine_done) { g_kaine_done = 1; g_kaine_t = 0; } }
+        if (before < 0.9f && g_travel_t >= 0.9f) { int fwd = g_travel_to > g_wk; float ax = 4, az = -4, yw = 2.3f;   /* onward: arrive at the start; back: beside that world's onward whirlwind */
+            if (!fwd) { ax = WK_ISLES(g_travel_to) ? 58 + 8 : -62 + 8; az = WK_ISLES(g_travel_to) ? -48 + 8 : 60 - 8; yw = 0.8f; }
+            enter_world(g_travel_to, ax, az, yw); g_travel_cd = 4; save_progress();
+            if (g_wrescued[g_wk] || CAPTIVE[g_wk] < 0) snprintf(g_msg, sizeof g_msg, "%s", TH->name); else snprintf(g_msg, sizeof g_msg, "%s! THE %s IS CAGED HERE. FIND %s!", TH->name, KIND_TITLE[CAPTIVE[g_wk]], TH->boss); g_msg_t = 6;
+            if (g_wk >= WK_SKY && !g_wrescued[g_wk] && g_kaine_done < g_wk) { g_kaine_done = g_wk; g_kaine_t = 0; } }
         if (g_travel_t > 1.8f) g_travel_t = -1; }
     { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
       float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4)); { const char *ft = getenv("DB_FORCETURN"); if (ft) g_turn = (float)atof(ft); }
@@ -1580,6 +1712,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     world_update(&g_world, dt, g_dragon.x, g_dragon.z);
     if (g_side && g_side_n > 1) { robots_vs(&g_dragon, dt * 0.5f); robots_vs(&g_other, dt * 0.5f); }   /* two players: the robots react to both */
     else robots_vs(&g_dragon, dt);
+    robot_drops();
     boss_frame(dt);
     coop_frame(pads, npads, dt);
     if (g_side) side_frame(dt);
@@ -1588,7 +1721,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (ev & 16) { platform_rumble(0.6f, 0.4f); sfx_play(g_dragon.stage == ST_DRAGONET ? SFX_CHIRP : SFX_ROAR, 0.8f, 0); }
     if (ev & 2) sfx_play(SFX_GROW, 0.8f, 0);
     if (ev & 4) sfx_play(SFX_FLAP, 0.6f, 0);
-    if (ev & 8) sfx_play(SFX_LAND, 0.5f, 0);
+    { static float land_cd; land_cd -= dt; if ((ev & 8) && land_cd <= 0) { sfx_play(SFX_LAND, 0.5f, 0); land_cd = 0.4f; } }   /* never a rattle of thuds */
     if (in.b_press && g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.9f) sfx_play(SFX_TAIL, 0.6f, 0);
     if (in.x_press && g_dragon.anim == DA_CLAW && g_dragon.act_t > 0.55f) sfx_play(SFX_TAIL, 0.45f, 0);
     if ((in.x_press || in.b_press) && g_dragon.air_act > 0.55f) sfx_play(SFX_FLAP, 0.7f, 0);
@@ -1629,7 +1762,7 @@ paused:
     { int chased = 0; for (int i = 0; i < g_world.ndrone; i++) if (g_world.drone[i].state == 1) chased = 1; for (int i = 0; i < g_world.nhound; i++) if (g_world.hound[i].state == 1) chased = 1;
       static float danger_t; if (chased) danger_t = 4; else danger_t -= dt;
       int bossfight = g_boss.woke && g_boss.state != B_DOWN;
-      music_want(bossfight && music_available("boss") ? "boss" : danger_t > 0 && music_available("danger") ? "danger" : (g_wk == WK_SKY && music_available("sky") ? "sky" : "everleaf")); }
+      music_want(bossfight && music_available("boss") ? "boss" : danger_t > 0 && music_available("danger") ? "danger" : (music_available(TH->music) ? TH->music : "everleaf")); }
     music_update(16384);   /* keeps about 1.5 s of music decoded ahead (2 gave only 256 samples a frame: half what plays, so it stuttered) */
     gfx_frame_begin();
     shadow_pass();

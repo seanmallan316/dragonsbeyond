@@ -12,7 +12,17 @@ static const SideLevel SLV[] = {
     { WK_FOREST,  60,   88,  -62, 1, "LEVEL 3  -  IRONHORN'S CLEARING",
       "A DRAGONET CRIES IN A CAGE. IRONHORN GUARDS IT: JUMP OVER ITS CHARGE SO IT HITS A TREE, THEN HIT IT!" },
     { WK_SKY,    -40,  -62,   58, 1, "LEVEL 4  -  THE SKY KINGDOM",
-      "THE WIND CARRIES YOU UP TO THE SKY KINGDOM. FLY ACROSS THE CLOUDS (HOLD A) TO STORMTALON'S ISLAND!" } };
+      "THE WIND CARRIES YOU UP TO THE SKY KINGDOM. FLY ACROSS THE CLOUDS (HOLD A) TO STORMTALON'S ISLAND!" },
+    { WK_SNOW,    60,   88,  -62, 1, "LEVEL 5  -  FROSTPEAK MOUNTAINS",
+      "SNOWY PINES AND ICE CRYSTALS. FROSTFANG GUARDS THE SNOW DRAGON: JUMP ITS CHARGE SO IT HITS A PINE!" },
+    { WK_CRYSTAL, 60,   88,  -62, 1, "LEVEL 6  -  CRYSTAL CAVERNS",
+      "GLOWING CRYSTALS EVERYWHERE. SHARDCLAW GUARDS THE CRYSTAL DRAGON!" },
+    { WK_SAND,    60,   88,  -62, 1, "LEVEL 7  -  SUNSCORCH DESERT",
+      "HOT SAND AND CACTUS. DUNEBREAKER GUARDS THE SAND DRAGON!" },
+    { WK_WATER,  -40,  -62,   58, 1, "LEVEL 8  -  CORAL SEA ISLES",
+      "ISLANDS IN THE SEA. FLY OVER THE WAVES (HOLD A) TO TIDEWING'S ISLAND!" },
+    { WK_LAVA,    60,   88,  -62, 1, "LEVEL 9  -  EMBER VOLCANO",
+      "DO NOT TOUCH THE LAVA! MAGMAHORN GUARDS THE LAST DRAGON!" } };
 #define SLV_N (int)(sizeof SLV / sizeof SLV[0])
 
 static float side_progress(float x) { const SideLevel *L = &SLV[g_lv]; return (x - L->x0) * g_lane_dir; }   /* metres along the level */
@@ -23,7 +33,7 @@ static void side_clear_lane(void) {
     World *w = &g_world; float cs = g_lane_dir > 0 ? 1.0f : -1.0f;   /* the camera's side of the lane */
     for (int i = 0; i < w->nprop; i++) { Prop *p = &w->prop[i]; float rel = (p->z - g_lane_z) * cs;
         if (rel > -3.5f && rel < 24) { float nz = g_lane_z - cs * (5 + 20 * ui_hash(i * 13 + 7)); if (fabsf(nz) > W_SIZE / 2 - 4) nz = g_lane_z - cs * 5;
-            if (w->kind == WK_SKY && world_is_void(w, p->x, nz)) p->x = 9999; else p->z = nz; } }
+            if (WK_ISLES(w->kind) && world_is_void(w, p->x, nz)) p->x = 9999; else p->z = nz; } }
     int k = 0;
     for (int i = 0; i < w->nfood; i++) { Food *f = &w->food[i]; if (f->kind == F_FISH) continue;
         if ((k++ % 3) == 0 && !world_is_void(w, f->x, g_lane_z) && !world_in_pond(w, f->x, g_lane_z)) { f->z = g_lane_z; f->y = world_height(w, f->x, f->z); continue; }
@@ -36,7 +46,7 @@ static void dragon_respawn(Dragon *d) {
     Dragon *o = d == &g_dragon ? &g_other : &g_dragon; float x;
     if (g_side_n > 1 && o->hearts > 0) x = o->x - g_lane_dir * 3;
     else { x = d->x - g_lane_dir * 6; if (side_progress(x) < 0) x = SLV[g_lv].x0; }
-    if (g_world.kind == WK_SKY && world_is_void(&g_world, x, g_lane_z)) x = SLV[g_lv].x0;
+    if (WK_ISLES(g_world.kind) && world_is_void(&g_world, x, g_lane_z)) x = SLV[g_lv].x0;
     d->x = x; d->z = g_lane_z; d->y = world_height(&g_world, x, g_lane_z) + 0.2f; d->mode = DM_GROUND; d->vy = 0; d->speed = 0; d->dive = 0;
     d->hearts = fmaxf(d->hearts, 0.6f * d->max_hearts); d->invuln_t = 2.0f; }
 
@@ -48,7 +58,7 @@ static void side_start_level(int lv) {
     const SideLevel *L = &SLV[lv]; g_lv = lv; g_lane_z = L->z; g_lane_dir = L->x1 > L->x0 ? 1.0f : -1.0f;
     g_wrescued[L->wk] = 0;   /* the boss is back, the cage is shut */
     enter_world(L->wk, L->x0, L->z, g_lane_dir > 0 ? 1.5707963f : -1.5707963f);
-    if (L->wk == WK_SKY) for (int i = 0; i < g_side_n; i++) { Dragon *d = i ? &g_other : &g_dragon;   /* up here you need wings */
+    if (WK_ISLES(L->wk)) for (int i = 0; i < g_side_n; i++) { Dragon *d = i ? &g_other : &g_dragon;   /* up here you need wings */
         if (d->stage < ST_DRAGON) { d->stage = ST_DRAGON; d->growth = 0; d->max_hearts = fmaxf(d->max_hearts, 5); d->hearts = d->max_hearts; } }
     side_place(&g_dragon, L->x0); g_friend.on = g_side_n > 1;
     if (g_side_n > 1) { side_place(&g_other, L->x0 - g_lane_dir * 3); g_friend.x = g_other.x; g_friend.y = g_other.y; g_friend.z = g_other.z; g_friend.yaw = g_other.yaw; g_friend.anim = DA_IDLE; g_friend.mode = 0; }

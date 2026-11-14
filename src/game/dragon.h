@@ -15,6 +15,7 @@ typedef struct {
     float x, y, z, yaw;         /* feet on the ground at y when on the ground */
     float vx, vy, vz;           /* velocity */
     float speed;                /* forward speed (m/s), for the animation */
+    float power;                /* upgrades from beaten bosses: faster, bigger reach (0 = none) */
     int mode;                   /* DM_* */
     int anim; float anim_t;     /* clip and time into it */
     float act_t;                /* time left in a one-shot action (eat, roar, tail whip), 0 = free */
