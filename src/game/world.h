@@ -26,7 +26,7 @@ typedef struct { int kind, alive; float x, y, z, yaw, regrow, wander, phase; } F
 typedef struct { float x, y, z, r; } Attack;
 /* Kaine's Feather Drones: black robot birds. state 0 patrol, 4 winding up (hovers and flashes red: get ready), 1 dive at the dragon, 2 fleeing, 3 knocked down (respawn timer in t).
    Shock Hounds: 0 roam, 1 stalk, 5 crouch (flashing: it is about to lunge), 6 lunge, 2 back off, 3 knocked out */
-typedef struct { int state; float x, y, z, yaw, t, hx, hz, flap; } Drone;   /* regrow: seconds until it is back; grubs wander */
+typedef struct { int state; float x, y, z, yaw, t, hx, hz, flap, kx, kz; } Drone;   /* kx, kz: which way it was knocked flying */   /* regrow: seconds until it is back; grubs wander */
 
 typedef struct {
     int kind;                       /* WK_* */

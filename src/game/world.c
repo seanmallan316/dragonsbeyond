@@ -52,10 +52,12 @@ static void make_ground(World *w, unsigned seed, int kind) {
     for (int tries = 0; tries < 4000 && w->nprop < W_MAXPROPS; tries++) {
         float x = (frand() - 0.5f) * (W_SIZE - 16), z = (frand() - 0.5f) * (W_SIZE - 16); float d = sqrtf(x * x + z * z);
         if (d < 14) continue;
+        if ((x + 12) * (x + 12) + (z - 7) * (z - 7) < 9 * 9) continue;   /* keep the whirlwind spot clear */
         if (world_in_pond(w, x, z)) continue;
         { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 4) * (w->arena_r + 4)) continue; }
         float density = 0.25f + 0.75f * clampf((d - 14) / 90.0f, 0, 1) * fbm(x * 0.03f, z * 0.03f, seed + 5);
         if (frand() > density) continue;
+        if ((x + 12) * (x + 12) + (z - 7) * (z - 7) < 9 * 9) continue;   /* keep the whirlwind spot clear */
         int ok = 1; for (int k = 0; k < w->nprop; k++) { float dx = w->prop[k].x - x, dz = w->prop[k].z - z; if (dx * dx + dz * dz < 5.5f * 5.5f) { ok = 0; break; } }
         if (!ok) continue;
         float r = frand(); Prop *p = &w->prop[w->nprop++];
@@ -123,6 +125,7 @@ int world_nearest_food(const World *w, float x, float z, float reach) {
     return best; }
 
 static void note_kill(World *w, float x, float y, float z);
+static void knock_dir(Drone *d, float fx, float fz);
 static float air_floor(const World *w, float x, float z) { float h = world_height(w, x, z); return WK_ISLES(w->kind) ? fmaxf(h, W_CLOUDS + 8) : h; }   /* flyers keep above the cloud sea */
 static int atk_hits(Attack a, float x, float y, float z, float pad) { if (a.r <= 0) return 0; float dx = x - a.x, dy = y - a.y, dz = z - a.z; float r = a.r + pad; return dx * dx + dz * dz < r * r && fabsf(dy) < r + 0.5f; }
 int world_drones(World *w, float dt, float px, float py, float pz, float reach, Attack atk, int roar) {
@@ -132,7 +135,7 @@ int world_drones(World *w, float dt, float px, float py, float pz, float reach, 
         float gy = air_floor(w, d->x, d->z);
         if (d->state == 3) { if (d->y > gy + 0.2f) { d->y -= 6 * dt; d->yaw += 5 * dt; } if (d->t > 25) { d->state = 0; d->x = d->hx; d->z = d->hz; d->y = air_floor(w, d->x, d->z) + 9; d->t = 0; } continue; }
         if (roar && dist < 14) { d->state = 2; d->t = 0; }
-        if (atk_hits(atk, d->x, d->y, d->z, 0.3f)) { d->state = 3; d->t = 0; ev |= 2; note_kill(w, d->x, d->y, d->z); continue; }
+        if (atk_hits(atk, d->x, d->y, d->z, 0.3f)) { d->state = 3; d->t = 0; ev |= 2; knock_dir(d, atk.x, atk.z); note_kill(w, d->x, d->y, d->z); continue; }
         if (d->state == 0) {   /* circle the home spot; when the dragon comes near, stop and wind up */
             float ang = d->t * 0.4f; float tx = d->hx + cosf(ang) * 12, tz = d->hz + sinf(ang) * 12; float ty = air_floor(w, tx, tz) + 8 + 1.5f * sinf(d->t);
             float ddx = tx - d->x, ddz = tz - d->z; d->yaw = atan2f(ddx, ddz); d->x += sinf(d->yaw) * 4.5f * dt; d->z += cosf(d->yaw) * 4.5f * dt; d->y += (ty - d->y) * dt * 2;
@@ -156,7 +159,7 @@ int world_hounds(World *w, float dt, float px, float py, float pz, float reach, 
         float dx = px - h->x, dz = pz - h->z, dist = sqrtf(dx * dx + dz * dz);
         if (h->state == 3) { h->flap += dt * 3; if (h->t > 22) { h->state = 0; h->t = 0; } continue; }
         if (roar && dist < 12) { h->state = 2; h->t = 0; }
-        if (atk_hits(atk, h->x, h->y + 0.5f, h->z, 0.3f)) { h->state = 3; h->t = 0; ev |= 2; note_kill(w, h->x, h->y, h->z); continue; }
+        if (atk_hits(atk, h->x, h->y + 0.5f, h->z, 0.3f)) { h->state = 3; h->t = 0; ev |= 2; knock_dir(h, atk.x, atk.z); note_kill(w, h->x, h->y, h->z); continue; }
         float sp = 0;
         if (h->state == 0) { float ang = h->t * 0.35f; float tx = h->hx + cosf(ang) * 10, tz = h->hz + sinf(ang) * 10; h->yaw = atan2f(tx - h->x, tz - h->z); sp = 2.2f; if (dist < 15 && !in_air) { h->state = 1; h->t = 0; } }
         else if (h->state == 1) { h->yaw = atan2f(dx, dz); sp = 3.4f; if (dist < 3.4f + 0.3f * reach && !in_air) { h->state = 5; h->t = 0; } if (h->t > 12 || dist > 40 || in_air) { h->state = 2; h->t = 0; } }   /* stalks, slower than a running dragonet */
@@ -223,6 +226,7 @@ static void make_sky(World *w) {
         if (h < W_CLOUDS + 10) continue; if (sqrtf(x * x + z * z) < 9) continue;
         { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 3) * (w->arena_r + 3)) continue; }
         int edge = 0; for (int k = 0; k < 6; k++) { float a = k * 1.047f; if (sky_height(w, x + cosf(a) * 4, z + sinf(a) * 4) < W_CLOUDS) { edge = 1; break; } } if (edge) continue;   /* keep off the cliff edges */
+        if ((x + 12) * (x + 12) + (z - 7) * (z - 7) < 9 * 9) continue;   /* keep the whirlwind spot clear */
         int ok = 1; for (int k = 0; k < w->nprop; k++) { float dx = w->prop[k].x - x, dz = w->prop[k].z - z; if (dx * dx + dz * dz < 6.0f * 6.0f) { ok = 0; break; } } if (!ok) continue;
         if (frand() > 0.55f) continue;
         float r = frand(); Prop *p = &w->prop[w->nprop++];
@@ -250,8 +254,9 @@ int world_blast(World *w, float x, float y, float z, float dx, float dz, float r
             float ex = d->x - x, ey = d->y - y, ez = d->z - z; float dist = sqrtf(ex * ex + ey * ey + ez * ez); if (dist > range) continue;
             if (cos_cone > -1 && dist > 1.0f && (ex * dx + ez * dz) / sqrtf(ex * ex + ez * ez + 1e-6f) < cos_cone) continue;
             if (pass == 2) continue;   /* thieves are handled by world_thieves (they drop what they stole) */
-            d->state = 3; d->t = 0; n++; note_kill(w, d->x, d->y, d->z); } }
+            d->state = 3; d->t = 0; n++; knock_dir(d, x, z); note_kill(w, d->x, d->y, d->z); } }
     return n; }
+static void knock_dir(Drone *d, float fx, float fz) { float dx = d->x - fx, dz = d->z - fz, l = sqrtf(dx * dx + dz * dz); if (l < 1e-3f) { dx = sinf(d->yaw + 3.14159f); dz = cosf(d->yaw + 3.14159f); l = 1; } d->kx = dx / l; d->kz = dz / l; }
 static void note_kill(World *w, float x, float y, float z) { if (w->nkill < 8) { w->kill_x[w->nkill] = x; w->kill_y[w->nkill] = y; w->kill_z[w->nkill] = z; w->nkill++; } }
 static int thief_step_ok(const World *w, float x, float z) { return !(WK_ISLES(w->kind) && world_is_void(w, x, z)) && !world_in_pond(w, x, z) && fabsf(x) < W_SIZE / 2 - 4 && fabsf(z) < W_SIZE / 2 - 4; }
 int world_thieves(World *w, float dt, float px, float py, float pz, float reach, Attack atk, float carry, float *stolen, float *recovered) {
@@ -261,7 +266,7 @@ int world_thieves(World *w, float dt, float px, float py, float pz, float reach,
         if (t->state == 3) { if (t->t > 12) { t->state = 4; t->t = 0; } continue; }
         if (t->state == 4) { if (t->t > 18) { t->state = 0; t->t = 0; t->x = t->hx; t->z = t->hz; t->flap = 0; } continue; }
         if (atk_hits(atk, t->x, t->y + 0.5f, t->z, 0.6f)) {   /* caught! it drops what it stole */
-            if (t->flap > 0) { *recovered += t->flap; t->flap = 0; } t->state = 3; t->t = 0; ev |= 2; note_kill(w, t->x, t->y, t->z); continue; }
+            if (t->flap > 0) { *recovered += t->flap; t->flap = 0; } t->state = 3; t->t = 0; ev |= 2; knock_dir(t, atk.x, atk.z); note_kill(w, t->x, t->y, t->z); continue; }
         if (t->state == 0) { float a = t->t * 0.7f + i; float tx = t->hx + cosf(a) * 4, tz = t->hz + sinf(a * 1.3f) * 4; yaw = atan2f(tx - t->x, tz - t->z); sp = 1.5f;
             if (dist < 18 && carry >= 10 && fabsf(py - t->y) < 3) { t->state = 1; t->t = 0; } }
         else if (t->state == 1) { yaw = atan2f(dx, dz); sp = 4.0f;

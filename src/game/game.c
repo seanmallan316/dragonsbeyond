@@ -530,6 +530,28 @@ static void do_swap(int k) {   /* become dragon k; the one you were becomes the 
 static float g_turn, g_bank, g_bodyph;   /* smoothed turn rate (rad/s), bank angle, phase of the body wave */
 static float g_shake_t, g_growpulse_t;   /* g_growpulse_t: the little sparkle of a growth milestone */   /* > 0: the camera shakes (a pounce landing, a robot knocked down) */
 static void hit_flash(void) { if (g_shake_t < 0.12f) g_shake_t = 0.12f; }
+/* ---------- hit juice: freeze-frames, white flashes, knockback, sparks and a pop when something is defeated ---------- */
+static float g_hitstop;                 /* > 0: the whole game nearly freezes for a moment (a punchy hit) */
+static float g_dflash[2];               /* a dragon flashing white after being hit (player, other) */
+static float g_kvx, g_kvz;              /* the player's dragon being knocked back */
+static float g_ko_t = -1;               /* the player's dragon knocked out: falls over, then gets back up at the start */
+static float g_bflash;                  /* the boss flashing white */
+typedef struct { Vec3 p, v; float life, max, size, r, g, b; } Part;
+static Part g_parts[320]; static int g_npart;
+static void burst(Vec3 at, int n, float speed, float size, float r, float g, float b, float life) {   /* a spray of glowing bits */
+    static unsigned seed = 99;
+    for (int i = 0; i < n; i++) { Part *q = &g_parts[g_npart++ % 320]; float a = frand01(&seed) * 6.2832f, e = frand01(&seed) * 1.3f - 0.2f, sp = speed * (0.4f + 0.8f * frand01(&seed));
+        q->p = at; q->v = v3(cosf(a) * cosf(e) * sp, sinf(e) * sp + speed * 0.4f, sinf(a) * cosf(e) * sp); q->max = q->life = life * (0.6f + 0.6f * frand01(&seed)); q->size = size * (0.6f + 0.8f * frand01(&seed)); q->r = r; q->g = g; q->b = b; } }
+static void parts_update(float dt) { for (int i = 0; i < 320; i++) { Part *q = &g_parts[i]; if (q->life <= 0) continue; q->life -= dt; q->v.y -= 9 * dt; float dm = 1 - 1.5f * dt; q->v = v3(q->v.x * dm, q->v.y * dm, q->v.z * dm); q->p = v3(q->p.x + q->v.x * dt, q->p.y + q->v.y * dt, q->p.z + q->v.z * dt); } }
+static void hit_juice(Vec3 at, float stop, float shake, float r, float g, float b) { if (g_hitstop < stop) g_hitstop = stop; if (g_shake_t < shake) g_shake_t = shake; burst(at, 18, 7, 0.22f, r, g, b, 0.45f); burst(at, 6, 3, 0.5f, 1, 1, 1, 0.18f); }
+/* how a knocked-out robot moves: thrown back with a hop, tumbles over, bounces, lies still, then pops in a puff of sparks */
+typedef struct { float ox, oy, oz, roll, spin, scale, flash; int show; } KO;
+static KO ko_pose(const Drone *d, int airborne) {
+    KO k; float t = d->t; float sl = 3.2f * (1 - expf(-3.5f * t)); k.ox = d->kx * sl; k.oz = d->kz * sl; k.oy = 0;
+    if (!airborne) { if (t < 0.5f) k.oy = 5 * t - 10 * t * t; else if (t < 0.75f) { float u = t - 0.5f; k.oy = 1.6f * u - 6.4f * u * u; } }
+    float e = fminf(1, t / 0.5f); e = e * e * (3 - 2 * e); k.roll = 1.5f * e + (t > 0.5f ? 0.18f * sinf((t - 0.5f) * 22) * expf(-(t - 0.5f) * 6) : 0);
+    k.spin = 3.5f * (1 - expf(-3 * t)); k.flash = t < 0.22f ? 1 - t / 0.22f : 0;
+    float sk = clampf((t - 1.8f) / 0.35f, 0, 1); k.scale = 1 - sk * sk; k.show = t < 2.15f; return k; }
 static Mat4 dragon_matrix(const Dragon *d, float scale) {
     Mat4 m = m4_mul(m4_translate(d->x, d->y, d->z), m4_rotate_y(d->yaw));
     if (d->mode == DM_AIR) m = m4_mul(m4_mul(m, m4_rotate_x(-d->pitch * 0.8f)), m4_rotate_z(g_bank + d->roll));   /* + the barrel roll */
@@ -592,8 +614,10 @@ static void batch_cyl(Vec3 base, Vec3 top, float r0, float r1, int seg, float r,
         bq_push(b0, n0, r, g, b); bq_push(t0, n0, r, g, b); bq_push(b1, n1, r, g, b); bq_push(b1, n1, r, g, b); bq_push(t0, n0, r, g, b); bq_push(t1, n1, r, g, b); } }
 /* draws every robot of one kind; all of a kind in the same move share one pose this frame (a model's mesh can be refilled only a few
    times a frame), drawn grouped by move. Each robot: its spot, its turn, a tilt (leans into a dive, lies down when knocked out), a size. */
-typedef struct { int clip; float t; Mat4 m; } RobotDraw;
+typedef struct { int clip; float t; Mat4 m; float flash; } RobotDraw;
 static void robot_batch(int kind, RobotDraw *rd, int n) {
+    for (int i = 0; i < n; i++) if (rd[i].flash > 0) {   /* a flashing one gets its own draw, glowing white */
+        Anim3D *a = &g_robot[kind]; gfx_state(ST_SOLID); anim3d_set_bend(0, 0, 0, 0); float f = 1.35f + 3.5f * rd[i].flash; anim3d_draw(a, rd[i].clip, rd[i].t + i * 0.37f, &rd[i].m, f, f, f, 1); rd[i] = rd[--n]; i--; }
     Anim3D *a = &g_robot[kind]; int used[8], nu = 0;
     for (int i = 0; i < n; i++) { int seen = 0; for (int k = 0; k < nu; k++) if (used[k] == rd[i].clip) seen = 1; if (!seen && nu < 8) used[nu++] = rd[i].clip; }
     gfx_state(ST_SOLID); anim3d_set_bend(0, 0, 0, 0);
@@ -606,21 +630,24 @@ static void draw_robots(Vec3 eye) {
     if (g_robot_ok[RB_DRONE]) { Anim3D *a = &g_robot[RB_DRONE]; n = 0;
         for (int i = 0; i < g_world.ndrone && n < 16; i++) { const Drone *dr = &g_world.drone[i]; float dx = dr->x - eye.x, dz = dr->z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;
             int ko = dr->state == 3; int c = anim3d_clip(a, ko ? "glide" : (dr->state == 1 ? "dive" : "fly")); if (c < 0) c = 0;
-            float bob = ko ? 0 : 0.1f * sinf(g_time * 3 + i), tilt = dr->state == 1 ? 0.45f : (dr->state == 4 ? -0.25f : 0.05f * sinf(g_time + i)), roll = ko ? 1.2f : 0.12f * sinf(g_time * 1.3f + i);
-            Mat4 m = m4_mul(m4_translate(dr->x, dr->y + bob - (ko ? 0.2f : 0.5f), dr->z), m4_rotate_y(dr->yaw)); m = m4_mul(m, m4_rotate_x(tilt)); m = m4_mul(m, m4_rotate_z(roll)); m = m4_mul(m, m4_scale(1.5f, 1.5f, 1.5f));
-            rd[n].clip = c; rd[n].t = g_time * (dr->state == 4 ? 1.8f : 1.0f); rd[n].m = m; n++; }
+            KO k = {0, 0, 0, 0, 0, 1, 0, 1}; if (ko) { k = ko_pose(dr, 1); if (!k.show) continue; }
+            float bob = ko ? 0 : 0.1f * sinf(g_time * 3 + i), tilt = dr->state == 1 ? 0.45f : (dr->state == 4 ? -0.25f : 0.05f * sinf(g_time + i)), roll = ko ? k.roll * 1.6f : 0.12f * sinf(g_time * 1.3f + i);
+            Mat4 m = m4_mul(m4_translate(dr->x + k.ox, dr->y + bob - (ko ? 0.2f : 0.5f), dr->z + k.oz), m4_rotate_y(dr->yaw + k.spin)); m = m4_mul(m, m4_rotate_x(tilt)); m = m4_mul(m, m4_rotate_z(roll)); m = m4_mul(m, m4_scale(1.5f * k.scale, 1.5f * k.scale, 1.5f * k.scale));
+            rd[n].clip = c; rd[n].t = ko ? 0.2f : g_time * (dr->state == 4 ? 1.8f : 1.0f); rd[n].m = m; rd[n].flash = k.flash; n++; }
         robot_batch(RB_DRONE, rd, n); }
     if (g_robot_ok[RB_HOUND]) { Anim3D *a = &g_robot[RB_HOUND]; n = 0;
         for (int i = 0; i < g_world.nhound && n < 16; i++) { const Drone *h = &g_world.hound[i]; float dx = h->x - eye.x, dz = h->z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;
-            int st = h->state; int c = anim3d_clip(a, st == 3 ? "idle" : st == 5 ? "crouch" : st == 6 ? "lunge" : (st == 1 || st == 2) ? "run" : "walk"); if (c < 0) c = 0;
-            Mat4 m = m4_mul(m4_translate(h->x, h->y + (st == 3 ? 0.35f : 0), h->z), m4_rotate_y(h->yaw)); if (st == 3) m = m4_mul(m, m4_rotate_z(1.45f));   /* knocked onto its side */
-            m = m4_mul(m, m4_scale(0.8f, 0.8f, 0.8f)); rd[n].clip = c; rd[n].t = g_time; rd[n].m = m; n++; }
+            int st = h->state; int c = anim3d_clip(a, st == 3 ? "lunge" : st == 5 ? "crouch" : st == 6 ? "lunge" : (st == 1 || st == 2) ? "run" : "walk"); if (c < 0) c = 0;
+            KO k = {0, 0, 0, 0, 0, 1, 0, 1}; if (st == 3) { k = ko_pose(h, 0); if (!k.show) continue; }
+            float gx = h->x + k.ox, gz = h->z + k.oz; Mat4 m = m4_mul(m4_translate(gx, world_height(&g_world, gx, gz) * (st == 3) + h->y * (st != 3) + k.oy + 0.3f * fminf(1, k.roll), gz), m4_rotate_y(h->yaw + k.spin)); if (st == 3) m = m4_mul(m, m4_rotate_z(k.roll));   /* thrown, tumbling onto its side */
+            m = m4_mul(m, m4_scale(0.8f * k.scale, 0.8f * k.scale, 0.8f * k.scale)); rd[n].clip = c; rd[n].t = st == 3 ? 0.15f + fminf(h->t, 0.3f) : g_time; rd[n].m = m; rd[n].flash = k.flash; n++; }
         robot_batch(RB_HOUND, rd, n); }
     if (g_robot_ok[RB_THIEF]) { Anim3D *a = &g_robot[RB_THIEF]; n = 0;
         for (int i = 0; i < g_world.nthief && n < 16; i++) { const Drone *t = &g_world.thief[i]; if (t->state == 4) continue; float dx = t->x - eye.x, dz = t->z - eye.z; if (dx * dx + dz * dz > 120 * 120) continue;
             int st = t->state; int c = anim3d_clip(a, st == 3 ? "idle" : st == 2 ? "run" : "walk"); if (c < 0) c = 0;
-            Mat4 m = m4_mul(m4_translate(t->x, t->y + (st == 3 ? 0.2f : 0), t->z), m4_rotate_y(t->yaw)); if (st == 3) m = m4_mul(m, m4_rotate_x(-1.5f));   /* flat on its back */
-            m = m4_mul(m, m4_scale(1.1f, 1.1f, 1.1f)); rd[n].clip = c; rd[n].t = g_time * (st == 1 ? 1.3f : 1.0f); rd[n].m = m; n++; }
+            KO k = {0, 0, 0, 0, 0, 1, 0, 1}; if (st == 3) { k = ko_pose(t, 0); if (!k.show) continue; }
+            Mat4 m = m4_mul(m4_translate(t->x + k.ox, t->y + k.oy + 0.2f * fminf(1, k.roll), t->z + k.oz), m4_rotate_y(t->yaw + k.spin * 0.3f)); if (st == 3) m = m4_mul(m, m4_rotate_x(-k.roll));   /* thrown onto its back */
+            m = m4_mul(m, m4_scale(1.1f * k.scale, 1.1f * k.scale, 1.1f * k.scale)); rd[n].clip = c; rd[n].t = st == 3 ? 0.3f : g_time * (st == 1 ? 1.3f : 1.0f); rd[n].m = m; rd[n].flash = k.flash; n++; }
         robot_batch(RB_THIEF, rd, n); } }
 static void draw_food3d(Vec3 eye) {
     batch_clear(&g_b);
@@ -759,6 +786,10 @@ static void draw_dragon(const Dragon *d) {
     if (d->mode == DM_AIR && d->anim == DA_GLIDE && d->pitch < -0.3f) { int dv = anim3d_clip(m, "dive"); if (dv >= 0) clip = dv; }   /* nose down: wings swept back in a dive */
     gfx_state(ST_SOLID);
     float glow = d->evolve_t > 0 ? 0.5f + 0.5f * sinf(g_time * 20) : (d == &g_dragon && g_upgrade_t > 0 ? (0.35f + 0.25f * sinf(g_time * 12)) * fminf(1, g_upgrade_t) : 0);
+    float fl = g_dflash[d == &g_dragon ? 0 : 1]; glow += 3.0f * fl * fl;   /* hit: a white flash */
+    if (d == &g_dragon && g_ko_t >= 0) {   /* knocked out: thrown onto its side, a bounce, then lies still */
+        float t = g_ko_t, e = fminf(1, t / 0.45f); e = e * e; float r = 1.45f * e + (t > 0.45f ? 0.15f * sinf((t - 0.45f) * 20) * expf(-(t - 0.45f) * 5) : 0);
+        float hop = t < 0.45f ? 2.4f * t - 5.3f * t * t : 0; base = m4_mul(m4_translate(0, fmaxf(0, hop) + 0.25f * e * dragon_length(st) * sc, 0), base); base = m4_mul(base, m4_rotate_z(r)); }
     { int air = d->mode == DM_AIR; float arc = clampf(g_turn * (air ? 0.55f : 0.35f), -1, 1);
       float climb = air ? clampf(d->vy / 5.0f, 0, 1) : 0; float side = air ? 0.35f + 0.25f * fabsf(arc) : (d->speed > 0.5f ? 0.25f : 0.0f);
       anim3d_set_bend(arc, side, air ? 0.3f + 0.9f * climb : 0, g_bodyph); }
@@ -824,12 +855,15 @@ static void draw_sparkles(const Dragon *d, Vec3 eye) {
         for (int i = 0; i < 40; i++) { float a = frand01(&s2) * 6.28f + g_time * 2, r = 0.4f * L + frand01(&s2) * 0.6f, u = fmodf(frand01(&s2) + (1.2f - g_growpulse_t), 1.0f);
             float q = 0.15f + 0.1f * frand01(&s2); Vec3 c = v3(d->x + cosf(a) * r, d->y + u * L * 1.2f, d->z + sinf(a) * r);
             batch_quad(&g_b, c, v3(rt.x * q, 0, rt.z * q), v3(0, q, 0), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.85f, 0.4f, (1 - u) * fminf(1, g_growpulse_t)); } }
-    if (d->evolve_t <= 0 && !col && g_power_t <= 0) { gfx_mesh_update(m_dynspark, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_spark); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_draw_ex(m_dynspark, &id, 1, 1, 1, 1, 0, 1, 0, 0); return; } unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
+    int anyp = 0; for (int i = 0; i < 320 && !anyp; i++) anyp = g_parts[i].life > 0;
+    if (d->evolve_t <= 0 && !col && g_power_t <= 0 && !anyp) { gfx_mesh_update(m_dynspark, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_bind(tx_spark); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); gfx_draw_ex(m_dynspark, &id, 1, 1, 1, 1, 0, 1, 0, 0); return; } unsigned s = 9; float L = dragon_length(d->stage); float t = 2.0f - d->evolve_t;
     Vec3 right = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(d->x < eye.x ? v3(d->x, d->y, d->z) : v3(d->x, d->y, d->z), eye))); Vec3 up = v3(0, 1, 0);
     for (int i = 0; i < 60; i++) { float a = frand01(&s) * 6.28f, r = frand01(&s) * L * 0.9f, h = frand01(&s) * L * 0.8f, ph = frand01(&s) * 6.28f;
         float rise = fmodf(t * (0.8f + frand01(&s)) + ph, 2.0f); float sz = 0.08f * L * (1 - rise / 2) + 0.05f;
         Vec3 c = v3(d->x + cosf(a + t) * r, d->y + h + rise * L * 0.6f, d->z + sinf(a + t) * r);
         if (d->evolve_t > 0) batch_quad(&g_b, c, v3(right.x * sz, 0, right.z * sz), v3(up.x * sz, up.y * sz, up.z * sz), v3(0, 1, 0), 0, 0, 1, 1, 1, 1, 0.7f, 1 - rise / 2); }
+    for (int i = 0; i < 320; i++) { const Part *q = &g_parts[i]; if (q->life <= 0) continue; float a = q->life / q->max, sz = q->size * (0.5f + 0.5f * a);   /* hit sparks */
+        Vec3 rt2 = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(q->p, eye))); batch_quad(&g_b, q->p, v3(rt2.x * sz, 0, rt2.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, q->r, q->g, q->b, a); }
     (void)col; { Portal PP[2]; int np = portals(PP); for (int q = 0; q < np; q++) { float ccx = PP[q].x, ccz = PP[q].z; if ((ccx - eye.x) * (ccx - eye.x) + (ccz - eye.z) * (ccz - eye.z) > 170 * 170) continue;
         const Theme *T = &THEMES[PP[q].to]; float gy = world_height(&g_world, ccx, ccz); Vec3 rt = v3_norm(v3_cross(v3(0, 1, 0), v3_sub(v3(ccx, gy, ccz), eye)));   /* a rising spiral in the colours of the world it leads to */
         for (int i = 0; i < 420; i++) { float u = fmodf(i * 0.6180339f + g_time * 0.18f, 1.0f); float a = i * 2.39996f + g_time * (1.6f + 1.4f * (1 - u)); float r = 1.0f + 3.2f * u * u + 0.5f * sinf(i * 1.3f);   /* a funnel: tight and fast at the bottom, wide at the top */
@@ -863,8 +897,12 @@ static void draw_ironhorn(Vec3 eye) {
     if (b->state == B_CHARGE) { pitch = TH->boss_isles ? 0.45f : 0.12f; y += TH->boss_isles ? 1.0f : 0.15f * fabsf(sinf(g_time * 14)); }
     else if (b->state == B_STALK) { pitch = 0.04f * sinf(g_time * 6); if (b->speed < 0) y += 0.05f * fabsf(sinf(g_time * 8)); }
     else if (b->state == B_STUCK) { pitch = 0.18f; yaw += 0.06f * sinf(g_time * 30); }
-    else if (b->state == B_STUNNED || b->state == B_HURT) { roll = 0.12f * sinf(g_time * 9); pitch = -0.05f; }
-    else if (b->state == B_DOWN) { float k = fminf(1, b->t / 0.8f); roll = 1.35f * k; y -= 0.6f * k; }
+    else if (b->state == B_STUNNED || b->state == B_HURT) { roll = 0.12f * sinf(g_time * 9); pitch = -0.05f; if (b->state == B_HURT && b->t < 0.35f) { float u = b->t / 0.35f; pitch = -0.35f * sinf(u * 3.14159f); y += 0.4f * sinf(u * 3.14159f); } }   /* reels back from the hit */
+    else if (b->state == B_DOWN) { float t = b->t; float k;   /* staggers, sways, then crashes onto its side with a bounce and a cloud of dust */
+        if (t < 0.5f) { k = 0; roll = 0.15f * sinf(t * 18); pitch = -0.2f * sinf(t * 6); }
+        else { float u = fminf(1, (t - 0.5f) / 0.55f); k = u * u; roll = 1.4f * k + (t > 1.05f ? 0.16f * sinf((t - 1.05f) * 16) * expf(-(t - 1.05f) * 4) : 0); }
+        y -= 0.6f * k; static float last_t = 0; if (t >= 1.05f && last_t < 1.05f) { burst(v3(b->x, world_height(&g_world, b->x, b->z) + 0.5f, b->z), 50, 6, 0.9f, 0.75f, 0.68f, 0.55f, 1.0f); g_shake_t = fmaxf(g_shake_t, 0.45f); platform_rumble(1, 0.4f); sfx_play(SFX_CRUMBLE, 1.0f, 0); }
+        last_t = t; }
     Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(b->x, y, b->z), m4_rotate_y(yaw)), m4_rotate_x(pitch)), m4_rotate_z(roll));
     mm = m4_mul(mm, m4_scale(BOSS_SCALE, BOSS_SCALE, BOSS_SCALE));
     int bk = TH->boss_isles; Anim3D *ba = g_bossa_ok[bk] ? &g_bossa[bk] : NULL;
@@ -877,7 +915,7 @@ static void draw_ironhorn(Vec3 eye) {
         if (c != last_clip) { at = 0; last_clip = c; } at += g_dt * rate; fade_set(2 + bk, ba, c, 0.3f);
         if (b->state == B_STUCK || b->state == B_STUNNED || b->state == B_HURT || b->state == B_DOWN) at -= g_dt * rate * 0.7f;   /* slow, dazed */
         float k = BOSSA_SCALE[bk] * BOSS_SCALE; Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
-        gfx_state(ST_SOLID); anim3d_draw(ba, c, at, &am, TH->boss_tint[0], TH->boss_tint[1], TH->boss_tint[2], 1);
+        { float f = 1 + 3.5f * g_bflash * g_bflash; gfx_state(ST_SOLID); anim3d_draw(ba, c, at, &am, TH->boss_tint[0] * f, TH->boss_tint[1] * f, TH->boss_tint[2] * f, 1); }   /* flashes white when hit */
         Texture *glow = bk ? tx_storm_glow : tx_iron_glow;
         if (glow && b->state != B_DOWN) { float pulse = 0.65f + 0.35f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4)); Texture *keep = ba->tex; ba->tex = glow;   /* eyes, core and vents glowing on top (same pose, reused) */
             gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse * 0.6f); ba->tex = keep; }
@@ -1441,8 +1479,13 @@ static void solid_body(Dragon *d) {
 /* ---------- Ironhorn, the cage and the rescued friend ---------- */
 static void hurt_dragon(Dragon *D, float amount, const char *msg) {
     if (D->evolve_t > 0) return;
+    if (D == &g_dragon && g_ko_t >= 0) return;
     D->hearts -= amount * DMG[g_diff]; D->act_t = 0.77f; D->anim = DA_HIT; D->anim_t = 0; sfx_play(SFX_HIT, 0.7f, 0); platform_rumble(0.9f, 0.4f);
     snprintf(g_msg, sizeof g_msg, "%s", msg); g_msg_t = 3;
+    { int who = D == &g_dragon ? 0 : 1; g_dflash[who] = 1; float L = dragon_length(D->stage);   /* flash, freeze a beat, shake, sparks, and get knocked back */
+      hit_juice(v3(D->x, D->y + 0.4f * L + 0.3f, D->z), 0.09f, 0.3f, 1.0f, 0.35f, 0.2f);
+      if (D == &g_dragon) { g_kvx = -sinf(D->yaw) * 7; g_kvz = -cosf(D->yaw) * 7; } }
+    if (D->hearts <= 0 && D == &g_dragon && !g_side) { D->hearts = 0.01f; g_ko_t = 0; g_hitstop = 0.25f; g_shake_t = 0.5f; snprintf(g_msg, sizeof g_msg, "KNOCKED OUT!"); g_msg_t = 2; return; }   /* falls over first; back to the start after */
     if (D->hearts <= 0) { D->hearts = 1; dragon_respawn(D); snprintf(g_msg, sizeof g_msg, g_side ? "OUCH! BACK IN THE GAME: EAT TO GET HEARTS BACK" : "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
 static void boss_frame(float dt) {
     Dragon *d = &g_dragon;   /* multiplayer: the boss goes for whichever player is nearer */
@@ -1456,6 +1499,7 @@ static void boss_frame(float dt) {
         d->x += g_boss.cx * 3; d->z += g_boss.cz * 3; }
     if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", TH->stuck); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
     if (bev & 32) { snprintf(g_msg, sizeof g_msg, "IT IS DIZZY! QUICK, HIT IT: TAIL (B) OR CLAW"); g_msg_t = 3; }
+    if (bev & 4) { g_bflash = 1; hit_juice(v3(g_boss.x, g_boss.y + 2.2f * BOSS_SCALE, g_boss.z), (bev & 8) ? 0.3f : 0.12f, (bev & 8) ? 0.6f : 0.35f, 1.0f, 0.75f, 0.3f); if (bev & 8) burst(v3(g_boss.x, g_boss.y + 2, g_boss.z), 40, 10, 0.35f, 1, 0.9f, 0.5f, 0.9f); }
     if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
     if (bev & 8) { snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", TH->boss); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
     if (g_side && g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) { g_rescued = 1; sfx_play(SFX_CHIRP, 1.0f, 0); }   /* multiplayer: freeing it ends the level */
@@ -1517,6 +1561,7 @@ static void boss_upgrades(Dragon *d) { int n = bosses_beaten(); d->power = (floa
 /* a knocked-out robot heals whoever is nearest a little and drops a treat on the ground where it fell (a dead food slot moves there) */
 static void robot_drops(void) {
     for (int k = 0; k < g_world.nkill; k++) { float x = g_world.kill_x[k], z = g_world.kill_z[k];
+        hit_juice(v3(x, g_world.kill_y[k] + 0.6f, z), 0.07f, 0.22f, 1.0f, 0.85f, 0.4f);
         Dragon *D = &g_dragon; if (g_side && g_side_n > 1) { float a = (g_dragon.x - x) * (g_dragon.x - x) + (g_dragon.z - z) * (g_dragon.z - z), b = (g_other.x - x) * (g_other.x - x) + (g_other.z - z) * (g_other.z - z); if (b < a) D = &g_other; }
         D->hearts = fminf(D->max_hearts, D->hearts + 0.5f);
         if (!(WK_ISLES(g_world.kind) && world_is_void(&g_world, x, z)) && !world_in_pond(&g_world, x, z)) {
@@ -1547,6 +1592,7 @@ static void robots_vs(Dragon *D, float dt) {
 }
 
 void game_frame(const Pad *pads, int npads, float dt) {
+    if (g_hitstop > 0) { g_hitstop -= dt; dt *= 0.06f; }   /* a freeze-frame on a big hit */
     g_time += dt; gfx_set_time(g_time);
     if (g_gfx_status != GFX_OK) { gfx_frame_begin(); gfx_view_begin(0, g_gfx_status == GFX_NO_COMPILER ? 1 : 1, g_gfx_status == GFX_NO_COMPILER ? 0.5f : 0, 0); gfx_view_end(0); gfx_view_begin(1, 1, 0.5f, 0); gfx_view_end(1); gfx_frame_end(); return; }
     /* player 1: the GamePad, or the first Wii controller if the GamePad stick is idle */
@@ -1561,7 +1607,10 @@ void game_frame(const Pad *pads, int npads, float dt) {
 #ifndef __wiiu__
     if (getenv("DB_MPICK") && g_time > 0.3f && g_state != G_MPICK) { g_state = G_MPICK; g_state_t = 1; g_p2 = 1; g_pick[0] = 3; g_pick[1] = 6; g_ready[1] = 1; }   /* PC look check: the multiplayer pick */
     if (getenv("DB_WORLDVIEW") && g_time > 0.3f && g_state != G_PLAY) { int wk = atoi(getenv("DB_WORLDVIEW")); g_state = G_PLAY; new_game(); g_wrescued[wk] = getenv("DB_RESCUED") != NULL;
-        enter_world(wk, getenv("DB_NEAR") ? -3 : 4, getenv("DB_NEAR") ? 0.5f : -4, -0.97f); g_msg_t = 0; g_title_t = 0; }   /* PC look check: stand in a world facing the whirlwind back */
+        { int nr = getenv("DB_NEAR") ? atoi(getenv("DB_NEAR")) : 0; enter_world(wk, nr == 2 ? -6 : nr ? -3 : 4, nr == 2 ? 3 : nr ? 0.5f : -4, -0.97f); } g_msg_t = 0; g_title_t = 0; }   /* PC look check: stand in a world facing the whirlwind back */
+    if (getenv("DB_KOTEST") && g_state == G_PLAY && g_world.nhound) { static int done; Drone *h = &g_world.hound[0];   /* PC look check: a hound knocked flying in front of the dragon */
+        if (!done && g_time > 1.5f) { done = 1; float fx = sinf(g_dragon.yaw), fz = cosf(g_dragon.yaw); h->x = g_dragon.x + fx * 5; h->z = g_dragon.z + fz * 5; h->y = world_height(&g_world, h->x, h->z); h->state = 3; h->t = 0; h->kx = -fz; h->kz = fx; h->yaw = g_dragon.yaw + 1.57f;
+            g_world.nkill = 1; g_world.kill_x[0] = h->x; g_world.kill_y[0] = h->y; g_world.kill_z[0] = h->z; } }
     static Pad sidepads[2]; if (getenv("DB_SIDETEST")) {   /* PC look check: two scripted players in the multiplayer levels */
         memset(sidepads, 0, sizeof sidepads); sidepads[0].source = 1; sidepads[1].source = 4;
         if (g_state != G_PLAY) { if (g_time > 0.5f) { g_p1pad = 0; g_p2 = 1; g_pick[0] = 0; g_pick[1] = 1; if (getenv("DB_SIDEKINDS")) sscanf(getenv("DB_SIDEKINDS"), "%d,%d", &g_pick[0], &g_pick[1]); side_new_game(); { const char *lv = getenv("DB_SIDETEST"); int l = atoi(lv); if (l > 0 && l < SLV_N) side_start_level(l); } } }
@@ -1673,9 +1722,18 @@ void game_frame(const Pad *pads, int npads, float dt) {
     g_look_x = p->rx;
     float yaw_before = g_dragon.yaw;
     boss_upgrades(&g_dragon); if (g_friend.on) boss_upgrades(&g_other); if (g_upgrade_t > 0) g_upgrade_t -= dt;
+    for (int i = 0; i < 2; i++) if (g_dflash[i] > 0) g_dflash[i] -= dt * 5; if (g_bflash > 0) g_bflash -= dt * 4;
+    parts_update(dt);
+    for (int pass = 0; pass < 3; pass++) { const Drone *arr = pass == 2 ? g_world.thief : (pass ? g_world.hound : g_world.drone); int cnt = pass == 2 ? g_world.nthief : (pass ? g_world.nhound : g_world.ndrone);   /* defeated robots pop */
+        for (int i = 0; i < cnt; i++) { const Drone *r = &arr[i]; if (r->state == 3 && r->t >= 1.8f && r->t - dt < 1.8f) { float gx = r->x + r->kx * 3.2f, gz = r->z + r->kz * 3.2f; float gy = pass == 0 ? r->y : world_height(&g_world, gx, gz);
+            burst(v3(gx, gy + 0.4f, gz), 26, 5, 0.3f, 0.5f, 0.85f, 1.0f, 0.7f); burst(v3(gx, gy + 0.4f, gz), 10, 2.5f, 0.6f, 1, 1, 1, 0.3f); sfx_play(SFX_PICKUP, 0.4f, 0); } } }
     { static float lava_cd; if (lava_cd > 0) lava_cd -= dt;   /* the volcano's pool is lava: it burns */
       if (g_wk == WK_LAVA && g_dragon.mode != DM_AIR && world_in_pond(&g_world, g_dragon.x, g_dragon.z) && lava_cd <= 0 && g_dragon.invuln_t <= 0) { lava_cd = 1.0f; hurt_dragon(&g_dragon, 0.5f, "HOT HOT HOT! THAT IS LAVA: GET OUT!"); } }
+    if (g_ko_t >= 0) { memset(&in, 0, sizeof in); g_ko_t += dt; g_dragon.anim = DA_HIT; g_dragon.act_t = 0.5f;   /* knocked out: lie there a moment, then back to the start */
+        if (g_ko_t > 1.8f) { g_ko_t = -1; g_dragon.hearts = 1; dragon_respawn(&g_dragon); g_kvx = g_kvz = 0; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt); solid_body(&g_dragon);
+    if (g_kvx * g_kvx + g_kvz * g_kvz > 0.01f) { g_dragon.x += g_kvx * dt; g_dragon.z += g_kvz * dt; float k = expf(-7 * dt); g_kvx *= k; g_kvz *= k;   /* knocked back, sliding to a stop */
+        if (!(WK_ISLES(g_world.kind) && world_is_void(&g_world, g_dragon.x, g_dragon.z))) { solid_body(&g_dragon); if (g_dragon.mode != DM_AIR) g_dragon.y = fmaxf(g_dragon.y, world_height(&g_world, g_dragon.x, g_dragon.z)); } }
     kind_quirks(&g_dragon, g_kind, &in, dt, &ev);
     if (g_power_cd > 0) g_power_cd -= dt; if (g_power_t > 0) g_power_t -= dt;
     if (in.y_press && g_dragon.stage >= ST_DRAGON && g_power_cd <= 0) { g_power_t = 1.4f; g_power_cd = 3.0f; g_power_kind = g_kind; sfx_play(g_kind == 1 || g_kind == 6 ? SFX_FIRE : SFX_ROAR, 0.9f, 0); platform_rumble(0.7f, 0.6f);
@@ -1689,8 +1747,10 @@ void game_frame(const Pad *pads, int npads, float dt) {
             snprintf(g_msg, sizeof g_msg, "YOU FELL TOO MANY TIMES! BACK TO THE START"); }
         else snprintf(g_msg, sizeof g_msg, "YOU FELL INTO THE CLOUDS! YOU LOST A HEART"); g_msg_t = 3; }
     { if (g_travel_cd > 0) g_travel_cd -= dt; Portal PP[2]; int np = g_side ? 0 : portals(PP);
-      for (int q = 0; q < np && g_travel_t < 0 && g_travel_cd <= 0; q++) { float dx = g_dragon.x - PP[q].x, dz = g_dragon.z - PP[q].z; float gy = world_height(&g_world, PP[q].x, PP[q].z);
-          if (dx * dx + dz * dz < 3.5f * 3.5f && g_dragon.y < gy + 30) { g_travel_t = 0; g_travel_to = PP[q].to; sfx_play(SFX_FLAP, 1.0f, 0); sfx_play(SFX_GROW, 0.7f, 0); platform_rumble(0.5f, 1.0f);
+      for (int q = 0; q < np && g_travel_t < 0 && g_travel_cd <= 0; q++) { float dx = g_dragon.x - PP[q].x, dz = g_dragon.z - PP[q].z; float gy = world_height(&g_world, PP[q].x, PP[q].z); float d2 = dx * dx + dz * dz;
+          if (d2 < 10 * 10 && d2 > 0.01f && g_dragon.y < gy + 36) { float dd = sqrtf(d2), pull = (1 - dd / 10) * 9 * dt; if (pull > dd) pull = dd;   /* the wind sucks you in */
+              g_dragon.x -= dx / dd * pull; g_dragon.z -= dz / dd * pull; if (g_dragon.mode != DM_AIR) g_dragon.y = world_height(&g_world, g_dragon.x, g_dragon.z); }
+          if (d2 < 5.5f * 5.5f && g_dragon.y < gy + 36) { g_travel_t = 0; g_travel_to = PP[q].to; sfx_play(SFX_FLAP, 1.0f, 0); sfx_play(SFX_GROW, 0.7f, 0); platform_rumble(0.5f, 1.0f);
               snprintf(g_msg, sizeof g_msg, "THE WIND CARRIES YOU TO %s...", THEMES[g_travel_to].name); g_msg_t = 4; } } }
     if (g_kaine_t >= 0) { float before = g_kaine_t; g_kaine_t += dt;
         if (before < 2.5f && g_kaine_t >= 2.5f) { snprintf(g_msg, sizeof g_msg, "KAINE BLACKFEATHER! HE SWOOPS PAST ON HIS MECH DRAGON: YOU WILL NEVER FREE THEM ALL!"); g_msg_t = 6; sfx_play(SFX_ROAR, 1.0f, 0); platform_rumble(0.8f, 0.8f); }
