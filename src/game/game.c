@@ -1426,6 +1426,7 @@ static void build_layers(void) {
     for (int i = 0; i < 6; i++) { int m = TH->pm[i]; if (!g_pm[m].ok) m = THEMES[0].pm[i]; scenelayer_build(L[i], &g_pm[m], &g_world, PK[i], TH->lscale[i], SINK[i]); } }
 /* go to a world: make it, rebuild its meshes (waiting for the GPU first), set up its boss and cage, put the team at (x, z) */
 static void enter_world(int wk, float x, float z, float yaw) {
+    g_travel_cd = g_side ? 1e9f : 0;   /* whirlwinds work again in story mode (multiplayer switched them off) */
     g_wk = wk; world_make_kind(&g_world, 2026 + wk * 101, wk); g_world.crystal_found = g_wcrystal[wk]; if (g_side) { world_flatten(&g_world, WK_ISLES(wk) ? 10 : 2); side_clear_lane(); }
     if (g_gfx_status == GFX_OK) {
         gfx_sync();
