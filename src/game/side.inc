@@ -94,6 +94,8 @@ static void side_camera(float dt) {
     }
 
 /* every step: everyone stays on the lane, food eaten by either player grows both, nobody gets left behind, and the level ends */
+static float g_zap_t, g_zap_x, g_zap_y;
+static float side_ceiling(void) { return (WK_ISLES(g_world.kind) ? 10 : 2) + 7.5f; }
 static void side_frame(float dt) {
     const SideLevel *L = &SLV[g_lv]; World *w = &g_world;
     g_lv_t += dt;
@@ -112,6 +114,12 @@ static void side_frame(float dt) {
         float gap = fabsf(g_dragon.x - g_other.x); if (gap > 26) { Dragon *back = side_progress(g_dragon.x) < side_progress(g_other.x) ? &g_dragon : &g_other, *front = back == &g_dragon ? &g_other : &g_dragon;
             back->x = front->x - g_lane_dir * 3; back->y = fmaxf(front->y, world_height(w, back->x, g_lane_z)); back->mode = front->mode == DM_AIR ? DM_AIR : DM_GROUND; back->vy = 0;
             snprintf(g_msg, sizeof g_msg, "STICK TOGETHER, LITTLE DRAGONS!"); g_msg_t = 2; } }
+    for (int i = 0; i < g_side_n; i++) { Dragon *d = i ? &g_other : &g_dragon; static float zap_cd[2];   /* the storm ceiling: fly too high and the lightning knocks you back down */
+        if (zap_cd[i] > 0) zap_cd[i] -= dt; float ceil = side_ceiling();
+        if (d->mode == DM_AIR && d->y > ceil) { d->y = ceil; if (d->vy > 0) d->vy = 0;
+            if (zap_cd[i] <= 0) { zap_cd[i] = 1.2f; g_zap_t = 0.25f; g_zap_x = d->x; g_zap_y = d->y; d->vy = -7; d->stamina = fminf(d->stamina, 0.3f);
+                hurt_dragon(d, 0.5f, "ZAP! THE STORM CLOUDS WON'T LET YOU FLY OVER EVERYTHING. STAY LOW!"); sfx_play(SFX_CRUMBLE, 0.8f, 0); burst(v3(d->x, d->y + 0.5f, d->z), 24, 6, 0.3f, 1, 1, 0.5f, 0.5f); } } }
+    if (g_zap_t > 0) g_zap_t -= dt;
     if (g_lv_done_t < 0) {
         float lead = side_progress(g_dragon.x); if (g_side_n > 1) lead = fmaxf(lead, side_progress(g_other.x));
         int done = L->boss ? g_rescued : lead >= fabsf(L->x1 - L->x0);
@@ -122,6 +130,12 @@ static void side_frame(float dt) {
             else if (g_lv_done_t < 5 + dt * 1.5f) { snprintf(g_msg, sizeof g_msg, "THE END... FOR NOW! MORE WORLDS ARE COMING. THANKS FOR PLAYING!"); g_msg_t = 10; }
             else if (g_lv_done_t > 15) { g_side = 0; g_p2 = -1; g_friend.on = 0; g_state = G_TITLE; g_state_t = 0; } } } }
 
+/* how high you may fly: the storm clouds hang a little above the ground (above the island tops in the sky) */
+static void side_draw_storm(void) {   /* a band of dark, rumbling clouds over the whole lane, and a bolt when someone touches it */
+    const SideLevel *L = &SLV[g_lv]; float c = side_ceiling() + 1.6f, xa = fminf(L->x0, L->x1) - 30, xb = fmaxf(L->x0, L->x1) + 30;
+    for (float x = xa; x < xb; x += 3.2f) { float k = sinf(x * 0.7f) * 0.5f + 0.5f, fl = (fmodf(g_time * 0.7f + x * 0.13f, 3.0f) < 0.06f) ? 1.6f : 1.0f;
+        batch_ball(v3(x, c + 0.6f * k, g_lane_z + 1.5f * sinf(x * 0.31f)), 2.6f + k, 1.3f, 3.0f, 4, 7, 0.24f * fl, 0.24f * fl, 0.3f * fl, 0); }
+    if (g_zap_t > 0) { float x0 = g_zap_x; Vec3 a = v3(x0, c, g_lane_z); for (int k = 0; k < 5; k++) { Vec3 b = v3(x0 + ((k * 37) % 7 - 3) * 0.25f, c - (c - g_zap_y) * (k + 1) / 5.0f, g_lane_z); batch_cyl(a, b, 0.12f, 0.12f, 4, 3.0f, 3.0f, 1.2f); a = b; } } }
 /* the finish: a gate of two glowing stone posts across the lane, with a golden beam between (boss levels end at the cage instead) */
 static void side_draw_goal(void) {
     const SideLevel *L = &SLV[g_lv]; if (L->boss) return; float x = L->x1, gy = world_height(&g_world, x, g_lane_z), p = 0.75f + 0.25f * sinf(g_time * 4);
@@ -137,4 +151,7 @@ static void side_hud(void) {
     float p1 = clampf(side_progress(g_dragon.x) / len, 0, 1); map_disc(x0 + p1 * (x1 - x0), y + 4, 9, 12, 0.35f, 1.0f, 0.45f, 1);
     if (g_side_n > 1) { float p2 = clampf(side_progress(g_other.x) / len, 0, 1); map_disc(x0 + p2 * (x1 - x0), y + 4, 7, 12, 0.4f, 0.75f, 1.0f, 1); }
     text_c(L->name, y + 16, 15, 1, 0.92f, 0.75f, 0.9f);
+    for (int i = 0; i < g_side_n; i++) { const Dragon *d = i ? &g_other : &g_dragon; if (d->stage < ST_DRAGON) continue;   /* wing energy: flapping uses it, only landing fills it */
+        float bx = i ? 900 : 230, by = 176, s2 = d->stamina; batch_text(&g_b, i ? "P2 WINGS" : "P1 WINGS", bx, by - 4, 14, 0.9f, 0.95f, 1, 0.9f);
+        ui_bar(bx + 90, by, 150, 10, s2, s2 < 0.25f ? 1.0f : 0.4f, s2 < 0.25f ? 0.35f : 0.85f, s2 < 0.25f ? 0.3f : 1.0f); }
     if (g_lv_t < 4) { float a = clampf(g_lv_t * 2, 0, 1) * clampf((4 - g_lv_t) * 1.5f, 0, 1); ui_panel(340, 250, 600, 110, a, 1); text_cg(L->name, 290, 34, a); } }

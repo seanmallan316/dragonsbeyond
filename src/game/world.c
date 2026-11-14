@@ -306,3 +306,11 @@ int world_push_out(const World *w, float *x, float *y, float *z, float r, int ai
         case P_SPIRE: { float H = 9.0f * s; hit |= push_ball(x, y, z, p->x, gy + H * 0.45f, p->z, 2.0f * s, H, 1.8f * s, r, air); } break;
         default: break; } }
     return hit; }
+
+/* multiplayer side levels: one flat floor (island worlds keep their gaps, but every island top is the same height) */
+void world_flatten(World *w, float H) {
+    for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) if (!(WK_ISLES(w->kind) && w->h[j][i] < W_CLOUDS + 4)) w->h[j][i] = H;
+    float dy = H - w->arena_y; w->arena_y = H; w->cage_y += dy; w->pond_r = 0; w->pond_y = H - 50;
+    for (int i = 0; i < w->nfood; i++) w->food[i].y = world_height(w, w->food[i].x, w->food[i].z);
+    for (int i = 0; i < w->nhound; i++) w->hound[i].y = H;
+    for (int i = 0; i < w->nthief; i++) w->thief[i].y = H; }

@@ -47,6 +47,7 @@ typedef struct {
 } World;
 
 void  world_make(World *w, unsigned seed);                    /* Everleaf Wilds */
+void  world_flatten(World *w, float H);                          /* one flat floor (multiplayer side levels) */
 void  world_make_kind(World *w, unsigned seed, int kind);     /* any world */
 int   world_is_void(const World *w, float x, float z);         /* nothing to stand on here (sky world gaps) */
 void  world_safe_spot(const World *w, float x, float z, float *ox, float *oz);   /* the nearest solid ground to (x, z) */

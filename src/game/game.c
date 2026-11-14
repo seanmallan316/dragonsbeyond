@@ -90,7 +90,7 @@ static int g_p2 = -1, g_p1pad = 0;   /* g_p1pad: the pad player 1 used last; g_p
 /* multiplayer (side-view levels): on, how many players, which level; the lane every one walks along and which way it runs (+1 toward +x) */
 static int g_side, g_side_n = 1, g_lv; static float g_lv_t, g_lv_done_t = -1, g_lane_z, g_lane_dir = -1;
 static int g_mode_sel, g_pick[2] = {0, 1}, g_ready[2];   /* title menus: story or multiplayer; each player's dragon and whether they are ready */
-static void side_clear_lane(void); static void side_camera(float dt); static void side_draw_goal(void); static void side_hud(void); static void dragon_respawn(Dragon *d); static float g_gp_last = -100, g_p2_gone;
+static void side_clear_lane(void); static void side_camera(float dt); static void side_draw_goal(void); static void side_draw_storm(void); static void side_hud(void); static void dragon_respawn(Dragon *d); static float g_gp_last = -100, g_p2_gone;
 /* the storyteller's cards after the rescue (the game waits while they show) */
 static const char *TALE[WK_N][3] = {
   { "AND SO IRONHORN FELL, AND THE WIND GATE OF EVERLEAF WILDS SWUNG OPEN. %s FELT STRONGER THAN EVER.",
@@ -748,7 +748,7 @@ static void draw_food3d(Vec3 eye) {
         for (int i = 0; i < 12; i++) { float a = i * 6.2831853f / 12; float off = fabsf(fmodf(a - facing + 9.42478f, 6.2831853f) - 3.14159f);
             if (open > 0.6f && off < 0.6f) continue;   /* the door bars are gone */
             batch_cyl(v3(c.x + sinf(a) * R, cy, c.z + cosf(a) * R), v3(c.x + sinf(a) * R, cy + H, c.z + cosf(a) * R), 0.045f, 0.045f, 4, iron, iron, iron * 1.1f); } }  } }
-    if (g_side) side_draw_goal();
+    if (g_side) { side_draw_goal(); side_draw_storm(); }
     if (g_boss.state != B_DOWN || g_boss.t < 1.0f) {   /* Ironhorn's core: pulses, flares bright when it is open to a hit */
       Vec3 c = boss_core(&g_boss); int vul = boss_vulnerable(&g_boss); float p = 0.5f + 0.5f * sinf(g_time * (vul ? 14 : 5));
       float r = vul ? 0.42f + 0.1f * p : 0.3f + 0.04f * p;
@@ -1426,7 +1426,7 @@ static void build_layers(void) {
     for (int i = 0; i < 6; i++) { int m = TH->pm[i]; if (!g_pm[m].ok) m = THEMES[0].pm[i]; scenelayer_build(L[i], &g_pm[m], &g_world, PK[i], TH->lscale[i], SINK[i]); } }
 /* go to a world: make it, rebuild its meshes (waiting for the GPU first), set up its boss and cage, put the team at (x, z) */
 static void enter_world(int wk, float x, float z, float yaw) {
-    g_wk = wk; world_make_kind(&g_world, 2026 + wk * 101, wk); g_world.crystal_found = g_wcrystal[wk]; if (g_side) side_clear_lane();
+    g_wk = wk; world_make_kind(&g_world, 2026 + wk * 101, wk); g_world.crystal_found = g_wcrystal[wk]; if (g_side) { world_flatten(&g_world, WK_ISLES(wk) ? 10 : 2); side_clear_lane(); }
     if (g_gfx_status == GFX_OK) {
         gfx_sync();
         Mesh **ms[] = {&m_ground, &m_ground_dirt, &m_ground_rock, &m_water, &m_bark, &m_leaves, &m_fern, &m_bushes, &m_rock, &m_tufts, &m_flowers, &m_clouds, &m_mountains, &m_apron, &m_cloudsea, &m_sky, &m_sun};

@@ -28,6 +28,7 @@ float dragon_tail_reach(int stage) { float L = LEN[stage]; return fmaxf(2.8f, 0.
 
 int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, float dt) {
     int ev = 0; d->anim_t += dt;
+    if (in->side && d->mode != DM_AIR) d->stamina = fminf(1, d->stamina + dt * 0.5f);   /* side levels: tired wings rest on the ground */
     d->atk_r = 0; d->atk_kind = ATK_NONE; if (d->invuln_t > 0) d->invuln_t -= dt; if (d->chirp_cd > 0) d->chirp_cd -= dt;
     if (d->air_act <= 0) d->roll *= expf(-dt * 10);
     float gy = world_height(w, d->x, d->z); int inpond = world_in_pond(w, d->x, d->z); float waterline = inpond ? w->pond_y : -1e9f;
@@ -111,7 +112,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
             float top = FLY[d->stage] * (1 + 0.08f * d->power) * (1.0f - 0.5f * fmaxf(0, d->pitch)) * (1.0f + 0.6f * fmaxf(0, -d->pitch)) * (1.0f + 0.5f * d->dive);
             if (in->side) top *= fminf(1, fabsf(in->sx) * 1.3f);   /* side levels: the stick decides how fast you fly along */
             d->speed = lerp(d->speed, top, 1 - expf(-dt * (diving ? 3.0f : 1.5f)));
-            float lift = in->a && !diving ? 5.0f : 0.5f; if (in->a) d->stamina = fmaxf(0, d->stamina - dt * 0.12f); else d->stamina = fminf(1, d->stamina + dt * 0.2f);
+            float lift = in->a && !diving ? 5.0f : 0.5f; if (in->a) d->stamina = fmaxf(0, d->stamina - dt * (in->side ? 0.24f : 0.12f)); else if (!in->side) d->stamina = fminf(1, d->stamina + dt * 0.2f);   /* side levels: wings only rest on the ground */
             if (d->stamina <= 0.01f) lift = 0.5f;
             if (d->dive > 0.3f) { d->vy = lerp(d->vy, -30.0f * d->dive, 1 - expf(-dt * 3)); if (d->vy < -12) d->slam = 1; }   /* a dive that hits the ground lands as a crashing pounce */
             else { d->vy += (lift - 3.5f + d->pitch * 6.0f) * dt; d->vy = clampf(d->vy, -12, 6); d->slam = 0; }
