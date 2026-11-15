@@ -30,7 +30,7 @@ static float raw_height(const World *w, float x, float z) {
     default: break; }
     h += d * d * d * 26.0f;                                     /* the edges rise into hills so the patch feels enclosed */
     float pd = sqrtf((x - w->pond_x) * (x - w->pond_x) + (z - w->pond_z) * (z - w->pond_z));
-    if (pd < w->pond_r * 1.6f) { float t = clampf(1 - pd / (w->pond_r * 1.6f), 0, 1); h -= t * t * 5.0f; }   /* the pond's dip */
+    (void)pd;   /* the pond's bowl is pressed in after the hills are made */
     float sd = sqrtf(x * x + z * z); if (sd < 18) h = lerp(h, w->pond_y + 1.2f, (1 - sd / 18) * 0.8f);   /* a flat meadow to start on */
     return h; }
 
@@ -43,10 +43,13 @@ static void make_ground(World *w, unsigned seed, int kind) {
     for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
         float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1);
         w->h[j][i] = raw_height(w, x, z); }
-    if (kind != WK_FOREST && w->pond_r > 0) {   /* every world's hills are different: sit the water in the dip that is really there, and call "pond" only what is under it */
-        float hc = world_height(w, w->pond_x, w->pond_z); w->pond_y = hc + 2.6f; float rmin = w->pond_r;
-        for (int k = 0; k < 24; k++) { float a = k * 0.2618f, r = 1; while (r < w->pond_r * 1.6f && world_height(w, w->pond_x + cosf(a) * r, w->pond_z + sinf(a) * r) < w->pond_y - 0.35f) r += 0.5f; if (r < rmin) rmin = r; }
-        w->pond_r = fmaxf(rmin - 0.5f, 3.0f); }
+    if (w->pond_r > 0) {   /* a proper pond in every world: a round bowl pressed into whatever hills are there, the water sitting just below its rim */
+        float R = w->pond_r, Hr = 0; for (int k = 0; k < 16; k++) { float a = k * 0.3927f; Hr += raw_height(w, w->pond_x + cosf(a) * R * 1.7f, w->pond_z + sinf(a) * R * 1.7f); } Hr /= 16;
+        for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) { float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1);
+            float pd = sqrtf((x - w->pond_x) * (x - w->pond_x) + (z - w->pond_z) * (z - w->pond_z)); if (pd > R * 1.9f) continue;
+            float q = pd / (R * 1.25f), depth = q < 1 ? 4.5f * (1 - q * q) : 0, k = clampf((R * 1.9f - pd) / (R * 0.6f), 0, 1); k = k * k * (3 - 2 * k);
+            w->h[j][i] = w->h[j][i] + (Hr - 0.3f - depth - w->h[j][i]) * k; }
+        w->pond_y = Hr - 0.9f; }
     /* the boss clearing: flatten the ground there, ring it with big trees, hang the cage from the biggest */
     w->arena_x = -62; w->arena_z = 60; w->arena_r = 22; w->arena_y = raw_height(w, w->arena_x, w->arena_z);
     for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
