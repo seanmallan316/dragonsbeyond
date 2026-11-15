@@ -241,8 +241,10 @@ static void controller_pad(int k, Pad *w) {
     /* by the letters printed on the buttons (Nintendo, Xbox and PlayStation-style pads all work) */
     w->a = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_A); w->b = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_B);
     w->x = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_X); w->y = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_Y);
-    w->zl = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) || SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 12000;
-    w->zr = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) || SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 12000;
+    /* shoulders and triggers: L1 or L2 = dive / swim down; R1 = run; R2 = the dragon's power (hold it to charge the mega blast), the same as Y */
+    w->zl = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) || SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 9000;
+    w->zr = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+    if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 9000) w->y = 1;
     static int was[4]; int st = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_START); w->plus = st && !was[k]; was[k] = st;
     w->rx = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f; if (fabsf(w->rx) < 0.15f) w->rx = 0;
     w->ry = -SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f; if (fabsf(w->ry) < 0.15f) w->ry = 0;

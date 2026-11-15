@@ -56,7 +56,7 @@ static const Theme THEMES[WK_N] = {
   { "EMBER VOLCANO", "basalt", "ash", {1, 1, 1}, {0.45f, 0.26f, 0.2f}, {0.95f, 0.55f, 0.42f}, {0.55f, 0.35f, 0.3f}, 9999, {PM_CHAR, PM_CHAR, PM_LAVAROCK, PM_BUSH, PM_ROCK, PM_LAVAROCK}, {1.0f, 1.0f, 0.35f, 1.6f, 1, 1.0f},
     0, {1.35f, 0.7f, 0.5f}, {1.0f, 0.45f, 0.1f}, {1.0f, 0.85f, 0.2f}, "MAGMAHORN", "MAGMAHORN GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A LAVA ROCK", "ITS HORNS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "danger" },
   { "BLACKFEATHER KEEP", "basalt", "ash", {0.8f, 0.8f, 0.9f}, {0.12f, 0.12f, 0.17f}, {0.3f, 0.3f, 0.4f}, {0.35f, 0.33f, 0.4f}, 9999, {PM_CHAR, PM_CHAR, PM_LAVAROCK, PM_BUSH, PM_ROCK, PM_LAVAROCK}, {1.1f, 1.1f, 0.35f, 1.6f, 1, 1.2f},
-    1, {1, 1, 1}, {1.0f, 0.12f, 0.1f}, {0.25f, 0.2f, 0.3f}, "KAINE'S MECH DRAGON", "KAINE BLACKFEATHER RIDES HIS MECH DRAGON! DODGE ITS SWOOP SO IT HITS A BURNT TREE", "THE MECH DRAGON IS STUCK! HIT IT NOW: TAIL (B) OR CLAW", "danger" } };
+    1, {3.2f, 3.0f, 3.2f}, {1.0f, 0.12f, 0.1f}, {0.25f, 0.2f, 0.3f}, "KAINE'S MECH DRAGON", "KAINE BLACKFEATHER RIDES HIS MECH DRAGON! DODGE ITS SWOOP SO IT HITS A BURNT TREE", "THE MECH DRAGON IS STUCK! HIT IT NOW: TAIL (B) OR CLAW", "danger" } };
 #define TH (&THEMES[g_wk])
 #define FOGC(i) (g_env.fog[i])
 #define FOGC_OLD(i) ((g_sky_photo ? (0.66f + 0.04f * (i) + ((i) == 2 ? 0.06f : 0)) / (0.74f + 0.08f * (i) + ((i) == 2 ? 0.02f : 0)) : 1.0f) * TH->fog[i])   /* fog matches the sky picture's horizon, tinted for the world */
@@ -916,9 +916,10 @@ static void draw_ironhorn(Vec3 eye) {
         int c = anim3d_clip(ba, cn); if (c < 0) c = 0; float rate = !bk && (c == anim3d_clip(ba, "walk")) ? sp / 4.5f : (!bk && c == anim3d_clip(ba, "run") ? fmaxf(0.8f, sp / 11) : 1);
         if (c != last_clip) { at = 0; last_clip = c; } at += g_dt * rate; fade_set(2 + bk, ba, c, 0.3f);
         if (b->state == B_STUCK || b->state == B_STUNNED || b->state == B_HURT || b->state == B_DOWN) at -= g_dt * rate * 0.7f;   /* slow, dazed */
-        float k = (mech ? 5.4f : BOSSA_SCALE[bk]) * BOSS_SCALE; Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
-        if (mech) am = m4_mul(m4_translate(0, b->state == B_DOWN ? 0 : 1.2f, 0), am);
+        float k = (mech ? 7.5f : BOSSA_SCALE[bk]) * BOSS_SCALE; Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
+        if (mech) am = m4_mul(m4_translate(0, b->state == B_DOWN ? 0 : 1.6f, 0), am);
         { float f = 1 + 3.5f * g_bflash * g_bflash; gfx_state(ST_SOLID); anim3d_draw(ba, c, at, &am, TH->boss_tint[0] * f, TH->boss_tint[1] * f, TH->boss_tint[2] * f, 1); }   /* flashes white when hit */
+        if (mech && b->state != B_DOWN) { float pulse = 0.25f + 0.15f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4)); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1.0f, 0.2f, 0.15f, pulse); gfx_state(ST_SOLID); }   /* its red-hot glow */
         Texture *glow = mech ? NULL : bk ? tx_storm_glow : tx_iron_glow;
         if (glow && b->state != B_DOWN) { float pulse = 0.65f + 0.35f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4)); Texture *keep = ba->tex; ba->tex = glow;   /* eyes, core and vents glowing on top (same pose, reused) */
             gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse * 0.6f); ba->tex = keep; }
@@ -945,7 +946,7 @@ static void draw_kind_dragon(int k, int st, float x, float y, float z, float yaw
     if (g_kd_fade >= 0) { fade_set(g_kd_fade, m, clip, 0.22f); g_kd_fade = -1; }
     gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(m, clip, anim_t, &mm, 1.1f, 1.1f, 1.1f, 1); gfx_bump(0); gfx_bind(NULL); }
 static void draw_kaine(void) {
-    if (g_kaine_t < 1.5f || g_kaine_t > 13) return;
+    if (g_kaine_t < 1.5f || g_kaine_t > 13 || g_wk == WK_KAINE) return;
     if (g_mech_ok < 0) g_mech_ok = anim3d_load(&g_mech, "kaine_mech");
     if (!g_mech_ok && !g_model_ok[ST_BEYONDER]) return;
     if (!g_mech_ok && ((g_kind == 0 && g_dragon.stage == ST_BEYONDER) || (g_friend.on && g_fk == 0 && g_other.stage == ST_BEYONDER))) return;   /* the stand-in model is busy being a player's dragon */ float u = (g_kaine_t - 1.5f) / 11.5f;
@@ -964,12 +965,14 @@ static void draw_arena(Vec3 eye) {
         int k = PP[q].to == 0 ? 0 : CAPTIVE[PP[q].to]; float gy = world_height(&g_world, PP[q].x, PP[q].z);
         draw_kind_dragon(k, ST_DRAGONET, PP[q].x + cosf(g_time * 1.6f) * 1.2f, gy + 5.5f + 1.2f * sinf(g_time * 1.3f), PP[q].z + sinf(g_time * 1.6f) * 1.2f, g_time * 1.6f + 1.57f, DA_GLIDE, g_time, 1); } }
     if (g_friend.on) { g_kd_speed = g_p2 >= 0 ? g_other.speed : g_friend.speed; g_kd_fade = 1; draw_kind_dragon(g_fk, g_other.stage, g_friend.x, g_friend.y, g_friend.z, g_friend.yaw, g_friend.anim, g_friend.anim_t, g_friend.mode); } }
+static int g_pro_pad; static int pads_source_pro(void) { return g_pro_pad; }
+static float g_fov_speed;   /* the view opens up as the dragon flies faster */
 static void draw_scene(int drc) {
     float aspect = gfx_aspect(drc); Vec3 eye = g_eye, at = g_at;
     if (g_shake_t > 0) { float a = g_shake_t * 0.6f; Vec3 o = v3(sinf(g_time * 71) * a, sinf(g_time * 83 + 1) * a, cosf(g_time * 67) * a); eye = v3(eye.x + o.x, eye.y + o.y, eye.z + o.z); at = v3(at.x + o.x * 0.5f, at.y + o.y * 0.5f, at.z + o.z * 0.5f); }
     float cr = g_dragon.mode == DM_AIR ? g_bank * (g_cam_mode == 0 ? 0.3f : 0.85f) : 0;   /* the camera leans into a banked turn with the dragon */
     Vec3 up = v3(-sinf(cr) * cosf(g_cam_yaw), cosf(cr), sinf(cr) * sinf(g_cam_yaw));
-    Mat4 proj = m4_perspective((g_side ? 0.85f : g_cam_mode == 2 ? 1.25f : 1.05f) + 0.28f * g_dragon.dive, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
+    Mat4 proj = m4_perspective((g_side ? 0.85f : g_cam_mode == 2 ? 1.25f : 1.05f) + 0.28f * g_dragon.dive + g_fov_speed, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir(); env_compute(eye);
     gfx_grade(0.9f, 0.3f, 0.22f, 1.06f); env_light3(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye);
     gfx_shadow_use(1); gfx_camera(&vp, L, 0.34f, FOGC(0), FOGC(1), FOGC(2), g_env.f0, g_env.f1);   /* fog fades into the sky picture's horizon */ gfx_shadow_use(0);
@@ -1109,12 +1112,15 @@ static void draw_radar(void) {
     for (int i = 0; i < g_world.ndrone; i++) { RPOS(g_world.drone[i].x, g_world.drone[i].z, ox, oy, lim) if (!lim) map_disc(CX + ox, CY + oy, 4, 6, 1, 0.25f, 0.2f, 1); }
     for (int i = 0; i < g_world.nhound; i++) { RPOS(g_world.hound[i].x, g_world.hound[i].z, ox, oy, lim) if (!lim) map_disc(CX + ox, CY + oy, 4, 6, 1, 0.25f, 0.2f, 1); }
     for (int i = 0; i < g_world.nthief; i++) { const Drone *t = &g_world.thief[i]; if (t->state >= 3) continue; RPOS(t->x, t->z, ox, oy, lim) if (!lim) map_disc(CX + ox, CY + oy, 4, 6, 1, 0.45f, 0.2f, 1); }
-    if (!g_rescued) { RPOS(g_world.cage_x, g_world.cage_z, ox, oy, lim) float pulse = 0.75f + 0.25f * sinf(g_time * 5);
+    { float tx0 = g_world.cage_x, tz0 = g_world.cage_z; int show = 1; char what[48]; const float *tc; static const float BLUE[3] = {0.35f, 0.75f, 1.0f};   /* the goal: the boss and its cage, then the whirlwind onward */
+      if (!g_rescued) { tc = BLUE; if (CAPTIVE[g_wk] < 0) { tx0 = g_world.arena_x; tz0 = g_world.arena_z; snprintf(what, sizeof what, "%s", TH->boss); } else snprintf(what, sizeof what, "%s", g_boss.woke ? TH->boss : KIND_TITLE[CAPTIVE[g_wk]]); }
+      else if (g_wk + 1 < WK_N) { tx0 = g_world.arena_x; tz0 = g_world.arena_z; tc = THEMES[g_wk + 1].portal; snprintf(what, sizeof what, "WHIRLWIND"); } else { show = 0; tc = BLUE; }
+      if (show) { RPOS(tx0, tz0, ox, oy, lim) float pulse = 0.75f + 0.25f * sinf(g_time * 5);
         if (lim) { float l = sqrtf(ox * ox + oy * oy) + 1e-4f; float ux = ox / l, uy = oy / l; float tx = CX + ux * (R + 18), ty = CY + uy * (R + 18);   /* an arrow outside the rim */
-            map_tri2d(tx + ux * 12, ty + uy * 12, tx - ux * 6 - uy * 11, ty - uy * 6 + ux * 11, tx - ux * 6 + uy * 11, ty - uy * 6 - ux * 11, 0.35f, 0.75f, 1.0f, pulse); }
-        map_disc(CX + ox, CY + oy, 7 * pulse + 2, 12, 0.35f, 0.75f, 1.0f, 1);
-        float dist = sqrtf((g_world.cage_x - d->x) * (g_world.cage_x - d->x) + (g_world.cage_z - d->z) * (g_world.cage_z - d->z)); char lb[40]; snprintf(lb, sizeof lb, "BABY DRAGON %d M", (int)dist);
-        batch_text(&g_b, lb, CX + R + 14, CY + 6, 18, 0.55f, 0.85f, 1.0f, 1); }
+            map_tri2d(tx + ux * 12, ty + uy * 12, tx - ux * 6 - uy * 11, ty - uy * 6 + ux * 11, tx - ux * 6 + uy * 11, ty - uy * 6 - ux * 11, tc[0], tc[1], tc[2], pulse); }
+        map_disc(CX + ox, CY + oy, 7 * pulse + 2, 12, tc[0], tc[1], tc[2], 1);
+        float dist = sqrtf((tx0 - d->x) * (tx0 - d->x) + (tz0 - d->z) * (tz0 - d->z)); char lb[72]; snprintf(lb, sizeof lb, "%s %d M", what, (int)dist);
+        batch_text(&g_b, lb, CX + R + 14, CY + 6, 18, tc[0], tc[1], tc[2], 1); } }
 #undef RPOS
     { float a = d->yaw - g_cam_yaw; float fx = -sinf(a), fy = -cosf(a); float rx = -fy, ry = fx;   /* you */
       map_tri2d(CX + fx * 11, CY + fy * 11, CX - fx * 7 + rx * 7, CY - fy * 7 + ry * 7, CX - fx * 7 - rx * 7, CY - fy * 7 - ry * 7, 1, 1, 1, 1); } }
@@ -1144,7 +1150,7 @@ static void draw_hud(int drc) {
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
         if (dx * dx + dz * dz < 60 * 60) { ui_panel(440, 132, 400, 90, 0.9f, 0); text_cg(TH->boss, 150, 26, 1);
-            for (int i = 0; i < BOSS_HITS[g_diff]; i++) { float x = 640 - BOSS_HITS[g_diff] * 34 + i * 68; ui_bar(x + 8, 188, 52, 10, i < g_boss.hp, 1.0f, 0.4f, 0.08f); } } }
+            int bmax = BOSS_HITS[g_diff] + (g_wk == WK_KAINE ? 2 : 0); for (int i = 0; i < bmax; i++) { float x = 640 - bmax * 34 + i * 68; ui_bar(x + 8, 188, 52, 10, i < g_boss.hp, 1.0f, 0.4f, 0.08f); } } }
     /* near a whirlwind: where it goes, and who is caged there */
     { Portal PP[2]; int np = portals(PP); for (int q = 0; q < np; q++) { float dx = d->x - PP[q].x, dz = d->z - PP[q].z; if (dx * dx + dz * dz > 26 * 26) continue;
         const Theme *T = &THEMES[PP[q].to]; char l1[64], l2[80]; snprintf(l1, sizeof l1, "WHIRLWIND TO %s", T->name);
@@ -1168,7 +1174,11 @@ static void draw_hud(int drc) {
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(TH->name, 352, 34, a); }
     static const char *cams[3] = {"OVERHEAD VIEW", "RIDER VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST", "SHARDS", "SANDSTORM", "WATERNADO", "LAVA", "ALL POWERS"}; char cl[200]; snprintf(cl, sizeof cl, "A : JUMP/FLY   B : TAIL (AIR: %s)   X : CLAW/EAT%s   Y : %s   + : MENU", d->stage >= ST_DRAGON ? "ROLL" : "POUNCE", d->stage >= ST_DRAGON ? " (AIR: TALONS)" : "", d->stage >= ST_BEYONDER ? PW[g_kind] : d->stage >= ST_DRAGON ? PW[g_kind] : "SPARK CHIRP"); if (d->stage >= ST_BEYONDER) { size_t l = strlen(cl); snprintf(cl + l, sizeof cl - l, "   HOLD Y : MEGA BLAST"); }
-      batch_text(&g_b, cl, 640 - text_width(cl, 16) / 2, 692, 16, 1, 1, 1, 0.5f); }
+      { static int had_pad; if (pads_source_pro()) had_pad = 1; if (had_pad) { size_t l = strlen(cl); snprintf(cl + l, sizeof cl - l, "   R2 : POWER   L2 : DIVE   R1 : RUN"); } }
+      float hs = 16; while (hs > 10 && text_width(cl, hs) > 1220) hs -= 0.5f; batch_text(&g_b, cl, 640 - text_width(cl, hs) / 2, 692, hs, 1, 1, 1, 0.5f);
+      if (d->stage >= ST_DRAGON) { static const float WH[3] = {1, 1, 1}; const float *pc = g_kind == 7 ? WH : THEMES[g_kind].portal; float f = g_charge >= 0 ? fminf(1, g_charge / 1.1f) : g_power_cd > 0 ? 1 - fminf(1, g_power_cd / 2.6f) : 1;   /* the power meter: fills as it comes back, and as you charge */
+          int full = g_charge >= 1.1f; float pu = full ? 0.6f + 0.4f * sinf(g_time * 18) : 1; ui_bar(1040, 96, 180, 12, f, pc[0] * pu + (full ? 0.4f : 0), pc[1] * pu + (full ? 0.4f : 0), pc[2] * pu + (full ? 0.4f : 0));
+          const char *pl = g_charge >= 1.1f ? "MEGA BLAST READY! LET GO" : g_charge > 0.35f ? "CHARGING..." : g_power_cd > 0 ? PW[g_kind] : d->stage >= ST_BEYONDER ? "POWER READY: HOLD FOR MEGA" : "POWER READY"; batch_text(&g_b, pl, 1220 - text_width(pl, 14), 74, 14, 1, 1, 1, 0.85f); } }
     if (g_travel_t >= 0) { float a = 1 - fabsf(g_travel_t - 0.9f) / 0.9f; batch_rect(&g_b, -700, 0, 2680, 720, 1, 1, 1, clampf(a * 1.2f, 0, 1)); }   /* wider than the TV for wide phone screens */
     if (g_tale_i >= 0) { char line[360]; snprintf(line, sizeof line, TALE[g_tale_w][g_tale_i], CAPTIVE[g_tale_w] >= 0 ? kind_name(CAPTIVE[g_tale_w]) : active_name()); float fade = clampf(g_tale_t * 2, 0, 1);
         ui_shade(fade); ui_embers(40, fade); ui_panel(90, 150, 1100, 440, 0.95f * fade, 0); ui_divider(640, 200, 520, fade); text_wrap_c(line, 250, 30, 960, 1, 0.95f, 0.82f, fade);
@@ -1513,7 +1523,9 @@ static void boss_frame(float dt) {
     if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", TH->stuck); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
     if (bev & 32) { snprintf(g_msg, sizeof g_msg, "IT IS DIZZY! QUICK, HIT IT: TAIL (B) OR CLAW"); g_msg_t = 3; }
     if (bev & 4) { g_bflash = 1; hit_juice(v3(g_boss.x, g_boss.y + 2.2f * BOSS_SCALE, g_boss.z), (bev & 8) ? 0.3f : 0.12f, (bev & 8) ? 0.6f : 0.35f, 1.0f, 0.75f, 0.3f); if (bev & 8) burst(v3(g_boss.x, g_boss.y + 2, g_boss.z), 40, 10, 0.35f, 1, 0.9f, 0.5f, 0.9f); }
-    if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
+    if ((bev & 4) && !(bev & 8) && g_wk == WK_KAINE) { static const char *TAUNT[6] = {"KAINE: \"LUCKY HIT, LIZARD!\"", "KAINE: \"MY MECH CANNOT LOSE!\"", "KAINE: \"STOP THAT! DO YOU KNOW WHAT THIS COST?\"", "KAINE: \"NO, NO, NO! HOLD TOGETHER!\"", "KAINE: \"EVERWING IS MINE! MINE!\"", "KAINE: \"THIS IS NOT FAIR!\""};
+        snprintf(g_msg, sizeof g_msg, "%s   %d MORE", TAUNT[g_boss.hp % 6], g_boss.hp); g_msg_t = 4; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
+    else if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
     if (bev & 8) { snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", TH->boss); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
     if (g_side && g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) { g_rescued = 1; sfx_play(SFX_CHIRP, 1.0f, 0); }   /* multiplayer: freeing it ends the level */
     else if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
@@ -1714,7 +1726,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         if (ud) { g_pause_sel = (g_pause_sel + ud + n) % n; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
         if (in.b_press) { g_pause_open = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
         else if (in.a_press) { int item = g_pause_sel; if (!canswap && item == 1) item = 2; sfx_play(SFX_MENU_OK, 0.5f, 0); g_pause_open = 0;
-            if (item == 1) { if (team_size() > 1) { g_swap_open = 1; g_swap_sel = g_kind; } else { snprintf(g_msg, sizeof g_msg, "NO FRIEND TO SWAP WITH YET: FREE THE BABY DRAGON FROM ITS CAGE FIRST"); g_msg_t = 4; } }
+            if (item == 1) { if (team_size() > 1) { g_swap_open = 1; g_swap_sel = g_kind; } else { snprintf(g_msg, sizeof g_msg, "NO FRIEND TO SWAP WITH YET: FREE A DRAGON FROM ITS CAGE FIRST"); g_msg_t = 4; } }
             else if (item == 2) {   /* the story is saved as it is; multiplayer just ends */
                 if (!g_side) save_progress();
                 g_side = 0; g_p2 = -1; g_swap_open = 0; g_tale_i = -1; g_msg_t = 0; g_state = G_TITLE; g_state_t = 0; } }
@@ -1740,6 +1752,10 @@ void game_frame(const Pad *pads, int npads, float dt) {
     float yaw_before = g_dragon.yaw;
     if (getenv("DB_SWAPTEST")) { static int done; if (!done && g_time > 1.0f) { done = 1; for (int k = 0; k < K_N; k++) { g_has[k] = 1; ensure_kind(k, 0); } g_swap_open = 1; g_swap_sel = atoi(getenv("DB_SWAPTEST")); } }
     if (getenv("DB_POWER")) { static int done; if (!done && g_time > 1.3f) { done = 1; g_dragon.stage = ST_BEYONDER; power_start(atoi(getenv("DB_POWER")) > 1); } }
+    if (p->source == 2) g_pro_pad = 1;
+    if (g_friend.on && g_p2 < 0 && !g_side && g_other.stage >= ST_DRAGON) { static float fcd = 5; fcd -= dt;   /* your friend fights too: now and then it blasts a robot that comes too close to it */
+        if (fcd <= 0) { int n = world_blast(&g_world, g_friend.x, g_friend.y + 1, g_friend.z, 0, 1, 7.5f, -1); if (n) { fcd = 7; static const float WH[3] = {1, 1, 1}; const float *pc = g_fk == 7 ? WH : THEMES[g_fk].portal;
+                burst(v3(g_friend.x, g_friend.y + 1.2f, g_friend.z), 60, 9, 0.5f, pc[0], pc[1], pc[2], 0.8f); sfx_play(SFX_ROAR, 0.5f, 0); snprintf(g_msg, sizeof g_msg, "%s BLASTED IT FOR YOU!", kind_name(g_fk)); g_msg_t = 2.5f; } else fcd = 0.5f; } }
     power_frame(p, q, &in, dt);   /* before the dragon moves: a Beyonder's roar waits for the button to be let go */
     boss_upgrades(&g_dragon); if (g_friend.on) boss_upgrades(&g_other); if (g_upgrade_t > 0) g_upgrade_t -= dt;
     for (int i = 0; i < 2; i++) if (g_dflash[i] > 0) g_dflash[i] -= dt * 5; if (g_bflash > 0) g_bflash -= dt * 4;
@@ -1774,7 +1790,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
             if (!fwd) { ax = WK_ISLES(g_travel_to) ? 58 + 8 : -62 + 8; az = WK_ISLES(g_travel_to) ? -48 + 8 : 60 - 8; yw = 0.8f; }
             enter_world(g_travel_to, ax, az, yw); g_travel_cd = 4; save_progress();
             if (g_wrescued[g_wk] || CAPTIVE[g_wk] < 0) snprintf(g_msg, sizeof g_msg, "%s", TH->name); else snprintf(g_msg, sizeof g_msg, "%s! THE %s IS CAGED HERE. FIND %s!", TH->name, KIND_TITLE[CAPTIVE[g_wk]], TH->boss); g_msg_t = 6;
-            if (g_wk >= WK_SKY && !g_wrescued[g_wk] && g_kaine_done < g_wk) { g_kaine_done = g_wk; g_kaine_t = 0; } }
+            if (g_wk >= WK_SKY && g_wk < WK_KAINE && !g_wrescued[g_wk] && g_kaine_done < g_wk) { g_kaine_done = g_wk; g_kaine_t = 0; } if (g_wk == WK_KAINE) g_kaine_t = -1;   /* in his own keep he is the boss, not a fly-past */ }
         if (g_travel_t > 1.8f) g_travel_t = -1; }
     { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
       float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4)); { const char *ft = getenv("DB_FORCETURN"); if (ft) g_turn = (float)atof(ft); }
@@ -1796,6 +1812,15 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (ev & 2) sfx_play(SFX_GROW, 0.8f, 0);
     if (ev & 4) sfx_play(SFX_FLAP, 0.6f, 0);
     { static float land_cd; land_cd -= dt; if ((ev & 8) && land_cd <= 0) { sfx_play(SFX_LAND, 0.5f, 0); land_cd = 0.4f; } }   /* never a rattle of thuds */
+    { Dragon *D = &g_dragon; float L = dragon_length(D->stage); static const float DUST[WK_N][3] = {{0.6f, 0.55f, 0.4f}, {0.6f, 0.55f, 0.4f}, {1, 1, 1}, {0.7f, 0.6f, 0.9f}, {1, 0.85f, 0.55f}, {0.9f, 0.85f, 0.7f}, {0.35f, 0.3f, 0.3f}, {0.3f, 0.28f, 0.3f}}; const float *dc = DUST[g_wk];
+      int wet = (g_world.sea_on && D->y < g_world.sea) || D->mode == DM_SWIM; Vec3 feet = v3(D->x, D->y + 0.15f, D->z);
+      if ((ev & 8) && !wet) burst(feet, 14 + 6 * D->stage, 2.5f + D->stage, 0.5f + 0.25f * D->stage, dc[0], dc[1], dc[2], 0.5f);                    /* a puff of dust (or snow, or ash) on landing */
+      if (ev & 32) burst(feet, 40, 6 + 2 * D->stage, 0.8f + 0.3f * D->stage, dc[0], dc[1], dc[2], 0.8f);                                                /* a ring of it from a pounce */
+      if (ev & 4) burst(feet, 16, 3 + D->stage, 0.6f, dc[0], dc[1], dc[2], 0.5f);                                                                      /* and when the wings beat down to take off */
+      static float step_t; step_t -= dt * D->speed; if (D->mode == DM_GROUND && D->speed > 0.6f * 6 && step_t <= 0 && !wet) { step_t = 1.6f + 0.6f * L; burst(v3(D->x - sinf(D->yaw) * 0.3f * L, D->y + 0.1f, D->z - cosf(D->yaw) * 0.3f * L), 3, 1.2f, 0.35f, dc[0], dc[1], dc[2], 0.4f); }   /* running kicks it up */
+      if (wet && D->speed > 2) { static float bub; bub -= dt; if (bub <= 0) { bub = 0.12f; burst(v3(D->x - sinf(D->yaw) * 0.5f * L, D->y + 0.3f * L, D->z - cosf(D->yaw) * 0.5f * L), 2, 0.8f, 0.2f, 0.75f, 0.95f, 1, 0.9f); } }   /* a trail of bubbles */
+      float fast = D->mode == DM_AIR && D->stage >= ST_DRAGON ? clampf((D->speed - 9) / 14.0f, 0, 1) : 0; g_fov_speed += (0.16f * fast - g_fov_speed) * (1 - expf(-dt * 3));
+      static float wind_t; wind_t -= dt; if (fast > 0.55f && wind_t <= 0 && !wet) { wind_t = 1.5f; sfx_play(SFX_WIND, 0.25f * fast, 0); } }
     if (in.b_press && g_dragon.anim == DA_TAILWHIP && g_dragon.act_t > 0.9f) sfx_play(SFX_TAIL, 0.6f, 0);
     if (in.x_press && g_dragon.anim == DA_CLAW && g_dragon.act_t > 0.55f) sfx_play(SFX_TAIL, 0.45f, 0);
     if ((in.x_press || in.b_press) && g_dragon.air_act > 0.55f) sfx_play(SFX_FLAP, 0.7f, 0);
@@ -1825,8 +1850,8 @@ void game_frame(const Pad *pads, int npads, float dt) {
     g_save_t += dt; if (g_save_t > 20) { g_save_t = 0; save_progress(); }
     if (!g_rescued && g_dragon.stage >= ST_DRAGON && !g_boss.woke && !g_side) {   /* point the way to the cage */
         static float hint_t = 4; hint_t -= dt;
-        if (hint_t <= 0 && g_msg_t <= 0) { hint_t = 25; snprintf(g_msg, sizeof g_msg, "A BABY DRAGON IS CRYING FOR HELP! FOLLOW THE BLUE ARROW ON YOUR TRACKER"); g_msg_t = 6; } }
-    if (!g_rescued) { float dx = g_world.cage_x - g_dragon.x, dz = g_world.cage_z - g_dragon.z; static float chirp_t;
+        if (hint_t <= 0 && g_msg_t <= 0) { hint_t = 25; if (CAPTIVE[g_wk] < 0) snprintf(g_msg, sizeof g_msg, "%s BLOCKS THE WAY OUT OF THE FOREST! FOLLOW THE BLUE ARROW ON YOUR TRACKER", TH->boss); else snprintf(g_msg, sizeof g_msg, "THE %s IS CRYING FOR HELP! FOLLOW THE BLUE ARROW ON YOUR TRACKER", KIND_TITLE[CAPTIVE[g_wk]]); g_msg_t = 6; } }
+    if (!g_rescued && CAPTIVE[g_wk] >= 0) { float dx = g_world.cage_x - g_dragon.x, dz = g_world.cage_z - g_dragon.z; static float chirp_t;
         chirp_t -= dt; if (chirp_t <= 0 && dx * dx + dz * dz < 55 * 55) { chirp_t = 3.5f; float pan = clampf((dx * cosf(g_cam_yaw) - dz * sinf(g_cam_yaw)) / 30.0f, -1, 1); sfx_play(SFX_CHIRP, 0.5f, pan); } }
     if (g_msg_t > 0) g_msg_t -= dt;
     if (g_title_t > 0) g_title_t -= dt;
