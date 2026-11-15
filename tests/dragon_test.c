@@ -26,7 +26,7 @@ int main(void) {
         world_update(&w, dt, d.x, d.z);
     }
     printf("ate %d in %.1f s, stage %d growth %.0f\n", ate, t, d.stage, d.growth);
-    CHECK(ate >= 13 && grew == 1 && d.stage == ST_DRAGON);
+    CHECK(ate >= 5 && grew == 1 && d.stage == ST_DRAGON);   /* food fills you up faster now */
     /* a dragon can fly: hold A and climb (after the grow-up moment) */
     for (int i = 0; i < 150; i++) { DragonInput in = {0}; dragon_update(&d, &w, &in, 0, 1.0f / 60); }
     for (int i = 0; i < 180; i++) { DragonInput in = {0}; in.a = 1; in.a_press = i == 0; dragon_update(&d, &w, &in, 0, 1.0f / 60); }

@@ -50,6 +50,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         if (d->act_t <= 0) { d->act_t = 0; set_anim(d, DA_IDLE); }
         if (d->growth >= NEED[d->stage] && d->stage < ST_BEYONDER && d->act_t == 0) { d->stage++; d->growth = 0; d->max_hearts += 2; d->hearts = d->max_hearts; d->evolve_t = 2.0f; ev |= 2; }
         if (d->mode == DM_GROUND) d->y = gy;
+        if (d->mode == DM_AIR && w->sea_on && d->y < w->sea && d->y < gy) d->y = gy;
         return ev; }
     /* steering: the stick is relative to the camera */
     float mag = sqrtf(in->sx * in->sx + in->sy * in->sy); if (mag > 1) mag = 1;
@@ -90,7 +91,10 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         else set_anim(d, d->speed > 0.6f * RUN[d->stage] ? DA_RUN : (d->speed > 0.25f ? DA_WALK : DA_IDLE));
         d->land_t -= dt;
     } else {   /* in the air */
-        int canfly = d->stage >= ST_DRAGON; float La = LEN[d->stage];
+        int uw = w->sea_on && d->y < w->sea - 0.25f;   /* under the sea: every dragon swims, like slow flying with no falling */
+        int canfly = d->stage >= ST_DRAGON || uw; float La = LEN[d->stage];
+        if (uw && in->x_press) { int nf = world_nearest_food(w, d->x + sinf(d->yaw) * 0.45f * La, d->z + cosf(d->yaw) * 0.45f * La, 0.5f * La + 2.2f);   /* snap up a fish as you swim */
+            if (nf >= 0) { d->eating = nf; d->act_t = 1.2f; set_anim(d, DA_EAT); return ev; } }
         if (!canfly && !d->slam && (in->b_press || in->x_press)) {   /* from a hop: pounce down onto whatever is below */
             d->slam = 1; d->vy = -15.0f; d->vx *= 0.6f; d->vz *= 0.6f; set_anim(d, DA_POUNCE); }
         if (canfly && d->air_act <= 0 && in->x_press) { d->air_act = 0.6f; d->air_kind = ATK_TALON; set_anim(d, DA_TALON); }   /* talon strike: a lunge with the claws out */
@@ -110,14 +114,16 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
             int diving = in->sy < -0.55f || in->zl; d->dive += ((diving ? 1.0f : 0.0f) - d->dive) * (1 - expf(-dt * (diving ? 4.0f : 3.0f)));
             float wantp = diving ? -1.1f : clampf(in->sy * 0.6f, -0.7f, 0.7f); d->pitch = lerp(d->pitch, wantp, 1 - expf(-dt * (diving ? 5 : 3)));
             float top = FLY[d->stage] * (1 + 0.08f * d->power) * (1.0f - 0.5f * fmaxf(0, d->pitch)) * (1.0f + 0.6f * fmaxf(0, -d->pitch)) * (1.0f + 0.5f * d->dive);
+            if (uw) top = fmaxf(top * 0.7f, 6.0f) * (mag > 0.1f || d->stage >= ST_DRAGON ? 1.0f : 0.15f) * (d->stage < ST_DRAGON ? fminf(1, mag * 1.2f + 0.15f) : 1);   /* swimming: slower than flying; little ones stop when you let go */
             if (in->side) top *= fminf(1, fabsf(in->sx) * 1.3f);   /* side levels: the stick decides how fast you fly along */
             d->speed = lerp(d->speed, top, 1 - expf(-dt * (diving ? 3.0f : 1.5f)));
             float lift = in->a && !diving ? 5.0f : 0.5f; if (in->a) d->stamina = fmaxf(0, d->stamina - dt * (in->side ? 0.24f : 0.12f)); else if (!in->side) d->stamina = fminf(1, d->stamina + dt * 0.2f);   /* side levels: wings only rest on the ground */
             if (d->stamina <= 0.01f) lift = 0.5f;
-            if (d->dive > 0.3f) { d->vy = lerp(d->vy, -30.0f * d->dive, 1 - expf(-dt * 3)); if (d->vy < -12) d->slam = 1; }   /* a dive that hits the ground lands as a crashing pounce */
+            if (uw) { d->stamina = fminf(1, d->stamina + dt * 0.3f); float want = (in->a ? 5.0f : 0) + d->pitch * 7.0f - (diving ? 7.0f : 0) - 0.3f; d->vy = lerp(d->vy, want, 1 - expf(-dt * 3.5f)); d->slam = 0; d->dive *= 0.5f; }
+            else if (d->dive > 0.3f) { d->vy = lerp(d->vy, -30.0f * d->dive, 1 - expf(-dt * 3)); if (d->vy < -12) d->slam = 1; }   /* a dive that hits the ground lands as a crashing pounce */
             else { d->vy += (lift - 3.5f + d->pitch * 6.0f) * dt; d->vy = clampf(d->vy, -12, 6); d->slam = 0; }
             d->x += sinf(d->yaw) * d->speed * dt; d->z += cosf(d->yaw) * d->speed * dt; d->y += d->vy * dt;
-            if (!(d->air_act > 0 && d->air_kind == ATK_TALON)) set_anim(d, in->a && d->stamina > 0.01f && !diving ? DA_FLY : DA_GLIDE);
+            if (!(d->air_act > 0 && d->air_kind == ATK_TALON)) set_anim(d, uw ? (d->speed > 2.0f || in->a ? DA_FLY : DA_GLIDE) : (in->a && d->stamina > 0.01f && !diving ? DA_FLY : DA_GLIDE));
             float ceiling = 70; if (d->y > ceiling) { d->y = ceiling; d->vy = fminf(d->vy, 0); }
         } else {   /* a dragonet only hops and glides a little */
             d->vy -= 11.0f * dt; d->x += d->vx * dt; d->z += d->vz * dt; d->y += d->vy * dt;
@@ -131,6 +137,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         if (d->y <= floor_y && fn.y < 0.6f && gy > waterline) {   /* came down on a cliff face: slide off it and keep falling, never land on the wall */
             float ux = fn.x, uz = fn.z, ul = sqrtf(ux * ux + uz * uz) + 1e-5f; d->x += ux / ul * 6.0f * dt; d->z += uz / ul * 6.0f * dt;
             d->vx = ux / ul * 3.0f; d->vz = uz / ul * 3.0f; d->y = floor_y; if (d->vy > 0 && !canfly) d->vy = 0; if (d->vy < -2) d->vy = -2; }
+        else if (d->y <= floor_y && uw && !(in->sy < -0.3f || in->zl) && mag > 0.1f) { d->y = floor_y + 0.02f; if (d->vy < 0) d->vy = 0; }   /* skim along the sea bed */
         else if (d->y <= floor_y) { d->y = floor_y; d->mode = (gy < waterline - 0.3f * L) ? DM_SWIM : DM_GROUND; d->vy = 0; d->land_t = 0.3f; d->pitch = 0; ev |= 8; set_anim(d, DA_IDLE);
             d->air_act = 0; d->roll = 0; d->dive = 0;
             if (d->slam) { d->slam = 0; d->act_t = 0.45f; set_anim(d, DA_POUNCE); d->speed = 0; ev |= 32; hitbox(d, ATK_SLAM, 0.2f * L, 0.2f, 3.2f + 0.4f * L); } }

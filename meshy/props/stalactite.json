@@ -1,0 +1,32 @@
+{
+ "id": "01a1e0ea-23b7-76e7-bf64-e47edb501758",
+ "type": "text-to-3d-refine",
+ "mode": "refine",
+ "name": "",
+ "model_type": "standard",
+ "seed": 3842739747,
+ "prompt": "huge cave stalactite rock spike with glowing crystals growing on it, pointing downward, stylized game asset",
+ "texture_prompt": "dark purple grey cave rock with glowing blue and pink crystals, stylized game texture",
+ "texture_image_url": "",
+ "status": "SUCCEEDED",
+ "created_at": 1794774806027,
+ "progress": 100,
+ "started_at": 1794774806035,
+ "finished_at": 1794774834059,
+ "task_error": null,
+ "model_urls": {
+  "glb": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1e0ea-23b7-76e7-bf64-e47edb501758/output/model.glb?Expires=4948300800&Signature=EDUhq0aM~qSlSXfjQv3dZZZco5zOa1zijbmDCUowuR1isGyAFr4CACsHeG0muCqF5dBimYTWSdILbfeJBPyN30RBigr~vCR63hJe~9WNgH325gzjGuP-b6jahmKe1WXAjRUG8imTbMhr6Vm0ovQQ9ElVAxsQBkudf7Gxa3Pg32jWUQoRfw~LyefTlrWp~Ef5h9ldMmoTk6PgqwO~7GH-sK5pDJwszc1XqGJ~YwFNv4sUxEBPslFmmp9uCK1s3iD-1H7Ld4OoyjKit7JIurx6ZWq-rvPiZIvsemBQN2xxB6P87tPycwajXGwM5srQ~DA6ozubgoggbZZ-dMM1aFq3KA__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "fbx": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1e0ea-23b7-76e7-bf64-e47edb501758/output/model.fbx?Expires=4948300800&Signature=JYFy~AKImFV1cQY4gXs8d5X9s6ezOzXhukGTs359WOec8SjLt1OF~064~OW5XASZxN8~wz4udFAqUEUapBLkN6azeWatRFHiaWjIFAxX6uQfFmReoeyRFXk9kaKceHTCFdD0xWirUCucg1I9PsM2z0JKwgLWnWvDwtgolbCns8cQtq2IVSTLybbuZCbV0zUxwVFHdjYgwfB9oG92tj7BmL3DwPzQEcaj3HARicFv8muQhJnqCBCcykR0vZPwxgT1F41yZWgIuEMYr~ETzUP1vWTllbxFtmANkUftxZh7CJP6qMrq-8aLamreFnZa9ePeSGZIPgx7cLAKaSgOZG8aRA__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "usdz": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1e0ea-23b7-76e7-bf64-e47edb501758/output/model.usdz?Expires=4948300800&Signature=klqtUN9zd0Xf--RMic6BAjwkgsFtqjBrC1KupagVdXsX9bMsXEJEnjNglSfLLGtPEynSpa-TmY6nwoVRYd1qSmR~GR6zItwEA5qoLWKbJGFwuX5PRl2ut31MYPR99DxiHlBImzlVK1ZbivbHZvrMvonKM-GVNwd8if0jYeqCftVaUIESmf-E65U0i6VKXDa27ILHMmug5FSD~RQ7O8dENTQ-umBvVjpJXGBMlfHetL18uix2jL4jstBPXE3hlauxGCK0pGH9QDSRhFv-kBww1ks~nO6sYdqVxRUAzHsoS7sYE1Mssbas6D8FmKr94BcT6HrQ-oCHwcXpqpd-Nphz1w__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "obj": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1e0ea-23b7-76e7-bf64-e47edb501758/output/model.obj?Expires=4948300800&Signature=ES3na0kRf6jGOyKX~qsfH6VVkT5Dbo7rNFKxHheEQyE5smbL8YBZQIubbX6HjZ4VvSIkOvec2p31s7h7QWfRVOpGpaJYRgT72gG059cLSXcciWzdLKFPdX93FBH2~D4IEDstBX4OTW8uE1tekHWpBMAQ5bt5ey0QZNVN6JirN1XhsBqJ0NSrZPAmSlZiQ22VcsMl6vfyykg7sAdzOzEPXQv7OV3dNJSBOH~z4YnxF0gp~e5B-Fv5k7ppRN8mt1hIpk0M~1xh8MYy3XlPvuDB5gPg-P2SKRP5xYegmiwPbmxYIwjThI7-e8ZPBC1mW1hb1FTCm5w8ExSX~zKsgauStg__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "mtl": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1e0ea-23b7-76e7-bf64-e47edb501758/output/model.mtl?Expires=4948300800&Signature=VVgf8Jxp1hFsoeffduPHHvTGZza1PeMFTuShdoUAKQySG2s0zO6e13ePim0cdwDoelMD-tw1GGh~A58ZBRgKcNxGjoSR8vrbG2ezTLL8cXjL7jiqhTZSGSs-NKmVf9aAoa7b-iT8UujmX2R~YnKp9-VQo5nwhd3YyRtpzOgg3DNvpsJRwm5CtvonljwWTljg6yk87amESfiI8ogOAWE8WTc-6ByIXNShF9cozTp0WSsJIY-PIOzVceQDhd8nNRDbRzvQIWA9W9ZahJG0UQzcmQ-Z~4NDUKZ31h1BEw6hPaidkc8P8AnDlUM8O1IzElVul8TJtUY~WbiXATjnJcoDag__&Key-Pair-Id=K1VGYTHIYLM9UM",
+  "stl": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1e0ea-23b7-76e7-bf64-e47edb501758/output/model.stl?Expires=4948300800&Signature=oM7R9EUYA269sWUofAHM6EeNc4McBzOJWLnZtRLcjBov1KwdIMDW~YHaunxjRdxUtuK7NqozcFkSyU5gzrXrT7nomAaL5XMlhenoID3TIgPqwYdCsK0ALPzKia4Vq0xg0SqfFreQij83UKqLbnSy7rxwngmBmZKeJWrpbv5v3ctV2yOI0Et64dAXYC8C95xQ9oKYT7UP-gA1bqde0VbxIR3q7gFXlca4Wv4ooud5HP5-h7vbjTW7gObaws8Jh8OKLyxki5znoyyjhnqlIgvQNht289UoCvYNbsAHl0xCuRckWjfBF0MfwCK5Z~CpJcMb9I3CmQGqvZZwtUPsFyk1qQ__&Key-Pair-Id=K1VGYTHIYLM9UM"
+ },
+ "thumbnail_url": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1e0ea-23b7-76e7-bf64-e47edb501758/output/preview.png?Expires=4948300800&Signature=PrBCely3OB~VvIwmZset9ywKuHoHiUSZBAyGk4i8JHSHY1-A6R6xvUS1qz4oT8Be8MatjwNDouaxfMDNM8BpxhQM2-gcR8Tl6fWBxKQsa4WuNV0aQ~AURI4Zpm~Sitg~0kut9i7rv6XUlIzRuN3qTJGKuNuc0M7hpifiIjOIQoT2A8yu2qEihQi-zxm2uXsR6c290jy8Xulfdcod5RvKSYLRlJvLAnwkztokqW-gNhxkqL1ZDyNi5mbLLdwAm-JS1v1QKdwgh78LHKD1jevuaIcpcL3fBOujr9BHot~zEWPrEJZ4QbKtMy323Z~ve-UNO3Dxvxc~81jlUHFyFoqPVw__&Key-Pair-Id=K1VGYTHIYLM9UM",
+ "texture_urls": [
+  {
+   "base_color": "https://assets.meshy.ai/751d2f72-c878-45fd-b84c-e7fbbbc79f41/tasks/01a1e0ea-23b7-76e7-bf64-e47edb501758/output/texture_0.png?Expires=4948300800&Signature=X-MAywsHnBfE71BFhbIzRnWDoQgu9yJVQyYC~T0DNwDOIHLGylY0zX6ButpjpWJZge2i3SXyweNGu0fpaByEKm3nefyFUSkwDQFadeqSFk~UMhFdYZJInZR8t6XIVLw9V2syocWyRAIHAOhrMY~17IccPzB3nv7Jg9ehSn0I1u3SUp-K4m4eO2JJpdgFsJEsd0~SQaUsNFHz4cvPH7bchnS1U~rjXhKhgX4xK5MsDjn7miLWc~N4gGeXr8rgBItivLubAbXnqtl9F4fYzYGv041idYCu4u08r23DFOFjn2HWWrZkvRhFU8jwb3Txht4QeynM7FmYT53vaaYFRmm2nA__&Key-Pair-Id=K1VGYTHIYLM9UM"
+  }
+ ],
+ "consumed_credits": 10
+}

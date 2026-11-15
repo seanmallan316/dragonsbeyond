@@ -89,13 +89,18 @@ try:
     import scipy.sparse as sps
     from scipy.sparse.csgraph import dijkstra, connected_components
     E = np.array([tuple(e.vertices) for e in mesh.data.edges], int)
+    from scipy.spatial import cKDTree as _KDt
+    _seam = _KDt(P).query_pairs(2e-4 * L, output_type='ndarray')   # texture seams split the surface: stitch the copies back together
+    if len(_seam): E = np.vstack([E, _seam])
     y_cut = y_hip + 0.10 * L
-    region = P[:, 1] > y_cut
+    _mid = P[(P[:, 1] > y_shoulder + 0.25 * (y_hip - y_shoulder)) & (P[:, 1] < y_shoulder + 0.75 * (y_hip - y_shoulder)) & (P[:, 2] < spine_z)]
+    _hw = min(max(float(np.percentile(np.abs(_mid[:, 0]), 97)) if len(_mid) > 50 else 0.1 * W, 0.04 * W), 0.2 * W)
+    region = (P[:, 1] > y_cut) & ~((np.abs(P[:, 0]) > 1.05 * _hw) & (P[:, 2] > spine_z + 0.15 * (body_top - body_bot)))   # never the wings: out to the side and above the back
     ein = region[E[:, 0]] & region[E[:, 1]]; Er = E[ein]
-    el = np.linalg.norm(P[Er[:, 0]] - P[Er[:, 1]], axis=1)
+    el = np.linalg.norm(P[Er[:, 0]] - P[Er[:, 1]], axis=1) + 1e-7
     G = sps.coo_matrix((np.r_[el, el], (np.r_[Er[:, 0], Er[:, 1]], np.r_[Er[:, 1], Er[:, 0]])), shape=(len(P), len(P))).tocsr()
     ncomp, lab = connected_components(G, directed=False)
-    cross = region[E[:, 0]] != region[E[:, 1]]   # edges cut by the plane: their region end is a boundary vertex
+    cross = (region[E[:, 0]] != region[E[:, 1]]) & (np.minimum(P[E[:, 0], 1], P[E[:, 1], 1]) <= y_cut)   # edges cut by the plane: their region end is a boundary vertex
     bnd = np.unique(np.where(region[E[cross, 0]], E[cross, 0], E[cross, 1]))
     best = None
     for c in np.unique(lab[bnd]):
@@ -137,6 +142,66 @@ if has_wings:
     root_x = float(np.percentile(np.abs(P[(np.abs(P[:, 1] - y_wing) < 0.05 * L) & (P[:, 2] > spine_z)][:, 0]), 50)) * 0.6
     wing_root = (root_x, y_wing, body_top - 0.1 * (body_top - body_bot))
     wing_tip = (float(tip[0]), float(tip[1]), float(tip[2]))
+# ---- wings, traced on the surface: everything hanging off the body beyond its sides, joined to it at the shoulder blade.
+# The wing pivots where it really grows out of the back (the front of that join), not at some point out in the air.
+wing_tr = {}
+if has_wings:
+    try:
+        import scipy.sparse as sps
+        from scipy.sparse.csgraph import dijkstra, connected_components
+        Ew = np.array([tuple(e.vertices) for e in mesh.data.edges], int); bh = body_top - body_bot
+        from scipy.spatial import cKDTree as _KDw
+        seam = _KDw(P).query_pairs(2e-4 * L, output_type='ndarray')   # texture seams split the surface: stitch the copies back together
+        if len(seam): Ew = np.vstack([Ew, seam])
+        ya, yb = y_shoulder + 0.25 * (y_hip - y_shoulder), y_shoulder + 0.75 * (y_hip - y_shoulder)
+        belly = P[(P[:, 1] > ya) & (P[:, 1] < yb) & (P[:, 2] < spine_z)]
+        hw = float(np.percentile(np.abs(belly[:, 0]), 97)) if len(belly) > 50 else 0.1 * W
+        hw = min(max(hw, 0.04 * W), 0.2 * W)
+        def _segd(Pts, a, b):
+            a = np.array(a, float); b = np.array(b, float); ab = b - a; t = np.clip(((Pts - a) @ ab) / max(ab @ ab, 1e-12), 0, 1); return np.linalg.norm(Pts - (a + t[:, None] * ab), axis=1)
+        legzone = np.zeros(len(P), bool)   # the four legs: a fat column from each foot up to where it joins the body
+        for (fx_, fy_) in list(front) + list(back):
+            legzone |= (_segd(P, (fx_, fy_, ground), (np.sign(fx_) * hw * 0.8, fy_, spine_z)) < 0.085 * L) & (P[:, 2] < spine_z + 0.02 * H)
+        for side, sgn in (('L', 1), ('R', -1)):
+            X = P[:, 0] * sgn
+            reg = (X > 1.05 * hw) & ~legzone & (P[:, 1] > y_neck0 - 0.02 * L)   # a wing may hang right down to the ground beside the body
+            ein = reg[Ew[:, 0]] & reg[Ew[:, 1]]; Er = Ew[ein]
+            el = np.linalg.norm(P[Er[:, 0]] - P[Er[:, 1]], axis=1) + 1e-7
+            G = sps.coo_matrix((np.r_[el, el], (np.r_[Er[:, 0], Er[:, 1]], np.r_[Er[:, 1], Er[:, 0]])), shape=(len(P), len(P))).tocsr()
+            ncomp, lab = connected_components(G, directed=False)
+            cand = np.nonzero(reg)[0]; big = np.bincount(lab[cand]); cand = cand[big[lab[cand]] >= 300]   # the tip of a real wing, not of a loose shard
+            tipv = cand[np.argmax(X[cand])]
+            cv = np.nonzero((lab == lab[tipv]) & reg)[0]
+            if len(cv) < 300: raise RuntimeError('wing component too small')
+            # loose shards near the wing (spikes, feathers, crystal plates) ride with it
+            from scipy.spatial import cKDTree as _KD2
+            if tail_verts is not None: cv = np.setdiff1d(cv, tail_verts)   # a tail that curls up against a wing stays tail
+            loose = np.nonzero(reg & (lab != lab[tipv]))[0]
+            if tail_verts is not None: loose = np.setdiff1d(loose, tail_verts)
+            cvx = cv
+            if len(loose):   # a loose piece rides with the wing only as a whole, and only if nearly all of it lies against the wing (never half a piece: that tears it)
+                dd, _ii = _KD2(P[cv]).query(P[loose]); near = dd < 0.04 * H; take = []
+                for c in np.unique(lab[loose]):
+                    m_ = lab[loose] == c; whole = np.nonzero(lab == c)[0]
+                    if near[m_].mean() > 0.7 and m_.sum() >= 0.9 * len(whole): take.append(loose[m_])
+                if take: cvx = np.r_[cv, np.concatenate(take)]
+            cross = reg[Ew[:, 0]] != reg[Ew[:, 1]]
+            bnd = np.unique(np.where(reg[Ew[cross, 0]], Ew[cross, 0], Ew[cross, 1])); bnd = bnd[lab[bnd] == lab[tipv]]
+            if len(bnd) < 3: raise RuntimeError('wing has no join to the body')
+            by = P[bnd, 1]; front_b = bnd[by <= by.min() + 0.3 * max(by.max() - by.min(), 1e-6)]
+            root = P[front_b].mean(0); root[0] = sgn * 0.75 * hw
+            root[1] = float(np.clip(root[1], y_shoulder - 0.06 * L, y_hip))
+            tip = P[tipv].copy(); span = np.linalg.norm(tip - root)
+            top = cv[np.argmax(P[cv, 2])]; wrist = P[top].copy()
+            dw = np.linalg.norm(wrist - root)
+            if dw < 0.22 * span or dw > 0.8 * span: wrist = root + (tip - root) * 0.38 + np.array([0, 0, 0.06 * H])
+            gb = dijkstra(G, directed=False, indices=bnd, min_only=True)
+            cen = P[cv].mean(0); elev = float(np.degrees(np.arctan2(cen[2] - root[2], (cen[0] - root[0]) * sgn)))
+            sweep = float(np.degrees(np.arctan2(cen[1] - root[1], (cen[0] - root[0]) * sgn)))   # how far back the wing points in the model's pose
+            wing_tr[side] = dict(root=root, wrist=wrist, tip=tip, verts=cvx, core=cv, gb=gb, elev=elev, sweep=sweep)
+            print(f' wing {side} traced: {len(cvx)} verts, root', np.round(root, 3).tolist(), 'wrist', np.round(wrist, 3).tolist(), 'tip', np.round(tip, 3).tolist(), 'rest elevation', round(elev, 1))
+    except Exception as ex:
+        print(' wing trace skipped:', ex); wing_tr = {}
 print('landmarks: ground', round(ground, 3), 'front feet', front, 'back feet', back)
 print(' shoulders y', round(y_shoulder, 3), 'hips y', round(y_hip, 3), 'spine z', round(spine_z, 3), 'head', round(y_head_c, 3), round(z_head_c, 3), 'snout', round(y_snout, 3))
 if has_wings: print(' wing root', wing_root, 'tip', wing_tip)
@@ -190,6 +255,8 @@ if has_wings:
         r = (sgn * wing_root[0], wing_root[1], wing_root[2]); t = (sgn * wing_tip[0], wing_tip[1], wing_tip[2])
         a = tuple(r[i] + (t[i] - r[i]) * 0.35 for i in range(3)); a = (a[0], a[1], a[2] + 0.08 * H)
         b_ = tuple(r[i] + (t[i] - r[i]) * 0.7 for i in range(3))
+        if side in wing_tr:   # shoulder blade -> wrist (the top of the wing) -> halfway along the fingers -> tip
+            tr = wing_tr[side]; r = tuple(tr['root']); a = tuple(tr['wrist']); t = tuple(tr['tip']); b_ = tuple(tr['wrist'] + (tr['tip'] - tr['wrist']) * 0.5)
         bone(f'wing{side}_1', r, a, 'chest'); bone(f'wing{side}_2', a, b_, f'wing{side}_1', True); bone(f'wing{side}_3', b_, t, f'wing{side}_2', True)
 bpy.ops.object.mode_set(mode='OBJECT')
 # ---- bind
@@ -237,6 +304,20 @@ if has_wings:
             elif nm == f'wing{side}_2': Wt[zone, i] = rootmix[zone] * w2[zone]
             elif nm == f'wing{side}_3': Wt[zone, i] = rootmix[zone] * w3[zone]
             else: Wt[zone, i] = 0
+# traced wings: the whole wing belongs to the shoulder bone (it swings as one piece at the shoulder blade), the fingers
+# beyond the wrist bend it further; only the skin right at the join blends into the chest
+for side in wing_tr:
+    tr = wing_tr[side]; vv = tr['verts']; Pv = P[vv]
+    ax_ = tr['tip'] - tr['wrist']; ln = max(np.linalg.norm(ax_), 1e-6); sp = ((Pv - tr['wrist']) @ ax_) / (ln * ln)
+    w2 = sstep(-0.08, 0.22, sp); w3 = sstep(0.42, 0.72, sp)
+    gbv = tr['gb'][vv]; gbv = np.where(np.isfinite(gbv), gbv, 1.0); mixr = sstep(0.0, 0.05 * L, gbv)
+    Wt[vv] = 0
+    Wt[vv, names.index('chest')] = 1 - mixr
+    Wt[vv, names.index(f'wing{side}_1')] = mixr * (1 - w2)
+    Wt[vv, names.index(f'wing{side}_2')] = mixr * (w2 - w3)
+    Wt[vv, names.index(f'wing{side}_3')] = mixr * w3
+    tr['W'] = Wt[vv].copy()
+if wing_tr: arm['wing_elev'] = float(np.mean([wing_tr[k]['elev'] for k in wing_tr])); arm['wing_sweep'] = float(np.mean([wing_tr[k]['sweep'] for k in wing_tr]))
 Wt = Wt / np.maximum(Wt.sum(1, keepdims=True), 1e-9)
 # ---- neck + head: chain skinning. Position along the chain neck0 -> mid -> head centre -> snout decides the bone.
 ih, ij = names.index('head'), names.index('jaw'); in1, in2, ich = names.index('neck1'), names.index('neck2'), names.index('chest')
@@ -282,6 +363,9 @@ for _ in range(5):
 # the head stays rigid after smoothing
 rigid = front & (uu >= 2.0)
 Wt[rigid] = Wf[rigid]
+for side in wing_tr:   # the wing stays one clean piece after smoothing (the membrane lies close to the back, but is not part of it)
+    tr = wing_tr[side]; far = tr['gb'][tr['verts']]; far = ~np.isfinite(far) | (far > 0.05 * L)
+    Wt[tr['verts'][far]] = tr['W'][far]
 # the traced tail answers only to the tail chain (and the hips right at its root): the whole tail swings, curl and all
 if tail_verts is not None:
     ihp = names.index('hips'); it = [names.index(f'tail{i+1}') for i in range(5)]
@@ -294,6 +378,24 @@ if tail_verts is not None:
     Wtl = Wtl / np.maximum(Wtl.sum(1, keepdims=True), 1e-9)
     Wt[tail_verts] = Wtl
 Wt = Wt / np.maximum(Wt.sum(1, keepdims=True), 1e-9)
+# loose pieces (spikes, plates, feathers that float free of the main skin) each move as one solid piece with whatever
+# they sit on: never half with one bone and half with another (that tore them into long streaks)
+try:
+    import scipy.sparse as sps
+    from scipy.sparse.csgraph import connected_components
+    from scipy.spatial import cKDTree as _KDl
+    Ea = np.array([tuple(e.vertices) for e in mesh.data.edges], int); sm = _KDl(P).query_pairs(2e-4 * L, output_type='ndarray')
+    if len(sm): Ea = np.vstack([Ea, sm])
+    Ga = sps.coo_matrix((np.ones(len(Ea)), (Ea[:, 0], Ea[:, 1])), shape=(len(P), len(P))).tocsr()
+    nc, la = connected_components(Ga, directed=False); sizes = np.bincount(la); main = np.argmax(sizes)
+    mainv = np.nonzero(la == main)[0]; tm = _KDl(P[mainv]); nfix = 0
+    for c in range(nc):
+        if c == main: continue
+        vv = np.nonzero(la == c)[0]; dd, ii = tm.query(P[vv]); j = np.argmin(dd)
+        Wt[vv] = Wt[mainv[ii[j]]]; nfix += 1
+    print(' loose pieces made solid:', nfix)
+except Exception as ex:
+    print(' loose pieces skipped:', ex)
 for i, nm in enumerate(names):
     g = mesh.vertex_groups[nm]
     vs = np.nonzero(Wt[:, i] > 0.005)[0]

@@ -23,6 +23,10 @@ static float raw_height(const World *w, float x, float z) {
     case WK_CRYSTAL: { float r = 1 - fabsf(fbm(x * 0.025f, z * 0.025f, w->seed + 11) * 2 - 1); h = h * 0.9f + r * r * 9.0f - 3; } break;   /* sharp ridges */
     case WK_SAND: h = (fbm(x * 0.008f, z * 0.008f, w->seed + 3) - 0.5f) * 10.0f + sinf(x * 0.09f + 2.0f * fbm(x * 0.02f, z * 0.02f, w->seed + 4) * 6.28f) * 1.6f; break;   /* long dunes with ripples */
     case WK_LAVA: { float r = fbm(x * 0.04f, z * 0.04f, w->seed + 21); h = h * 1.2f + (r - 0.5f) * 7.0f; } break;          /* rough volcanic ground */
+    case WK_KAINE: { float r = 1 - fabsf(fbm(x * 0.02f, z * 0.02f, w->seed + 31) * 2 - 1); h = h * 1.1f + r * r * r * 12.0f - 2; } break;   /* black crags */
+    case WK_WATER: { float sd0 = sqrtf(x * x + z * z); float bed = -17.0f + (fbm(x * 0.02f, z * 0.02f, w->seed + 41) - 0.5f) * 9.0f + (fbm(x * 0.07f, z * 0.07f, w->seed + 42) - 0.5f) * 2.5f;   /* the sea bed, with a sandy island in the middle */
+        float isl = clampf((46 - sd0) / 22.0f, 0, 1); isl = isl * isl * (3 - 2 * isl); h = bed + (2.2f - bed) * isl;
+        return h + d * d * d * 40.0f; }
     default: break; }
     h += d * d * d * 26.0f;                                     /* the edges rise into hills so the patch feels enclosed */
     float pd = sqrtf((x - w->pond_x) * (x - w->pond_x) + (z - w->pond_z) * (z - w->pond_z));
@@ -35,9 +39,14 @@ void world_make(World *w, unsigned seed) { make_ground(w, seed, WK_FOREST); }
 static void make_ground(World *w, unsigned seed, int kind) {
     memset(w, 0, sizeof *w); w->seed = seed; w->kind = kind; g_rs = seed * 7919u + 17;
     w->pond_x = 38; w->pond_z = -30; w->pond_r = 14; w->pond_y = -2.2f;
+    if (kind == WK_WATER) { w->pond_r = 0; w->pond_y = -60; w->sea_on = 1; w->sea = 0; }
     for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
         float x = -W_SIZE / 2 + W_SIZE * i / (W_GRID - 1), z = -W_SIZE / 2 + W_SIZE * j / (W_GRID - 1);
         w->h[j][i] = raw_height(w, x, z); }
+    if (kind != WK_FOREST && w->pond_r > 0) {   /* every world's hills are different: sit the water in the dip that is really there, and call "pond" only what is under it */
+        float hc = world_height(w, w->pond_x, w->pond_z); w->pond_y = hc + 2.6f; float rmin = w->pond_r;
+        for (int k = 0; k < 24; k++) { float a = k * 0.2618f, r = 1; while (r < w->pond_r * 1.6f && world_height(w, w->pond_x + cosf(a) * r, w->pond_z + sinf(a) * r) < w->pond_y - 0.35f) r += 0.5f; if (r < rmin) rmin = r; }
+        w->pond_r = fmaxf(rmin - 0.5f, 3.0f); }
     /* the boss clearing: flatten the ground there, ring it with big trees, hang the cage from the biggest */
     w->arena_x = -62; w->arena_z = 60; w->arena_r = 22; w->arena_y = raw_height(w, w->arena_x, w->arena_z);
     for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) {
@@ -46,10 +55,11 @@ static void make_ground(World *w, unsigned seed, int kind) {
         w->h[j][i] = w->arena_y + (w->h[j][i] - w->arena_y) * k; }
     for (int i = 0; i < 7; i++) { float a = i * 6.2831853f / 7 + 0.3f; Prop *p = &w->prop[w->nprop]; p->kind = P_TREE; p->x = w->arena_x + cosf(a) * (w->arena_r - 2); p->z = w->arena_z + sinf(a) * (w->arena_r - 2);
         p->yaw = a * 2.3f; p->scale = i == 0 ? 1.55f : 1.2f + 0.1f * (i % 3); w->arena_tree[w->narena_tree++] = w->nprop++; }
+    if (kind == WK_WATER) for (int i = 0; i < w->narena_tree; i++) { w->prop[w->arena_tree[i]].kind = P_SPIRE; w->prop[w->arena_tree[i]].scale *= 1.5f; }   /* a ring of coral towers */
     { const Prop *ct = &w->prop[w->arena_tree[0]]; float dx = w->arena_x - ct->x, dz = w->arena_z - ct->z, l = sqrtf(dx * dx + dz * dz);
       w->cage_x = ct->x + dx / l * 3.2f; w->cage_z = ct->z + dz / l * 3.2f; w->cage_y = w->arena_y + 6.5f; }
     /* trees and rocks: scattered, denser toward the edges, none in the start meadow or the pond */
-    for (int tries = 0; tries < 4000 && w->nprop < W_MAXPROPS; tries++) {
+    for (int tries = 0; tries < 9000 && w->nprop < W_MAXPROPS; tries++) {
         float x = (frand() - 0.5f) * (W_SIZE - 16), z = (frand() - 0.5f) * (W_SIZE - 16); float d = sqrtf(x * x + z * z);
         if (d < 14) continue;
         if ((x + 12) * (x + 12) + (z - 7) * (z - 7) < 9 * 9) continue;   /* keep the whirlwind spot clear */
@@ -65,27 +75,32 @@ static void make_ground(World *w, unsigned seed, int kind) {
         else if (kind == WK_SNOW) p->kind = r < 0.5f ? P_TREE : (r < 0.66f ? P_BUSH : (r < 0.78f ? P_FERN : (r < 0.9f ? P_ROCK : P_SPIRE)));        /* snowy pines, ice crystals */
         else if (kind == WK_CRYSTAL) p->kind = r < 0.3f ? P_TREE : (r < 0.46f ? P_BUSH : (r < 0.66f ? P_FERN : (r < 0.8f ? P_ROCK : P_SPIRE)));   /* crystal clusters, ice shards */
         else if (kind == WK_SAND) p->kind = r < 0.32f ? P_TREE : (r < 0.44f ? P_PALM : (r < 0.58f ? P_BUSH : (r < 0.78f ? P_ROCK : P_SPIRE)));     /* cactus, palms by the oasis, sandstone pillars */
-        else p->kind = r < 0.3f ? P_TREE : (r < 0.42f ? P_BUSH : (r < 0.62f ? P_ROCK : (r < 0.72f ? P_FERN : P_SPIRE)));                          /* lava: burnt trees, lava rocks */
+        else if (kind == WK_WATER) { if (world_height(w, x, z) > 0.8f) p->kind = r < 0.5f ? P_PALM : (r < 0.8f ? P_BUSH : P_ROCK);   /* the island: palms */
+            else if (world_height(w, x, z) > -3) { w->nprop--; continue; }                                                                        /* the beach stays clear */
+            else p->kind = r < 0.34f ? P_TREE : (r < 0.6f ? P_FERN : (r < 0.78f ? P_ROCK : P_SPIRE)); }                                         /* the sea bed: kelp, shells, coral */
+        else p->kind = r < 0.3f ? P_TREE : (r < 0.42f ? P_BUSH : (r < 0.62f ? P_ROCK : (r < 0.72f ? P_FERN : P_SPIRE)));                          /* lava and the keep: burnt trees, lava rocks */
         if (kind == WK_SAND && p->kind == P_PALM && sqrtf((x - w->pond_x) * (x - w->pond_x) + (z - w->pond_z) * (z - w->pond_z)) > w->pond_r * 2.6f) p->kind = P_TREE;   /* palms only round the oasis */
         p->x = x; p->z = z; p->yaw = frand() * 6.2831853f; p->scale = p->kind == P_SPIRE ? 0.6f + frand() * 0.5f : 0.8f + frand() * 0.5f; }
     /* food: berry bushes and mushrooms near the meadow and paths, grubs on the open ground, fish in the pond */
-    for (int tries = 0; tries < 3000 && w->nfood < W_MAXFOOD; tries++) {
+    for (int tries = 0; tries < 7000 && w->nfood < W_MAXFOOD - 8; tries++) {
         float x = (frand() - 0.5f) * (W_SIZE - 30), z = (frand() - 0.5f) * (W_SIZE - 30); float d = sqrtf(x * x + z * z);
         { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 2) * (w->arena_r + 2)) continue; }
         int inpond = world_in_pond(w, x, z); int kind;
-        if (inpond) { if (frand() < 0.5f || w->kind == WK_LAVA) continue; kind = F_FISH; }   /* nothing swims in lava */
-        else { float r = frand(); kind = r < 0.45f ? F_BERRY : (r < 0.72f ? F_MUSHROOM : F_GRUB); if (d > 95 && frand() < 0.6f) continue; }
+        if (inpond) { if (frand() < 0.5f || w->kind == WK_LAVA || w->kind == WK_KAINE) continue; kind = F_FISH; }   /* nothing swims in lava */
+        else if (w->sea_on && world_height(w, x, z) < w->sea - 3) { if (frand() < 0.45f) continue; kind = frand() < 0.75f ? F_FISH : F_GRUB; }   /* under the sea: fish everywhere */
+        else if (w->sea_on && world_height(w, x, z) < w->sea + 0.6f) continue;
+        else { float r = frand(); kind = r < 0.45f ? F_BERRY : (r < 0.72f ? F_MUSHROOM : F_GRUB); if (d > 150 && frand() < 0.5f) continue; }
         int ok = 1; for (int k = 0; k < w->nfood; k++) { float dx = w->food[k].x - x, dz = w->food[k].z - z; if (dx * dx + dz * dz < 4.0f * 4.0f) { ok = 0; break; } }
         for (int k = 0; k < w->nprop && ok; k++) { float dx = w->prop[k].x - x, dz = w->prop[k].z - z; if (dx * dx + dz * dz < 2.2f * 2.2f) ok = 0; }
         if (!ok) continue;
-        Food *f = &w->food[w->nfood++]; f->kind = kind; f->alive = 1; f->x = x; f->z = z; f->y = inpond ? w->pond_y : world_height(w, x, z);
+        Food *f = &w->food[w->nfood++]; f->kind = kind; f->alive = 1; f->x = x; f->z = z; f->y = inpond ? w->pond_y : world_height(w, x, z) + (kind == F_FISH ? 0.9f : 0);
         f->yaw = frand() * 6.2831853f; f->phase = frand() * 6.2831853f; }
     /* the hidden egg crystal: tucked on the high ground at the far side, behind the trees */
-    { float best = -1e9f; for (int tries = 0; tries < 400; tries++) { float a = frand() * 6.2831853f, r = 80 + frand() * 22; float x = cosf(a) * r, z = sinf(a) * r; float h = world_height(w, x, z); if (h > best && !world_in_pond(w, x, z)) { best = h; w->crystal_x = x; w->crystal_z = z; } } w->crystal_y = world_height(w, w->crystal_x, w->crystal_z); }
+    { float best = -1e9f; for (int tries = 0; tries < 400; tries++) { float a = frand() * 6.2831853f, r = 120 + frand() * 40; float x = cosf(a) * r, z = sinf(a) * r; float h = world_height(w, x, z); if (h > best && !world_in_pond(w, x, z)) { best = h; w->crystal_x = x; w->crystal_z = z; } } w->crystal_y = world_height(w, w->crystal_x, w->crystal_z); }
     /* Kaine's drones patrol the middle distance, never the start meadow */
-    w->ndrone = 5; for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; float a = i * 1.26f + 0.5f, r = 45 + (i % 2) * 25; d->hx = cosf(a) * r; d->hz = sinf(a) * r; d->x = d->hx; d->z = d->hz; d->y = world_height(w, d->x, d->z) + 9; d->yaw = a; d->t = frand() * 6; }
+    w->ndrone = 8; for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; float a = i * 1.26f + 0.5f, r = 45 + (i % 2) * 25 + (i >= 5 ? 55 : 0); d->hx = cosf(a) * r; d->hz = sinf(a) * r; d->x = d->hx; d->z = d->hz; d->y = world_height(w, d->x, d->z) + 9; d->yaw = a; d->t = frand() * 6; }
     /* Shock Hounds guard the outer woods */
-    w->nhound = 3; for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; float a = i * 2.1f + 1.2f, r = 62 + i * 8; h->hx = cosf(a) * r; h->hz = sinf(a) * r; h->x = h->hx; h->z = h->hz; h->y = world_height(w, h->x, h->z); h->yaw = a; h->t = frand() * 5; }
+    w->nhound = 6; for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; float a = i * 2.1f + 1.2f, r = 62 + (i % 3) * 8 + (i >= 3 ? 60 : 0); h->hx = cosf(a) * r; h->hz = sinf(a) * r; h->x = h->hx; h->z = h->hz; h->y = world_height(w, h->x, h->z); h->yaw = a; h->t = frand() * 5; }
     /* a few berry bushes right by the start so the first minute teaches eating */
     for (int i = 0; i < 6 && w->nfood < W_MAXFOOD; i++) { float a = i * 1.047f + 0.3f, r = 6 + (i % 2) * 3; Food *f = &w->food[w->nfood++]; f->kind = i % 3 == 2 ? F_MUSHROOM : F_BERRY; f->alive = 1; f->x = cosf(a) * r; f->z = sinf(a) * r; f->y = world_height(w, f->x, f->z); f->yaw = a; }
 }
@@ -102,7 +117,7 @@ Vec3 world_normal(const World *w, float x, float z) {
 int world_in_pond(const World *w, float x, float z) { float dx = x - w->pond_x, dz = z - w->pond_z; return dx * dx + dz * dz < w->pond_r * w->pond_r; }
 
 int food_is_meat(int kind) { return kind == F_GRUB || kind == F_FISH; }
-float food_growth(int kind) { return food_is_meat(kind) ? 30.0f : 10.0f; }   /* meat grows you three times faster */
+float food_growth(int kind) { return kind == F_FISH ? 90.0f : kind == F_GRUB ? 60.0f : kind == F_MUSHROOM ? 30.0f : 25.0f; }   /* everything fills you up faster now; meat counts most (fish most of all) */
 
 void world_update(World *w, float dt, float px, float pz) {
     for (int i = 0; i < w->nfood; i++) { Food *f = &w->food[i];
@@ -298,6 +313,18 @@ int world_push_out(const World *w, float *x, float *y, float *z, float r, int ai
     int hit = 0;
     for (int i = 0; i < w->nprop; i++) { const Prop *p = &w->prop[i]; float dx = *x - p->x, dz = *z - p->z; if (dx * dx + dz * dz > 14 * 14) continue;
         float s = p->scale, gy = world_height(w, p->x, p->z);
+        if (w->kind >= WK_SNOW) {   /* each world's own plants and rocks are solid in their own shape (crystals, cactus, coral...) */
+            static const float SH[WK_N][P_N][3] = {   /* per world, per prop kind: {radius, height, 1 = post / 0 = mound}; radius 0 = default shape below */
+                {{0}}, {{0}},
+                /* snow    */ {{0.9f, 6.5f, 1}, {1.2f, 8.5f, 1}, {0}, {0}, {0.7f, 1.4f, 0}, {1.5f, 3.4f, 0}},
+                /* crystal */ {{2.0f, 4.6f, 0}, {1.5f, 3.6f, 0}, {0}, {0}, {0.9f, 1.8f, 0}, {2.2f, 5.0f, 0}},
+                /* sand    */ {{0.75f, 5.0f, 1}, {0}, {0}, {0}, {0.45f, 2.5f, 1}, {1.7f, 9.0f, 1}},
+                /* water   */ {{-1, 0, 0}, {0}, {0}, {0}, {0.9f, 1.3f, 0}, {1.6f, 3.4f, 0}},
+                /* lava    */ {{0.6f, 6.5f, 1}, {0.6f, 6.5f, 1}, {0}, {0}, {1.3f, 2.8f, 0}, {2.1f, 8.0f, 1}},
+                /* keep    */ {{0.6f, 6.5f, 1}, {0.6f, 6.5f, 1}, {0}, {0}, {1.3f, 2.8f, 0}, {2.1f, 8.0f, 1}} };
+            const float *sh = SH[w->kind][p->kind];
+            if (sh[0] < 0) continue;   /* soft things (kelp) you swim straight through */
+            if (sh[0] > 0) { if (sh[2] > 0) hit |= push_post(x, y, z, p->x, p->z, gy, gy + sh[1] * s, sh[0] * s, r); else hit |= push_ball(x, y, z, p->x, gy + sh[1] * s * 0.3f, p->z, sh[0] * s, sh[1] * s * 0.8f, sh[0] * s, r, air); continue; } }
         switch (p->kind) {
         case P_TREE: hit |= push_post(x, y, z, p->x, p->z, gy, gy + 5.5f * s, 0.55f * s, r);
                      if (air) hit |= push_ball(x, y, z, p->x, gy + 6.3f * s, p->z, 3.4f * s, 2.4f * s, 3.4f * s, r, 1); break;
@@ -310,7 +337,7 @@ int world_push_out(const World *w, float *x, float *y, float *z, float r, int ai
 /* multiplayer side levels: one flat floor (island worlds keep their gaps, but every island top is the same height) */
 void world_flatten(World *w, float H) {
     for (int j = 0; j < W_GRID; j++) for (int i = 0; i < W_GRID; i++) if (!(WK_ISLES(w->kind) && w->h[j][i] < W_CLOUDS + 4)) w->h[j][i] = H;
-    float dy = H - w->arena_y; w->arena_y = H; w->cage_y += dy; w->pond_r = 0; w->pond_y = H - 50;
+    float dy = H - w->arena_y; w->arena_y = H; w->cage_y += dy; w->pond_r = 0; w->pond_y = H - 50; w->sea_on = 0;
     for (int i = 0; i < w->nfood; i++) w->food[i].y = world_height(w, w->food[i].x, w->food[i].z);
     for (int i = 0; i < w->nhound; i++) w->hound[i].y = H;
     for (int i = 0; i < w->nthief; i++) w->thief[i].y = H; }

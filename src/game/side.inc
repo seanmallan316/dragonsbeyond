@@ -19,10 +19,12 @@ static const SideLevel SLV[] = {
       "GLOWING CRYSTALS EVERYWHERE. SHARDCLAW GUARDS THE CRYSTAL DRAGON!" },
     { WK_SAND,    60,   88,  -62, 1, "LEVEL 7  -  SUNSCORCH DESERT",
       "HOT SAND AND CACTUS. DUNEBREAKER GUARDS THE SAND DRAGON!" },
-    { WK_WATER,  -40,  -62,   58, 1, "LEVEL 8  -  CORAL SEA ISLES",
-      "ISLANDS IN THE SEA. FLY OVER THE WAVES (HOLD A) TO TIDEWING'S ISLAND!" },
+    { WK_WATER,   60,   88,  -62, 1, "LEVEL 8  -  CORAL SEA",
+      "SHELLS, KELP AND CORAL. TIDEHORN GUARDS THE WATER DRAGON!" },
     { WK_LAVA,    60,   88,  -62, 1, "LEVEL 9  -  EMBER VOLCANO",
-      "DO NOT TOUCH THE LAVA! MAGMAHORN GUARDS THE LAST DRAGON!" } };
+      "DO NOT TOUCH THE LAVA! MAGMAHORN GUARDS THE LAVA DRAGON!" },
+    { WK_KAINE,   60,   88,  -62, 1, "LEVEL 10  -  BLACKFEATHER KEEP",
+      "THE LAST FIGHT! KAINE AND HIS MECH DRAGON HOLD EVERWING, THE MASTER DRAGON!" } };
 #define SLV_N (int)(sizeof SLV / sizeof SLV[0])
 
 static float side_progress(float x) { const SideLevel *L = &SLV[g_lv]; return (x - L->x0) * g_lane_dir; }   /* metres along the level */

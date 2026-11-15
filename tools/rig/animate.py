@@ -62,18 +62,29 @@ class Clip:
             for kp in fc.keyframe_points: kp.interpolation = 'BEZIER'
             if self.loop: fc.modifiers.new('CYCLES')
 
+ELEV = float(arm.get('wing_elev', 42.0))   # how far above level the wings sit in the model's own pose
+TRACED = 'wing_elev' in arm                # wings pivot at the real shoulder blade
+FWD = max(0.0, min(50.0, float(arm.get('wing_sweep', 0.0)) - 18.0))   # in flight the wings swing forward out of their swept-back pose, to reach out sideways
 def tail(t, amp=10, ph=0.0, nod=0.0):
-    return {f'tail{i+1}': (nod, 0, amp * S(t, ph + i * 0.9)) for i in range(5)}
+    # a whip-like wave: it starts small at the root, grows toward the tip and travels down the tail; the tip also lifts and dips
+    return {f'tail{i+1}': (nod + 0.25 * amp * (0.3 + 0.25 * i) * S(t * 2, ph + i * 1.1), 0, amp * (0.55 + 0.22 * i) * S(t, ph - i * 0.85)) for i in range(5)}
 def wings_folded():
+    if TRACED:   # lowered about halfway and swept back along the body, fingers folded in
+        d = -min(0.55 * ELEV, 40)
+        return {'wingL_1': (d - 6, 0, 8), 'wingR_1': (d - 6, 0, -8), 'wingL_2': (-4, 0, 14), 'wingR_2': (-4, 0, -14), 'wingL_3': (-4, 0, 12), 'wingR_3': (-4, 0, -12)}
     return {'wingL_1': (-35, 0, -25), 'wingR_1': (-35, 0, 25), 'wingL_2': (0, 0, 45), 'wingR_2': (0, 0, -45), 'wingL_3': (0, 0, 30), 'wingR_3': (0, 0, -30)} if has_wings else {}
 def wings_flap(t, amp=45, base=10):
     # the shoulder does the work (a deep, slightly quick downstroke), the outer wing lags behind and bends further
     s1 = S(t); down = s1 - 0.25 * (1 - s1 * s1)   # a little sharper at the bottom of the stroke
     a = base + amp * down * (1.0 if down > 0 else 1.45)   # the wing is swept back, so the downstroke needs more turn to bring the tips under the belly
     b = 0.12 * amp * S(t, -0.6); c = 0.1 * amp * S(t, -1.0)   # outer wing follows the shoulder, only a slight lag
+    if TRACED: b = 0.26 * amp * S(t, -0.9); c = 0.3 * amp * S(t, -1.5)   # a wave rolls out along the wing: wrist, then fingers, then tip (like a whip, not a plank)
     sweep = 0.18 * amp * S(t, -0.5)   # the wing also sweeps a little forward on the downstroke
     # on the way up the wing half-folds at the wrist and elbow (less air to push), then opens wide for the downstroke
     f = max(0.0, C(t, -0.2)) * 0.42 * amp; b -= 0.15 * f
+    if TRACED:
+        a = base + amp * down * (1.0 if down > 0 else 0.8); f = max(0.0, C(t, -0.2)) * 0.22 * amp
+        return {'wingL_1': (a, 0, -FWD - sweep), 'wingR_1': (a, 0, FWD + sweep), 'wingL_2': (b, 0, f - 0.2 * FWD), 'wingR_2': (b, 0, -f + 0.2 * FWD), 'wingL_3': (c, 0, 0.7 * f - 0.1 * FWD), 'wingR_3': (c, 0, -0.7 * f + 0.1 * FWD)}   # (left wing: - = forward)
     return {'wingL_1': (a, 0, -sweep), 'wingR_1': (a, 0, sweep), 'wingL_2': (b, 0, f), 'wingR_2': (b, 0, -f), 'wingL_3': (c, 0, 0.7 * f), 'wingR_3': (c, 0, -0.7 * f)} if has_wings else {}
 def legs_walk(t, swing=28, lift=22, ph_fl=0.0):
     out = {}
@@ -112,7 +123,7 @@ def run(t):
 def fly(t):
     # bird-like stroke: the wing rests ~42 deg up, so -42 = level; +-88 around level brings the tips nearly together
     # over the back on the upstroke and under the belly on the downstroke
-    rots = wings_flap(t, 88, -42)
+    rots = wings_flap(t, 52, 6 - ELEV) if TRACED else wings_flap(t, 88, -42)
     # flying pose: front legs folded up under the chest, back legs swept back along the tail
     tuck = {}
     for tag in ('FL', 'FR'): tuck[f'leg{tag}_upper@body'] = (88, 0, 0); tuck[f'leg{tag}_lower@body'] = (8, 0, 0); tuck[f'leg{tag}_foot@body'] = (15, 0, 0)
@@ -125,7 +136,7 @@ def fly(t):
     return rots, {'hips': (0, 0, -0.07 * H * S(t))}   # the body sinks while the wings are up, lifts on the downstroke
 def glide(t):
     # soaring: wings spread flat with the tips a little up (a shallow V), only small trimming movements
-    rots = wings_flap(t, 3, -35)
+    rots = wings_flap(t, 3, 10 - ELEV) if TRACED else wings_flap(t, 3, -35)
     if has_wings: rots.update({'wingL_3': (3 + 2 * S(t, 1.0), 0, 0), 'wingR_3': (3 + 2 * S(t, 1.0), 0, 0)})
     rots.update({k: v for k, v in fly(t)[0].items() if k.startswith('leg')})
     rots.update({'spine1': (-5, 0, 0), 'spine2': (-3, 0, 0), 'neck1': (-5, 0, 0), 'head': (10, 0, 0)})
@@ -137,6 +148,7 @@ def dive(t):
     if has_wings:
         q = 2 * S(t * 2)   # the wing tips shiver in the rushing air
         rots.update({'wingL_1': (-28 + q, 0, -88), 'wingR_1': (-28 + q, 0, 88), 'wingL_2': (-4, 0, 95), 'wingR_2': (-4, 0, -95), 'wingL_3': (q, 0, 50), 'wingR_3': (q, 0, -50)})
+        if TRACED: rots.update({'wingL_1': (-12 + q, 0, 22), 'wingR_1': (-12 + q, 0, -22), 'wingL_2': (-6, 0, 30), 'wingR_2': (-6, 0, -30), 'wingL_3': (q, 0, 26), 'wingR_3': (q, 0, -26)})   # tucked back tight along the body
     rots.update({k: v for k, v in fly(t)[0].items() if k.startswith('leg')})
     rots.update({'spine1': (-4, 0, 0), 'spine2': (-2, 0, 0), 'neck1': (-12, 0, 0), 'neck2': (-8, 0, 0), 'head': (16, 0, 0)})
     rots.update(tail(t, 3, 0.0, nod=-3))
@@ -175,13 +187,13 @@ def chirp(t):   # a dragonet's chirp, 0.8 s: head up and tilted, two quick snaps
     return rots, {'hips': (0, 0, 0.02 * H * up)}
 def tailwhip(t):   # the WHOLE tail swings from its root: cocked to one side, then a full sweep across behind the body, the tip lagging
     def W(u):          # how far round the tail is (degrees at the root): wind up, fast sweep, overshoot, settle
-        if u < 0.28: return -55 * math.sin(0.5 * math.pi * u / 0.28)
-        if u < 0.5: return -55 + 145 * (0.5 - 0.5 * math.cos(math.pi * (u - 0.28) / 0.22))
-        return 90 * max(0.0, 1 - (u - 0.5) / 0.5) ** 1.5
-    share = (0.8, 0.16, 0.14, 0.12, 0.1)   # most of the turn is at the root, so the tail stays long and straight like a club
-    rots = {f'tail{i+1}': (-4, 0, W(max(0.0, t - 0.025 * i)) * share[i]) for i in range(5)}
+        if u < 0.26: return -75 * math.sin(0.5 * math.pi * u / 0.26)
+        if u < 0.46: return -75 + 185 * (0.5 - 0.5 * math.cos(math.pi * (u - 0.26) / 0.2))
+        return 110 * max(0.0, 1 - (u - 0.46) / 0.54) ** 1.5 * math.cos(3.0 * (u - 0.46))
+    share = (0.62, 0.2, 0.2, 0.22, 0.26)   # a big turn at the root, and each joint after it cracks a little later and a little further: a whip
+    rots = {f'tail{i+1}': (-5 + 6 * math.sin(math.pi * min(1, t / 0.5)), 0, W(max(0.0, t - 0.035 * i)) * share[i]) for i in range(5)}
     w = W(t)
-    rots.update({'hips': (0, 0, -w * 0.08), 'spine1': (0, 0, -w * 0.1), 'spine2': (0, 0, -w * 0.05), 'chest': (0, 0, w * 0.08), 'neck1': (0, 0, w * 0.2), 'head': (0, 0, w * 0.15)})   # the body leans into the swing a little; the tail does the work
+    rots.update({'hips': (0, 0, w * 0.14), 'spine1': (0, 0, -w * 0.12), 'spine2': (0, 0, -w * 0.08), 'chest': (0, 0, -w * 0.05), 'neck1': (0, 0, w * 0.12), 'head': (0, 0, w * 0.12)})   # the body leans into the swing a little; the tail does the work
     rots.update(wings_folded())
     return rots, {'hips': (0, 0, 0)}
 def claw(t):   # 0.6 s: rear up a little, the right front paw lifts high and slashes down and across, head lunges with the jaw open
