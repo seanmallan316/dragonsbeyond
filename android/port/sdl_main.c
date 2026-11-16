@@ -294,6 +294,7 @@ static void view_frame(const char *spec) {
     int c = anim3d_clip(&a, clipn); if (c < 0) c = 0; bump = bump0;
     gfx_frame_begin(); gfx_shadow_none(); gfx_view_begin(0, 0.55f, 0.65f, 0.75f);
     Vec3 tgt = v3(0, 0.55f, 0), eye = v3(sinf(yaw) * 2.6f, 1.5f, cosf(yaw) * 2.6f);
+    if (getenv("KK_TOP")) { eye = v3(sinf(yaw) * 0.4f, 3.6f, cosf(yaw) * 0.4f); tgt = v3(0, 0.3f, -0.15f); }   /* looking straight down on it */
     Mat4 vp = m4_mul(m4_perspective(0.7f, gfx_aspect(0), 0.05f, 100), m4_look_at(eye, tgt, v3(0, 1, 0)));
     Vec3 L = v3_norm(v3(0.55f, 0.62f, 0.4f));
     gfx_grade(0.9f, 0.3f, 0.22f, 1.06f);

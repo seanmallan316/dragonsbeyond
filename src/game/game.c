@@ -83,6 +83,15 @@ static void ensure_kind(int k, int upto) {   /* load dragon k's models up to sta
     for (int st = 0; st <= upto && st < ST_N; st++) if (!g_km_tried[k][st]) { g_km_tried[k][st] = 1; char nm[40]; snprintf(nm, sizeof nm, "%s_%s", kn[k], sn[st]);
         g_km_ok[k][st] = anim3d_load(&g_km[k][st], nm);   /* its own model when there is one, */
         if (!g_km_ok[k][st] && k >= 3) g_km_ok[k][st] = g_model_ok[st] && anim3d_skin(&g_km[k][st], &g_model[st], nm); } }   /* else the forest dragon's body in its colours */
+/* Blackfeather Keep, the last world, has no cage. First the whole team fights Everwing, the Master Dragon, whom Kaine holds under a dark
+   spell; when the spell breaks you become Everwing, and Kaine comes for you in his mech dragon. (g_has[7] = the spell is broken.) */
+static int g_side;
+static int final_keep(void) { return g_wk == WK_KAINE && !g_side; }
+static int final_master(void) { return final_keep() && !g_has[7]; }
+static int world_captive(void) { return final_keep() ? -1 : CAPTIVE[g_wk]; }
+static const char *boss_name(void) { return final_master() ? "EVERWING" : TH->boss; }
+static void master_freed(void); static void allies_update(float dt); static void boss_reset(int wk);
+static float g_mech_wait;   /* > 0: the mech is still dropping out of the storm (it cannot be woken yet) */
 static float kind_scale(int k, int st) { if (k == 7) return dragon_scale(st) * 1.1f; if (k == 0) return dragon_scale(st) * (st == ST_DRAGONET ? 1.3f : 1);   /* the new dragonets are long and low: drawn a bit bigger */ while (st > 0 && !g_km_ok[k][st]) st--; return st == ST_DRAGONET ? dragon_scale(ST_DRAGONET) * (k == 1 ? 0.85f : 1.3f) : dragon_scale(st); }
 static struct { int on, mode, anim; float x, y, z, yaw, speed, anim_t; } g_friend;
 static const char *SKY_NAMES[2] = {"SCARLET", "WINDSLY"}, *SNOW_NAMES[2] = {"SNOWFALL", "SNOWSTORM"};
@@ -96,7 +105,7 @@ static int team_size(void) { int n = 0; for (int k = 0; k < K_N; k++) n += g_has
 /* co-op: a second controller (Wii Remote, Nunchuk, Classic or Pro) takes over the friend dragon. g_p2 = its pad slot, -1 = nobody */
 static int g_p2 = -1, g_p1pad = 0;   /* g_p1pad: the pad player 1 used last; g_p2: player 2's pad (multiplayer only) */
 /* multiplayer (side-view levels): on, how many players, which level; the lane every one walks along and which way it runs (+1 toward +x) */
-static int g_side, g_side_n = 1, g_lv; static float g_lv_t, g_lv_done_t = -1, g_lane_z, g_lane_dir = -1;
+static int g_side_n = 1, g_lv; static float g_lv_t, g_lv_done_t = -1, g_lane_z, g_lane_dir = -1;
 static int g_mode_sel, g_pick[2] = {0, 1}, g_ready[2];   /* title menus: story or multiplayer; each player's dragon and whether they are ready */
 static void side_clear_lane(void); static void side_camera(float dt); static void side_draw_goal(void); static void side_draw_storm(void); static void side_hud(void); static void dragon_respawn(Dragon *d); static float g_gp_last = -100, g_p2_gone;
 /* the storyteller's cards after the rescue (the game waits while they show) */
@@ -121,10 +130,10 @@ static const char *TALE[WK_N][3] = {
     "THE LAST WHIRLWIND GLOWED RED WITH EMBERS. THE EMBER VOLCANO WAS WAITING..." },
   { "MAGMAHORN TOPPLED INTO THE ASH, AND THE LAST CAGE MELTED OPEN. %s, DRAGONET OF THE LAVA, ROARED A TINY ROAR OF FIRE.",
     "ALL SIX DRAGONS WERE FREE! FAR AWAY, KAINE BLACKFEATHER'S TOWER SHOOK.",
-    "ONE LAST WHIRLWIND ROSE, BLACK AND RED. BLACKFEATHER KEEP... WHERE KAINE HOLDS THE MASTER DRAGON, EVERWING." },
+    "ONE LAST WHIRLWIND ROSE, BLACK AND RED. BLACKFEATHER KEEP... WHERE KAINE HOLDS THE MASTER DRAGON, EVERWING, UNDER A DARK SPELL." },
   { "THE MECH DRAGON CRASHED DOWN IN A SHOWER OF SPARKS, AND KAINE BLACKFEATHER TUMBLED OUT OF THE SADDLE. HIS WHIP WAS BROKEN. HIS TOWER WAS FALLING.",
-    "THE LAST CAGE OPENED. %s, THE MASTER DRAGON, HALF NIGHT AND HALF SNOW, SPREAD ITS GREAT WINGS. THE STOLEN POWER WAS FREE AT LAST.",
-    "THE SEVEN DRAGONS SEALED KAINE IN A DUNGEON NO ONE CAN ESCAPE, AND FLEW OFF TOGETHER TO FIND THEIR PARENTS. EVERWING FLIES WITH YOU NOW. THE END!" } };
+    "EVERWING, THE MASTER DRAGON, HALF NIGHT AND HALF SNOW, SPREAD ITS GREAT WINGS OVER THE BROKEN TOWER. THE STOLEN POWER WAS FREE AT LAST.",
+    "THE SEVEN DRAGONS SEALED KAINE IN A DUNGEON NO ONE CAN ESCAPE, AND FLEW OFF TOGETHER, EVERWING LEADING THE WAY, TO FIND THEIR PARENTS. THE END!" } };
 static int g_tale_w;
 static int g_tale_i = -1; static float g_tale_t;
 static const char *active_name(void);
@@ -748,7 +757,7 @@ static void draw_food3d(Vec3 eye) {
     { /* the cage: iron bars hanging on a chain from the big tree; lowered and opened once Ironhorn falls */
       float open = g_boss.cage_open, ground = g_world.arena_y + 0.1f; float cy = g_world.cage_y - open * (g_world.cage_y - ground);
       float dx = g_world.cage_x - eye.x, dz = g_world.cage_z - eye.z;
-      if (dx * dx + dz * dz < 140 * 140 && CAPTIVE[g_wk] >= 0) {   /* home has no cage: its boss guards the way out */
+      if (dx * dx + dz * dz < 140 * 140 && world_captive() >= 0) {   /* home has no cage: its boss guards the way out */
         if (g_pm[PM_CAGE].ok) {   /* the iron cage model, door toward the arena; when it opens the cage lifts off the dragonet */
             float facing = atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z); float lift = open > 0.6f ? (open - 0.6f) / 0.4f * 3.5f : 0;
             batch_cyl(v3(g_world.cage_x, cy + lift + 2.3f, g_world.cage_z), v3(g_world.cage_x, g_world.cage_y + 4.0f, g_world.cage_z), 0.05f, 0.05f, 5, 0.35f, 0.33f, 0.3f);   /* chain */
@@ -816,8 +825,9 @@ static void draw_dragon(const Dragon *d) {
     { int air = d->mode == DM_AIR; float arc = clampf(g_turn * (air ? 0.55f : 0.35f), -1, 1);
       float climb = air ? clampf(d->vy / 5.0f, 0, 1) : 0; float side = air ? 0.35f + 0.25f * fabsf(arc) : (d->speed > 0.5f ? 0.25f : 0.0f);
       anim3d_set_bend(arc, side, air ? 0.3f + 0.9f * climb : 0, g_bodyph);
-      if (swim) { anim3d_set_bend(arc * 1.3f, 0.55f + 1.25f * clampf(d->speed / 6.0f, 0, 1), 0, g_bodyph); anim3d_set_swim(1); } }
+      if (swim) { anim3d_set_bend(arc * 1.3f, 0.22f + 0.38f * clampf(d->speed / 6.0f, 0, 1), 0, g_bodyph); anim3d_set_swim(1); } }   /* a gentle sway of the whole body; the clip's own spine and tail do the swimming */
     float at = gait_time(0, m, clip, d->anim, d->speed, dragon_length(st) * sc / dragon_scale(st), d->anim_t);
+    if (swim) { static float sw_t, sw_last; float dq = g_time - sw_last; sw_last = g_time; if (dq < 0 || dq > 0.1f) dq = 0.016f; sw_t += dq * (0.4f + 0.1f * fminf(d->speed, 9.0f)); at = sw_t; }   /* strokes slow when it drifts and quicken as it speeds up */
     fade_set(0, m, clip, d->anim == DA_HIT || d->anim == DA_TAILWHIP || d->anim == DA_CLAW ? 0.1f : 0.22f);
     gfx_bump(2); anim3d_draw(m, clip, at, &base, 1.12f + glow, 1.12f + glow, 1.1f + 0.6f * glow, 1); gfx_bump(0); gfx_bind(NULL); }
 
@@ -919,7 +929,8 @@ static void draw_ironhorn(Vec3 eye) {
     Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(b->x, y, b->z), m4_rotate_y(yaw)), m4_rotate_x(pitch)), m4_rotate_z(roll));
     mm = m4_mul(mm, m4_scale(BOSS_SCALE, BOSS_SCALE, BOSS_SCALE));
     int bk = TH->boss_isles; Anim3D *ba = g_bossa_ok[bk] ? &g_bossa[bk] : NULL;
-    int mech = 0; if (g_wk == WK_KAINE) { if (g_mech_ok < 0) g_mech_ok = anim3d_load(&g_mech, "kaine_mech"); if (g_mech_ok) { ba = &g_mech; mech = 1; } }   /* the last boss is Kaine's own mech dragon */
+    int mech = 0; if (final_master()) { ensure_kind(7, ST_BEYONDER); if (g_km_ok[7][ST_BEYONDER]) { ba = &g_km[7][ST_BEYONDER]; mech = 2; } }   /* first the Master Dragon himself, lost in the spell */
+    else if (g_wk == WK_KAINE) { if (g_mech_ok < 0) g_mech_ok = anim3d_load(&g_mech, "kaine_mech"); if (g_mech_ok) { ba = &g_mech; mech = 1; } }   /* the last boss is Kaine's own mech dragon */
     if (ba) {   /* walk / run / paw / swoop with real moving legs and wings; the clip's time runs with its speed */
         static float at, last_time; static int last_clip = -1; const char *cn; float g_dt = g_time - last_time; last_time = g_time; if (g_dt < 0 || g_dt > 0.1f) g_dt = 0.016f;
         float sp = fabsf(b->speed);
@@ -928,10 +939,12 @@ static void draw_ironhorn(Vec3 eye) {
         int c = anim3d_clip(ba, cn); if (c < 0) c = 0; float rate = !bk && (c == anim3d_clip(ba, "walk")) ? sp / 4.5f : (!bk && c == anim3d_clip(ba, "run") ? fmaxf(0.8f, sp / 11) : 1);
         if (c != last_clip) { at = 0; last_clip = c; } at += g_dt * rate; fade_set(2 + bk, ba, c, 0.3f);
         if (b->state == B_STUCK || b->state == B_STUNNED || b->state == B_HURT || b->state == B_DOWN) at -= g_dt * rate * 0.7f;   /* slow, dazed */
-        float k = (mech ? 7.5f : BOSSA_SCALE[bk]) * BOSS_SCALE; Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
-        if (mech) am = m4_mul(m4_translate(0, b->state == B_DOWN ? 0 : 1.6f, 0), am);
-        { float f = 1 + 3.5f * g_bflash * g_bflash; gfx_state(ST_SOLID); anim3d_draw(ba, c, at, &am, TH->boss_tint[0] * f, TH->boss_tint[1] * f, TH->boss_tint[2] * f, 1); }   /* flashes white when hit */
-        if (mech && b->state != B_DOWN) { float pulse = 0.25f + 0.15f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4)); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1.0f, 0.2f, 0.15f, pulse); gfx_state(ST_SOLID); }   /* its red-hot glow */
+        float k = (mech == 2 ? 5.6f : mech ? 7.5f : BOSSA_SCALE[bk]) * BOSS_SCALE; Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
+        if (mech) am = m4_mul(m4_translate(0, b->state == B_DOWN ? (mech == 2 ? 0.6f : 0) : (mech == 2 ? 1.0f : 1.6f), 0), am);
+        if (mech == 1 && g_mech_wait > 0.35f) { float u = (g_mech_wait - 0.35f) / 4.65f; am = m4_mul(m4_translate(0, 70.0f * u * u, 0), am); }   /* falling out of the storm */
+        { float f = 1 + 3.5f * g_bflash * g_bflash; gfx_state(ST_SOLID); float tr = TH->boss_tint[0], tg = TH->boss_tint[1], tb = TH->boss_tint[2]; if (mech == 2) { tr = 2.7f; tg = 2.0f; tb = 3.6f; }   /* the spell's violet cast */
+          anim3d_draw(ba, c, at, &am, tr * f, tg * f, tb * f, 1); }   /* flashes white when hit */
+        if (mech && b->state != B_DOWN) { float pulse = 0.25f + 0.15f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4)); gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); fade_again(2 + bk); if (mech == 2) anim3d_draw(ba, c, at, &am, 0.55f, 0.12f, 1.0f, pulse * 1.3f); else anim3d_draw(ba, c, at, &am, 1.0f, 0.2f, 0.15f, pulse); gfx_state(ST_SOLID); }   /* its red-hot glow (the spell glows violet) */
         Texture *glow = mech ? NULL : bk ? tx_storm_glow : tx_iron_glow;
         if (glow && b->state != B_DOWN) { float pulse = 0.65f + 0.35f * sinf(g_time * (b->state == B_CHARGE ? 14 : 4)); Texture *keep = ba->tex; ba->tex = glow;   /* eyes, core and vents glowing on top (same pose, reused) */
             gfx_state(ST_DEPTH | ST_BLEND | ST_ADD); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse); fade_again(2 + bk); anim3d_draw(ba, c, at, &am, 1, 1, 1, pulse * 0.6f); ba->tex = keep; }
@@ -954,7 +967,7 @@ static void draw_kind_dragon(int k, int st, float x, float y, float z, float yaw
     Anim3D *m = kind_model(k, st); if (!m) return; float scale = kind_scale(k, st); int clip = anim3d_clip(m, dragon_anim_name(anim)); if (clip < 0) clip = 0;
     Mat4 mm = m4_mul(m4_mul(m4_translate(x, y, z), m4_rotate_y(yaw)), m4_scale(scale, scale, scale));
     anim3d_set_bend(0, air ? 0.35f : 0, air ? 0.4f : 0, g_time * 5.5f + 1.3f);
-    if (air && g_world.sea_on && !g_side && y < g_world.sea - 0.25f && (anim == DA_FLY || anim == DA_GLIDE)) { int sw = anim3d_clip(m, "swim"); if (sw >= 0) { clip = sw; anim3d_set_bend(0, 1.3f, 0, g_time * 5.0f + 1.3f); anim3d_set_swim(1); } }   /* under the sea everyone swims like a snake */
+    if (air && g_world.sea_on && !g_side && y < g_world.sea - 0.25f && (anim == DA_FLY || anim == DA_GLIDE)) { int sw = anim3d_clip(m, "swim"); if (sw >= 0) { clip = sw; anim3d_set_bend(0, 0.5f, 0, g_time * 4.0f + 1.3f); anim3d_set_swim(1); } }   /* under the sea everyone swims */
     if (g_kd_speed >= 0) { anim_t = gait_time(1, m, clip, anim, g_kd_speed, dragon_length(st) * scale / dragon_scale(st), anim_t); g_kd_speed = -1; }
     if (g_kd_fade >= 0) { fade_set(g_kd_fade, m, clip, 0.22f); g_kd_fade = -1; }
     gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(m, clip, anim_t, &mm, 1.1f, 1.1f, 1.1f, 1); gfx_bump(0); gfx_bind(NULL); }
@@ -969,11 +982,43 @@ static void draw_kaine(void) {
     Anim3D *m = g_mech_ok ? &g_mech : &g_model[ST_BEYONDER]; int clip = anim3d_clip(m, "fly"); anim3d_set_bend(0.3f, g_mech_ok ? 0.15f : 0.35f, 0.3f, g_time * 5.5f);
     float tint = g_mech_ok ? 1.0f : 0.16f;
     gfx_state(ST_SOLID); anim3d_draw(m, clip < 0 ? 0 : clip, g_time * 1.3f, &mm, tint, tint * 0.95f, tint * 1.2f, 1); gfx_bind(NULL); }
+/* ---- the last fight ---- */
+static void boss_reset(int wk) {
+    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff]; if (wk == WK_KAINE && (g_side || g_has[7])) g_boss.hp += 2;
+    if (THEMES[wk].boss_isles) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE; }
+/* every dragon you have freed (bar the one you are playing and the friend at your side) circles the keep's arena on the wing and takes turns blasting the boss with its power */
+static float g_ally_t = 2.0f; static int g_ally_i, g_ally_shots;
+static int ally_list(int *ks) { int n = 0; if (!final_keep()) return 0; for (int k = 0; k < 7; k++) if (g_has[k] && k != g_kind && k != g_fk) ks[n++] = k; return n; }
+static Vec3 ally_pos(int slot, int n, float *yaw) { float a = g_time * 0.32f + slot * 6.2831853f / (float)(n > 0 ? n : 1), r = g_world.arena_r + 7.0f; float x = g_world.arena_x + cosf(a) * r, z = g_world.arena_z + sinf(a) * r;
+    float y = fmaxf(world_height(&g_world, x, z), g_world.arena_y) + 8.5f + 1.5f * sinf(g_time * 0.9f + slot * 2.0f); *yaw = atan2f(-sinf(a), cosf(a)); return v3(x, y, z); }
+static void allies_update(float dt) {
+    int ks[8], n = ally_list(ks); if (!n || g_rescued || !g_boss.woke || g_boss.state == B_DOWN) return;
+    g_ally_t -= dt; if (g_ally_t > 0) return; g_ally_t = final_master() ? 1.5f : 3.4f;
+    int slot = g_ally_i++ % n, k = ks[slot]; float yaw; Vec3 a = ally_pos(slot, n, &yaw), b = v3(g_boss.x, g_boss.y + 2.2f * BOSS_SCALE, g_boss.z); const float *c = THEMES[k].portal;
+    for (int i = 0; i <= 10; i++) { float u = i / 10.0f; burst(v3(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, a.z + (b.z - a.z) * u), 3, 1.4f, 0.42f, c[0], c[1], c[2], 0.6f); }   /* its power streaks down at the boss */
+    burst(b, 16, 6, 0.5f, c[0], c[1], c[2], 0.65f); if (g_bflash < 0.3f) g_bflash = 0.3f; sfx_play(k == 2 || k == 3 ? SFX_ICE : SFX_WIND, 0.3f, 0);
+    if (final_master() && ++g_ally_shots >= 6 && g_boss.state == B_STALK && g_boss.t > 0.4f) {   /* enough of them land together: the Master Dragon is held fast for a moment */
+        g_ally_shots = 0; g_boss.state = B_STUNNED; g_boss.t = 0; g_boss.vx = g_boss.vz = 0; g_boss.speed = 0; g_shake_t = fmaxf(g_shake_t, 0.4f); sfx_play(SFX_ROAR, 0.7f, 0); platform_rumble(0.7f, 0.4f);
+        snprintf(g_msg, sizeof g_msg, "ALL TOGETHER! THE DRAGONS' POWERS HOLD EVERWING STILL. HIT HIM NOW: TAIL (B) OR CLAW"); g_msg_t = 4; } }
+static void allies_draw(Vec3 eye) {
+    int ks[8], n = ally_list(ks); float dx = g_world.arena_x - eye.x, dz = g_world.arena_z - eye.z; if (!n || dx * dx + dz * dz > 170 * 170) return;
+    for (int s2 = 0; s2 < n; s2++) { int k = ks[s2], st = k == 0 ? g_team[0].stage : g_team[k].stage; float yaw; Vec3 p = ally_pos(s2, n, &yaw); ensure_kind(k, st); draw_kind_dragon(k, st, p.x, p.y, p.z, yaw, DA_FLY, g_time + s2 * 0.37f, 1); } }
+/* the spell breaks: the Master Dragon rises where he fell and YOU are him now; the dragon you were flies at your side; and Kaine comes in his mech */
+static void master_freed(void) {
+    Vec3 at = v3(g_boss.x, world_height(&g_world, g_boss.x, g_boss.z), g_boss.z);
+    ensure_kind(7, ST_BEYONDER); g_has[7] = 1; dragon_init(&g_team[7], &g_world, at.x, at.z); g_team[7].stage = ST_BEYONDER; g_team[7].max_hearts = g_team[7].hearts = 3 + 2 * ST_BEYONDER; boss_upgrades(&g_team[7]); g_team[7].hearts = g_team[7].max_hearts;
+    g_fk = 7; g_friend.on = 1; g_friend.x = at.x; g_friend.z = at.z; g_friend.y = at.y; g_friend.yaw = g_boss.yaw; do_swap(7);
+    g_dragon.invuln_t = 4.0f; g_dragon.hearts = g_dragon.max_hearts; g_ally_shots = 0; g_ally_t = 5.0f;
+    burst(v3(at.x, at.y + 2.5f, at.z), 60, 11, 0.6f, 0.75f, 0.5f, 1.0f, 1.1f); burst(v3(at.x, at.y + 2.5f, at.z), 40, 6, 0.8f, 1, 1, 1, 0.9f); g_shake_t = fmaxf(g_shake_t, 0.6f); sfx_play(SFX_GROW, 1.0f, 0); sfx_play(SFX_ROAR, 1.0f, 0); platform_rumble(1, 0.8f);
+    boss_reset(g_wk); g_mech_wait = 5.0f;   /* the mech drops out of the storm, and wakes as soon as it lands */
+    { float a = g_boss.yaw; g_boss.x = g_world.arena_x - sinf(a) * g_world.arena_r * 0.8f; g_boss.z = g_world.arena_z - cosf(a) * g_world.arena_r * 0.8f; g_boss.y = world_height(&g_world, g_boss.x, g_boss.z); }
+    snprintf(g_msg, sizeof g_msg, "THE SPELL IS BROKEN! YOU ARE EVERWING, THE MASTER DRAGON, NOW. AND HERE COMES KAINE IN HIS MECH DRAGON!"); g_msg_t = 9; save_progress(); }
 static void draw_arena(Vec3 eye) {
+    allies_draw(eye);
     draw_ironhorn(eye); draw_kaine();
     if (!g_rescued) { float open = g_boss.cage_open, ground = g_world.arena_y + 0.1f; float cy = g_world.cage_y - open * (g_world.cage_y - ground);
         float dx = g_world.cage_x - eye.x, dz = g_world.cage_z - eye.z;
-        if (dx * dx + dz * dz < 140 * 140 && CAPTIVE[g_wk] >= 0) draw_kind_dragon(CAPTIVE[g_wk], ST_DRAGONET, g_world.cage_x, cy + 0.08f, g_world.cage_z, atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z) + 0.4f * sinf(g_time * 0.7f), DA_IDLE, g_time, 0); }
+        if (dx * dx + dz * dz < 140 * 140 && world_captive() >= 0) draw_kind_dragon(CAPTIVE[g_wk], ST_DRAGONET, g_world.cage_x, cy + 0.08f, g_world.cage_z, atan2f(g_world.arena_x - g_world.cage_x, g_world.arena_z - g_world.cage_z) + 0.4f * sinf(g_time * 0.7f), DA_IDLE, g_time, 0); }
     { Portal PP[2]; int np = portals(PP); for (int q = 0; q < np; q++) { float dx = PP[q].x - eye.x, dz = PP[q].z - eye.z; if (dx * dx + dz * dz > 110 * 110) continue;   /* the world's dragon spins in its whirlwind */
         int k = PP[q].to == 0 ? 0 : CAPTIVE[PP[q].to]; float gy = world_height(&g_world, PP[q].x, PP[q].z);
         draw_kind_dragon(k, ST_DRAGONET, PP[q].x + cosf(g_time * 1.6f) * 1.2f, gy + 5.5f + 1.2f * sinf(g_time * 1.3f), PP[q].z + sinf(g_time * 1.6f) * 1.2f, g_time * 1.6f + 1.57f, DA_GLIDE, g_time, 1); } }
@@ -1128,7 +1173,7 @@ static void draw_radar(void) {
     for (int i = 0; i < g_world.nhound; i++) { RPOS(g_world.hound[i].x, g_world.hound[i].z, ox, oy, lim) if (!lim) map_disc(CX + ox, CY + oy, 4, 6, 1, 0.25f, 0.2f, 1); }
     for (int i = 0; i < g_world.nthief; i++) { const Drone *t = &g_world.thief[i]; if (t->state >= 3) continue; RPOS(t->x, t->z, ox, oy, lim) if (!lim) map_disc(CX + ox, CY + oy, 4, 6, 1, 0.45f, 0.2f, 1); }
     { float tx0 = g_world.cage_x, tz0 = g_world.cage_z; int show = 1; char what[48]; const float *tc; static const float BLUE[3] = {0.35f, 0.75f, 1.0f};   /* the goal: the boss and its cage, then the whirlwind onward */
-      if (!g_rescued) { tc = BLUE; if (CAPTIVE[g_wk] < 0) { tx0 = g_world.arena_x; tz0 = g_world.arena_z; snprintf(what, sizeof what, "%s", TH->boss); } else snprintf(what, sizeof what, "%s", g_boss.woke ? TH->boss : KIND_TITLE[CAPTIVE[g_wk]]); }
+      if (!g_rescued) { tc = BLUE; if (world_captive() < 0) { tx0 = g_world.arena_x; tz0 = g_world.arena_z; snprintf(what, sizeof what, "%s", boss_name()); } else snprintf(what, sizeof what, "%s", g_boss.woke ? TH->boss : KIND_TITLE[CAPTIVE[g_wk]]); }
       else if (g_wk + 1 < WK_N) { tx0 = g_world.arena_x; tz0 = g_world.arena_z; tc = THEMES[g_wk + 1].portal; snprintf(what, sizeof what, "WHIRLWIND"); } else { show = 0; tc = BLUE; }
       if (show) { RPOS(tx0, tz0, ox, oy, lim) float pulse = 0.75f + 0.25f * sinf(g_time * 5);
         if (lim) { float l = sqrtf(ox * ox + oy * oy) + 1e-4f; float ux = ox / l, uy = oy / l; float tx = CX + ux * (R + 18), ty = CY + uy * (R + 18);   /* an arrow outside the rim */
@@ -1164,8 +1209,8 @@ static void draw_hud(int drc) {
         if (o->stage < ST_BEYONDER) { float k = clampf(o->growth / dragon_need(o->stage), 0, 1); ui_bar(1040, 144, 200, 10, k, 0.2f, 0.85f, 0.35f); } }
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
-        if (dx * dx + dz * dz < 60 * 60) { ui_panel(440, 132, 400, 90, 0.9f, 0); text_cg(TH->boss, 150, 26, 1);
-            int bmax = BOSS_HITS[g_diff] + (g_wk == WK_KAINE ? 2 : 0); for (int i = 0; i < bmax; i++) { float x = 640 - bmax * 34 + i * 68; ui_bar(x + 8, 188, 52, 10, i < g_boss.hp, 1.0f, 0.4f, 0.08f); } } }
+        if (dx * dx + dz * dz < 60 * 60) { ui_panel(440, 132, 400, 90, 0.9f, 0); text_cg(boss_name(), 150, 26, 1);
+            int bmax = BOSS_HITS[g_diff] + (g_wk == WK_KAINE && !final_master() ? 2 : 0); for (int i = 0; i < bmax; i++) { float x = 640 - bmax * 34 + i * 68; ui_bar(x + 8, 188, 52, 10, i < g_boss.hp, 1.0f, 0.4f, 0.08f); } } }
     /* near a whirlwind: where it goes, and who is caged there */
     { Portal PP[2]; int np = portals(PP); for (int q = 0; q < np; q++) { float dx = d->x - PP[q].x, dz = d->z - PP[q].z; if (dx * dx + dz * dz > 26 * 26) continue;
         const Theme *T = &THEMES[PP[q].to]; char l1[64], l2[80]; snprintf(l1, sizeof l1, "WHIRLWIND TO %s", T->name);
@@ -1174,7 +1219,7 @@ static void draw_hud(int drc) {
     /* growth bar */
     float need = dragon_need(d->stage); float gf = need > 1e8f ? 1 : clampf(d->growth / need, 0, 1);
     ui_bar(42, 82, 356, 16, gf, 0.25f, 0.8f, 0.2f);
-    { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", active_name(), dragon_stage_name(d->stage)); batch_text_g(&g_b, nm, 42, 112, 24, 1, 1, 1, 1, 1); }
+    { char nm[48]; snprintf(nm, sizeof nm, "%s THE %s", active_name(), g_kind == 7 ? "MASTER DRAGON" : dragon_stage_name(d->stage)); batch_text_g(&g_b, nm, 42, 112, 24, 1, 1, 1, 1, 1); }
     if (need < 1e8f) { char s[32]; snprintf(s, sizeof s, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, s, 414, 78, 20, 0.9f, 1, 0.8f, 0.9f); }
     draw_speedlines(); if (g_side) side_hud(); else draw_radar();
     /* stamina while flying */
@@ -1471,7 +1516,7 @@ static void enter_world(int wk, float x, float z, float yaw) {
         for (int i = 0; i < (int)(sizeof ms / sizeof ms[0]); i++) if (*ms[i]) { gfx_mesh_free(*ms[i]); *ms[i] = NULL; }
         theme_textures(); build_ground(); build_props(); build_layers(); wfx_build(); water_build(); g_ng_wk = -1; memset(g_ring_t, 0, sizeof g_ring_t); }
     if (CAPTIVE[wk] >= 0) ensure_kind(CAPTIVE[wk], ST_DRAGONET); if (wk + 1 < WK_N) ensure_kind(CAPTIVE[wk + 1], ST_DRAGONET); for (int k = 1; k < K_N; k++) if (g_has[k]) ensure_kind(k, ST_BEYONDER);
-    boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff]; if (wk == WK_KAINE) g_boss.hp += 2; if (THEMES[wk].boss_isles) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE;
+    boss_reset(wk);
     if (g_wrescued[wk]) { g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_boss.t = 10; }
     float sx, sz; world_safe_spot(&g_world, clampf(x, -110, 110), clampf(z, -110, 110), &sx, &sz);
     g_dragon.x = sx; g_dragon.z = sz; g_dragon.y = world_height(&g_world, sx, sz); g_dragon.yaw = yaw; g_dragon.mode = DM_GROUND; g_dragon.vy = 0; g_dragon.speed = 0; g_dragon.act_t = 0; g_dragon.anim = DA_IDLE;
@@ -1479,6 +1524,7 @@ static void enter_world(int wk, float x, float z, float yaw) {
     if (g_friend.on) { float fx = sx - sinf(yaw) * 3 + cosf(yaw) * 2, fz = sz - cosf(yaw) * 3 - sinf(yaw) * 2; world_safe_spot(&g_world, fx, fz, &fx, &fz);
         g_friend.x = fx; g_friend.z = fz; g_friend.y = world_height(&g_world, fx, fz); g_friend.yaw = yaw; g_friend.anim = DA_IDLE; g_friend.anim_t = 0; g_friend.speed = 0;
         g_other.x = fx; g_other.z = fz; g_other.y = g_friend.y; g_other.mode = DM_GROUND; }
+    if (final_keep() && g_has[7] && !g_wrescued[wk] && g_kind != 7) { ensure_kind(7, ST_BEYONDER); do_swap(7); }   /* only the Master Dragon can face the mech */
     g_eye = v3(sx - sinf(yaw) * 8, g_dragon.y + 4, sz - cosf(yaw) * 8); g_at = v3(sx, g_dragon.y + 1, sz); }
 /* what makes each dragon different, and holding back growth a dragon has no model for yet */
 static void kind_quirks(Dragon *d, int kind, const DragonInput *in, float dt, int *ev) {
@@ -1529,19 +1575,26 @@ static void boss_frame(float dt) {
     if (g_side && g_side_n > 1 && g_other.hearts > 0 && fabsf(g_other.x - g_boss.x) < fabsf(g_dragon.x - g_boss.x)) d = &g_other;
     float L = dragon_length(d->stage);
     int whip = d->atk_r > 0; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
-    int bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar);
-    if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", TH->guard); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
+    int bev = 0; if (g_mech_wait > 0 && final_keep()) { float was = g_mech_wait; g_mech_wait -= dt; if (was > 0.35f && g_mech_wait <= 0.35f) { g_shake_t = fmaxf(g_shake_t, 0.5f); sfx_play(SFX_CRUMBLE, 1.0f, 0); platform_rumble(1, 0.5f); burst(v3(g_boss.x, g_boss.y + 0.5f, g_boss.z), 40, 7, 0.8f, 0.6f, 0.55f, 0.5f, 0.9f); } }
+    else { g_mech_wait = 0; bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar); }
+    if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", final_master() ? "EVERWING, THE MASTER DRAGON, IS UNDER KAINE'S SPELL! YOUR DRAGONS ARE BLASTING HIM WITH THEIR POWERS. DODGE HIS SWOOPS!" : TH->guard); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
-    if (bev & 2) { { char hm[96]; snprintf(hm, sizeof hm, TH->boss_isles ? "%s HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : (g_side ? "%s RAMMED YOU! JUMP (A) OVER IT WHEN IT CHARGES" : "%s RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES"), TH->boss); hurt_dragon(d, 0.75f, hm); }
+    if (bev & 2) { { char hm[96]; snprintf(hm, sizeof hm, TH->boss_isles ? "%s HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : (g_side ? "%s RAMMED YOU! JUMP (A) OVER IT WHEN IT CHARGES" : "%s RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES"), boss_name()); hurt_dragon(d, 0.75f, hm); }
         d->x += g_boss.cx * 3; d->z += g_boss.cz * 3; }
-    if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", TH->stuck); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
+    if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", final_master() ? "EVERWING IS STUCK! HIT HIM NOW TO SHAKE THE SPELL: TAIL (B) OR CLAW" : TH->stuck); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
     if (bev & 32) { snprintf(g_msg, sizeof g_msg, "IT IS DIZZY! QUICK, HIT IT: TAIL (B) OR CLAW"); g_msg_t = 3; }
     if (bev & 4) { g_bflash = 1; hit_juice(v3(g_boss.x, g_boss.y + 2.2f * BOSS_SCALE, g_boss.z), (bev & 8) ? 0.3f : 0.12f, (bev & 8) ? 0.6f : 0.35f, 1.0f, 0.75f, 0.3f); if (bev & 8) burst(v3(g_boss.x, g_boss.y + 2, g_boss.z), 40, 10, 0.35f, 1, 0.9f, 0.5f, 0.9f); }
-    if ((bev & 4) && !(bev & 8) && g_wk == WK_KAINE) { static const char *TAUNT[6] = {"KAINE: \"LUCKY HIT, LIZARD!\"", "KAINE: \"MY MECH CANNOT LOSE!\"", "KAINE: \"STOP THAT! DO YOU KNOW WHAT THIS COST?\"", "KAINE: \"NO, NO, NO! HOLD TOGETHER!\"", "KAINE: \"EVERWING IS MINE! MINE!\"", "KAINE: \"THIS IS NOT FAIR!\""};
+    if ((bev & 4) && !(bev & 8) && final_master()) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "THE SPELL IS SLIPPING! ONE MORE HIT" : "THE SPELL IS SLIPPING! %d MORE HITS", g_boss.hp); g_msg_t = 4; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
+    else if ((bev & 4) && !(bev & 8) && g_wk == WK_KAINE) { static const char *TAUNT[6] = {"KAINE: \"LUCKY HIT, LIZARD!\"", "KAINE: \"MY MECH CANNOT LOSE!\"", "KAINE: \"STOP THAT! DO YOU KNOW WHAT THIS COST?\"", "KAINE: \"NO, NO, NO! HOLD TOGETHER!\"", "KAINE: \"EVERWING IS MINE! MINE!\"", "KAINE: \"THIS IS NOT FAIR!\""};
         snprintf(g_msg, sizeof g_msg, "%s   %d MORE", TAUNT[g_boss.hp % 6], g_boss.hp); g_msg_t = 4; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
     else if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
-    if (bev & 8) { snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", TH->boss); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
+    if (bev & 8) { if (final_master()) snprintf(g_msg, sizeof g_msg, "EVERWING FALLS... THE DARK SPELL IS CRACKING!"); else if (final_keep()) snprintf(g_msg, sizeof g_msg, "THE MECH DRAGON IS FALLING TO PIECES!"); else snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", TH->boss); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
     if (g_side && g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) { g_rescued = 1; sfx_play(SFX_CHIRP, 1.0f, 0); }   /* multiplayer: freeing it ends the level */
+    else if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued && final_master()) master_freed();
+    else if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued && final_keep()) {   /* the mech is beaten: the end of the story */
+        g_rescued = 1; g_upgrade_t = 3.0f; boss_upgrades(&g_dragon); g_dragon.hearts = g_dragon.max_hearts;
+        snprintf(g_msg, sizeof g_msg, "YOU BEAT KAINE BLACKFEATHER AND HIS MECH DRAGON! EVERY DRAGON IS FREE. THE END... AND YOU CAN KEEP FLYING AS EVERWING!");
+        g_msg_t = 12; g_tale_i = 0; g_tale_t = 0; g_tale_w = g_wk; sfx_play(SFX_WIN, 1.0f, 0); sfx_play(SFX_GROW, 1.0f, 0); platform_rumble(1, 1); save_progress(); }
     else if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) {
         int c = CAPTIVE[g_wk]; g_rescued = 1; g_upgrade_t = 3.0f; boss_upgrades(&g_dragon); g_dragon.hearts = g_dragon.max_hearts;
         if (c >= 0) { int had = g_has[c]; ensure_kind(c, ST_BEYONDER); g_has[c] = 1; g_fk = c; g_friend.on = 1; g_friend.x = g_world.cage_x; g_friend.y = g_world.arena_y + 1.2f; g_friend.z = g_world.cage_z; g_friend.yaw = 0;
@@ -1551,6 +1604,12 @@ static void boss_frame(float dt) {
             else snprintf(g_msg, sizeof g_msg, "%s IS FREE! HUGE UPGRADE: +2 HEARTS, FASTER, STRONGER ATTACKS. PRESS + TO SWAP DRAGONS", kind_name(c)); }
         else snprintf(g_msg, sizeof g_msg, "THE WIND GATE IS OPEN! HUGE UPGRADE: +2 HEARTS, FASTER, STRONGER ATTACKS. RIDE THE WHIRLWIND TO THE %s!", THEMES[g_wk + 1].name);
         g_msg_t = 9; g_tale_i = 0; g_tale_t = 0; g_tale_w = g_wk; sfx_play(SFX_CHIRP, 1.0f, 0); sfx_play(SFX_GROW, 1.0f, 0); platform_rumble(1, 1); save_progress(); }
+    allies_update(dt);
+#ifndef __wiiu__
+    { const char *e = getenv("DB_FINAL"); static int st; if (e && final_keep()) {   /* PC look check of the last fight: the whole team, then the boss falls at the given time */
+        if (!st) { st = 1; for (int k = 1; k < 7; k++) { g_has[k] = 1; g_team[k].stage = 1 + (k & 1); } }
+        if (st == 1 && g_time > atof(e)) { st = 2; g_boss.hp = 0; g_boss.state = B_DOWN; g_boss.t = 0; } } }
+#endif
     /* the friend: keeps to the player's side, a little behind; flies when the player flies (unless player 2 is steering it) */
     if (g_friend.on && g_p2 < 0 && !g_side) {
         float fx = sinf(d->yaw), fz = cosf(d->yaw); float back = 2.5f + L, side = 1.8f + 0.5f * L;
@@ -1743,7 +1802,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         if (ud) { g_pause_sel = (g_pause_sel + ud + n) % n; sfx_play(SFX_MENU_MOVE, 0.5f, 0); }
         if (in.b_press) { g_pause_open = 0; sfx_play(SFX_MENU_BACK, 0.5f, 0); }
         else if (in.a_press) { int item = g_pause_sel; if (!canswap && item == 1) item = 2; sfx_play(SFX_MENU_OK, 0.5f, 0); g_pause_open = 0;
-            if (item == 1) { if (team_size() > 1) { g_swap_open = 1; g_swap_sel = g_kind; } else { snprintf(g_msg, sizeof g_msg, "NO FRIEND TO SWAP WITH YET: FREE A DRAGON FROM ITS CAGE FIRST"); g_msg_t = 4; } }
+            if (item == 1) { if (final_keep() && g_has[7] && !g_rescued) { snprintf(g_msg, sizeof g_msg, "ONLY EVERWING, THE MASTER DRAGON, CAN FACE KAINE'S MECH DRAGON!"); g_msg_t = 4; } else if (team_size() > 1) { g_swap_open = 1; g_swap_sel = g_kind; } else { snprintf(g_msg, sizeof g_msg, "NO FRIEND TO SWAP WITH YET: FREE A DRAGON FROM ITS CAGE FIRST"); g_msg_t = 4; } }
             else if (item == 2) {   /* the story is saved as it is; multiplayer just ends */
                 if (!g_side) save_progress();
                 g_side = 0; g_p2 = -1; g_swap_open = 0; g_tale_i = -1; g_msg_t = 0; g_state = G_TITLE; g_state_t = 0; } }
@@ -1810,13 +1869,15 @@ void game_frame(const Pad *pads, int npads, float dt) {
         if (before < 0.9f && g_travel_t >= 0.9f) { int fwd = g_travel_to > g_wk; float ax = 4, az = -4, yw = 2.3f;   /* onward: arrive at the start; back: beside that world's onward whirlwind */
             if (!fwd) { ax = WK_ISLES(g_travel_to) ? 58 + 8 : -62 + 8; az = WK_ISLES(g_travel_to) ? -48 + 8 : 60 - 8; yw = 0.8f; }
             enter_world(g_travel_to, ax, az, yw); g_travel_cd = 4; save_progress();
-            if (g_wrescued[g_wk] || CAPTIVE[g_wk] < 0) snprintf(g_msg, sizeof g_msg, "%s", TH->name); else snprintf(g_msg, sizeof g_msg, "%s! THE %s IS CAGED HERE. FIND %s!", TH->name, KIND_TITLE[CAPTIVE[g_wk]], TH->boss); g_msg_t = 6;
+            if (final_master()) snprintf(g_msg, sizeof g_msg, "BLACKFEATHER KEEP! KAINE HOLDS EVERWING, THE MASTER DRAGON, UNDER A DARK SPELL. ALL YOUR DRAGONS ARE HERE TO HELP YOU BREAK IT!");
+            else if (final_keep() && !g_wrescued[g_wk]) snprintf(g_msg, sizeof g_msg, "BLACKFEATHER KEEP! YOU ARE EVERWING NOW. FIND KAINE AND HIS MECH DRAGON!");
+            else if (g_wrescued[g_wk] || CAPTIVE[g_wk] < 0) snprintf(g_msg, sizeof g_msg, "%s", TH->name); else snprintf(g_msg, sizeof g_msg, "%s! THE %s IS CAGED HERE. FIND %s!", TH->name, KIND_TITLE[CAPTIVE[g_wk]], TH->boss); g_msg_t = 6;
             if (g_wk >= WK_SKY && g_wk < WK_KAINE && !g_wrescued[g_wk] && g_kaine_done < g_wk) { g_kaine_done = g_wk; g_kaine_t = 0; } if (g_wk == WK_KAINE) g_kaine_t = -1;   /* in his own keep he is the boss, not a fly-past */ }
         if (g_travel_t > 1.8f) g_travel_t = -1; }
     { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
       float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4)); { const char *ft = getenv("DB_FORCETURN"); if (ft) g_turn = (float)atof(ft); }
       float want_bank = g_dragon.mode == DM_AIR ? clampf(-g_turn * 0.6f, -0.95f, 0.95f) : 0; g_bank += (want_bank - g_bank) * (1 - expf(-dt * 3));
-      float spd = g_dragon.mode == DM_AIR ? 5.5f : 2.0f + g_dragon.speed * 1.2f; if (dragon_in_water(&g_dragon)) spd = 2.6f + fminf(g_dragon.speed, 9.0f) * 0.75f;   /* swimming: the coils run down the body faster the faster it swims */ g_bodyph = fmodf(g_bodyph + dt * spd, 6.28318f * 100); }
+      float spd = g_dragon.mode == DM_AIR ? 5.5f : 2.0f + g_dragon.speed * 1.2f; if (dragon_in_water(&g_dragon)) spd = 2.2f + fminf(g_dragon.speed, 9.0f) * 0.45f;   /* swimming: the coils run down the body faster the faster it swims */ g_bodyph = fmodf(g_bodyph + dt * spd, 6.28318f * 100); }
 #ifdef DB_TOUR
     g_tour_a = in.a; g_tour_presses += in.a_press; g_tour_takeoffs += (ev & 4) != 0;
 #endif
@@ -1871,8 +1932,8 @@ void game_frame(const Pad *pads, int npads, float dt) {
     g_save_t += dt; if (g_save_t > 20) { g_save_t = 0; save_progress(); }
     if (!g_rescued && g_dragon.stage >= ST_DRAGON && !g_boss.woke && !g_side) {   /* point the way to the cage */
         static float hint_t = 4; hint_t -= dt;
-        if (hint_t <= 0 && g_msg_t <= 0) { hint_t = 25; if (CAPTIVE[g_wk] < 0) snprintf(g_msg, sizeof g_msg, "%s BLOCKS THE WAY OUT OF THE FOREST! FOLLOW THE BLUE ARROW ON YOUR TRACKER", TH->boss); else snprintf(g_msg, sizeof g_msg, "THE %s IS CRYING FOR HELP! FOLLOW THE BLUE ARROW ON YOUR TRACKER", KIND_TITLE[CAPTIVE[g_wk]]); g_msg_t = 6; } }
-    if (!g_rescued && CAPTIVE[g_wk] >= 0) { float dx = g_world.cage_x - g_dragon.x, dz = g_world.cage_z - g_dragon.z; static float chirp_t;
+        if (hint_t <= 0 && g_msg_t <= 0) { hint_t = 25; if (final_keep()) snprintf(g_msg, sizeof g_msg, final_master() ? "EVERWING IS WAITING, LOST IN KAINE'S SPELL. FOLLOW THE BLUE ARROW ON YOUR TRACKER" : "KAINE'S MECH DRAGON IS WAITING! FOLLOW THE BLUE ARROW ON YOUR TRACKER"); else if (CAPTIVE[g_wk] < 0) snprintf(g_msg, sizeof g_msg, "%s BLOCKS THE WAY OUT OF THE FOREST! FOLLOW THE BLUE ARROW ON YOUR TRACKER", TH->boss); else snprintf(g_msg, sizeof g_msg, "THE %s IS CRYING FOR HELP! FOLLOW THE BLUE ARROW ON YOUR TRACKER", KIND_TITLE[CAPTIVE[g_wk]]); g_msg_t = 6; } }
+    if (!g_rescued && world_captive() >= 0) { float dx = g_world.cage_x - g_dragon.x, dz = g_world.cage_z - g_dragon.z; static float chirp_t;
         chirp_t -= dt; if (chirp_t <= 0 && dx * dx + dz * dz < 55 * 55) { chirp_t = 3.5f; float pan = clampf((dx * cosf(g_cam_yaw) - dz * sinf(g_cam_yaw)) / 30.0f, -1, 1); sfx_play(SFX_CHIRP, 0.5f, pan); } }
     if (g_msg_t > 0) g_msg_t -= dt;
     if (g_title_t > 0) g_title_t -= dt;

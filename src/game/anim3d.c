@@ -63,7 +63,7 @@ void anim3d_draw(Anim3D *a, int c, float t, const Mat4 *base, float r, float g, 
             o->nz = o->nz * iw + ((int8_t)q0[8] + ((int8_t)q1[8] - (int8_t)q0[8]) * wj) * (1.0f / 127) * bw; }
         if (bend) {   /* u: -1 at the tail tip .. +1 at the snout. The spine bends; each slice turns with it (no shear), and the head ahead of the neck moves as one rigid piece */
             const float U0 = 0.38f; float u = o->pz * (1.0f / 0.95f), uc = u > U0 ? U0 : u, au = fabsf(uc), env = 0.25f + 0.75f * au, denv = 0.75f * (uc < 0 ? -1.0f : 1.0f), kw = 2.6f;
-            if (g_swim > 0) { float e2 = 0.16f + 0.84f * (U0 - uc) * (1.0f / 1.38f); env += (e2 - env) * g_swim; denv += (-0.84f / 1.38f - denv) * g_swim; kw += 2.0f * g_swim; }
+            if (g_swim > 0) { float e2 = 0.16f + 0.84f * (U0 - uc) * (1.0f / 1.38f); env += (e2 - env) * g_swim; denv += (-0.84f / 1.38f - denv) * g_swim; kw += 0.6f * g_swim; }
             float ph = g_phase - uc * kw, wv = sinf(ph), wc = cosf(ph);
             float f = g_arc * uc * uc * 0.5f + g_side * wv * 0.16f * env;                       /* sideways offset of the spine */
             float df = (g_arc * uc + g_side * (-kw * wc * 0.16f * env + wv * 0.16f * denv)) * (1.0f / 0.95f);   /* its slope per metre */

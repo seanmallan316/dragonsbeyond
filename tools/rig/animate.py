@@ -27,6 +27,8 @@ class Clip:
         self.act.use_cyclic = loop
     def key(self, f, rots, locs=None):
         for b in pb: b.rotation_euler = (0, 0, 0); b.location = (0, 0, 0)
+        rots = dict(rots)
+        for nm in TAIL_STRAIGHT: rots.setdefault(nm, (0, 0, 0))   # every pose gets the combed-out tail
         for name, (x, y, z) in rots.items():
             if name.endswith('@body'):   # x = turn about the body's left-right axis: + swings the foot back toward the tail
                 bn = name[:-5]
@@ -35,6 +37,11 @@ class Clip:
                     pb[bn].rotation_euler = mathutils.Quaternion(inv @ mathutils.Vector((1, 0, 0)), r(x)).to_euler('XYZ')
                 continue
             if name not in pb: continue
+            if name.startswith('tail'):   # tails: x = lift (about the body's left-right axis), z = swing to the side (about the vertical), in the body's frame whatever way the modelled tail curls;
+                # and first the curl the model was sculpted with is mostly combed out, so the tail trails behind and waves along its whole length instead of holding a hook at the tip
+                inv = pb[name].bone.matrix_local.to_3x3().inverted()
+                q = mathutils.Quaternion(inv @ mathutils.Vector((0, 0, 1)), r(z)) @ mathutils.Quaternion(inv @ mathutils.Vector((1, 0, 0)), -r(x)) @ TAIL_STRAIGHT.get(name, mathutils.Quaternion())
+                pb[name].rotation_euler = q.to_euler('XYZ'); continue
             if name.startswith('wing'):   # wings: x = flap about the body's axis (+ = tip up), z = sweep about the vertical, whatever the bone's own axes are
                 inv = pb[name].bone.matrix_local.to_3x3().inverted()
                 sgn = 1 if name.startswith('wingL') else -1
@@ -65,15 +72,36 @@ class Clip:
 ELEV = float(arm.get('wing_elev', 42.0))   # how far above level the wings sit in the model's own pose
 TRACED = 'wing_elev' in arm                # wings pivot at the real shoulder blade
 FWD = max(0.0, min(50.0, float(arm.get('wing_sweep', 0.0)) - 18.0))   # in flight the wings swing forward out of their swept-back pose, to reach out sideways
+import os
+def _wing_ratio():   # how long the wing is next to how high its shoulder stands off the ground
+    B = arm.data.bones
+    if 'wingL_1' not in B or 'wingL_3' not in B: return 1.3
+    ln = sum(B[f'wingL_{i}'].length for i in (1, 2, 3)); zmin = min(min(b.head_local.z, b.tail_local.z) for b in B)
+    return ln / max(0.05, B['wingL_1'].head_local.z - zmin)
+WING_RATIO = _wing_ratio()
+TAIL_STRAIGHT = {}
+def _tail_straight():
+    K = [float(v) for v in os.environ.get('DB_TAILK', '0.85 0.75 0.8 0.88 0.92').split()]
+    prev = None
+    for i in range(5):
+        nm = f'tail{i+1}'
+        if nm not in pb: return
+        b = pb[nm].bone; d = (b.tail_local - b.head_local).normalized()
+        if prev is None:   # the root joint: only its sideways lean is taken out (a tail that leaves the body going up or down keeps doing so)
+            want = mathutils.Vector((0.0, 1.0 if d.y >= 0 else -1.0, -0.10)).normalized()   # the root joint: the tail leaves the body pointing straight back, drooping only a touch, so it never drags through the ground
+        else: want = prev
+        inv = b.matrix_local.to_3x3().inverted(); q = (inv @ d).rotation_difference(inv @ want)
+        TAIL_STRAIGHT[nm] = mathutils.Quaternion().slerp(q, K[i]); prev = d
+_tail_straight()
 def tail(t, amp=10, ph=0.0, nod=0.0):
-    # a whip-like wave: it starts small at the root, grows toward the tip and travels down the tail; the tip also lifts and dips
-    return {f'tail{i+1}': (nod + 0.25 * amp * (0.3 + 0.25 * i) * S(t * 2, ph + i * 1.1), 0, amp * (0.55 + 0.22 * i) * S(t, ph - i * 0.85)) for i in range(5)}
+    # a whip-like wave: small at the root, growing all the way to the tip, travelling down the tail, with a slower second swell under it so it never repeats stiffly; the tip also lifts and dips
+    return {f'tail{i+1}': (nod + 0.3 * amp * (0.3 + 0.3 * i) * S(t * 2, ph + i * 1.1), 0, amp * (0.5 + 0.34 * i) * S(t, ph - i * 0.8) + 0.3 * amp * (0.4 + 0.3 * i) * S(t * 2, ph * 1.7 - i * 1.2 + 0.6)) for i in range(5)}
 def wings_folded():
-    if TRACED:   # lowered about halfway and swept back along the body, fingers folded in
-        A, B, Cc, K = 34.0, 52.0, 44.0, 0.7   # tucked: the whole wing swings back against the flank and each joint folds further, so it lies along the body
-        d = -min(K * ELEV, 48)
-        if ELEV > 20: d, A, B, Cc = -40.0, 80.0, 75.0, 50.0   # wings that stand up in the model's own pose close together over the back instead, like a resting bird's
-        return {'wingL_1': (d - 6, 0, A), 'wingR_1': (d - 6, 0, -A), 'wingL_2': (-6, 0, B), 'wingR_2': (-6, 0, -B), 'wingL_3': (-4, 0, Cc), 'wingR_3': (-4, 0, -Cc)}
+    if TRACED:   # tucked: the wing swings a little back, then folds DOWN flat against the dragon's side, its tip toward the belly
+        k = max(0.0, WING_RATIO - 1.3)   # long wings are swung further back first (and their outer joints curl in more), so the tip never hangs below the feet
+        D, SW, F2, F3 = 78.0, min(60.0, 22.0 + 65.0 * k), 14.0 + 22.0 * k, 10.0 + 14.0 * k
+        d = -(ELEV + D)
+        return {'wingL_1': (d, 0, SW), 'wingR_1': (d, 0, -SW), 'wingL_2': (-F2, 0, 0), 'wingR_2': (-F2, 0, 0), 'wingL_3': (-F3, 0, 0), 'wingR_3': (-F3, 0, 0)}
     return {'wingL_1': (-35, 0, -25), 'wingR_1': (-35, 0, 25), 'wingL_2': (0, 0, 45), 'wingR_2': (0, 0, -45), 'wingL_3': (0, 0, 30), 'wingR_3': (0, 0, -30)} if has_wings else {}
 def wings_flap(t, amp=45, base=10):
     # the shoulder does the work (a deep, slightly quick downstroke), the outer wing lags behind and bends further
@@ -156,13 +184,14 @@ def dive(t):
     rots.update(tail(t, 3, 0.0, nod=-3))
     return rots, {}
 def swim(t):
-    # swimming like a snake: wings folded flat against the flanks, every leg swept back along the body, neck stretched out.
-    # (the game adds the big side-to-side coils that run from the head to the tail tip; here the head only weaves a little against them)
+    # swimming: wings flat against the sides, legs trailing and paddling gently in turn, the neck reaching forward, and a slow strong wave
+    # running down the back into the tail, which does most of the work (the game adds a gentle whole-body sway on top)
     rots = dict(wings_folded())
-    for tag in ('FL', 'FR'): rots[f'leg{tag}_upper@body'] = (62, 0, 0); rots[f'leg{tag}_lower@body'] = (20, 0, 0); rots[f'leg{tag}_foot@body'] = (28 + 6 * S(t, 0.4), 0, 0)
-    for tag in ('BL', 'BR'): rots[f'leg{tag}_upper@body'] = (74, 0, 0); rots[f'leg{tag}_lower@body'] = (34, 0, 0); rots[f'leg{tag}_foot@body'] = (26 + 6 * S(t, 1.4), 0, 0)
-    rots.update({'spine1': (-3, 0, 0), 'spine2': (-2, 0, 0), 'neck1': (-10, 0, 0), 'neck2': (-8, 0, 0), 'head': (14, 0, 0)})
-    rots.update(tail(t, 5, 0.0, nod=-3))
+    for tag, ph in (('FL', 0.0), ('FR', 3.14)): rots[f'leg{tag}_upper@body'] = (58 + 12 * S(t, ph), 0, 0); rots[f'leg{tag}_lower@body'] = (18 + 8 * S(t, ph - 0.8), 0, 0); rots[f'leg{tag}_foot@body'] = (26 + 10 * S(t, ph - 1.4), 0, 0)
+    for tag, ph in (('BL', 3.14), ('BR', 0.0)): rots[f'leg{tag}_upper@body'] = (70 + 10 * S(t, ph), 0, 0); rots[f'leg{tag}_lower@body'] = (32 + 8 * S(t, ph - 0.8), 0, 0); rots[f'leg{tag}_foot@body'] = (26 + 10 * S(t, ph - 1.4), 0, 0)
+    w = lambda ph: S(t, ph)
+    rots.update({'hips': (0, 0, 5 * w(-1.2)), 'spine1': (-3, 0, 5 * w(-0.6)), 'spine2': (-2, 0, -4 * w(0.0)), 'chest': (0, 0, -5 * w(0.5)), 'neck1': (-9, 0, -4 * w(1.0)), 'neck2': (-7, 0, 3 * w(1.5)), 'head': (13, 0, 5 * w(1.9))})
+    rots.update(tail(t, 15, -1.9, nod=-2))
     return rots, {}
 def eat(t):    # 0-0.3 lower head, 0.3-0.8 chomp x3, 0.8-1 raise
     down = min(1, t / 0.3) if t < 0.8 else max(0, 1 - (t - 0.8) / 0.2)
