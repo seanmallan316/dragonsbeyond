@@ -594,6 +594,7 @@ static void camera_update(float dt) {
         at = v3(want.x + sinf(d->yaw) * 10, want.y - (d->mode == DM_AIR ? d->pitch * 8 : 0.8f), want.z + cosf(d->yaw) * 10); }
     /* keep the camera above the ground and out of the trees */
     float gnd = world_height(&g_world, want.x, want.z) + 0.6f; if (want.y < gnd) want.y = gnd;
+    if (g_world.sea_on && d->mode == DM_AIR && d->y < g_world.sea - 1.6f && gnd < g_world.sea - 1.0f && want.y > g_world.sea - 0.5f) want.y = g_world.sea - 0.5f;   /* swimming: the camera stays under the water with the dragon */
     if (g_cam_mode == 0) {   /* a hill or cliff between the camera and the dragon: lift the camera over it, so it never looks through the mountain */
         Vec3 tg = v3(d->x, d->y + 0.6f * dragon_length(d->stage) * 0.4f + 0.5f, d->z);
         for (int i = 1; i < 8; i++) { float u = i / 8.0f; float hx = want.x + (tg.x - want.x) * u, hz = want.z + (tg.z - want.z) * u, hy = want.y + (tg.y - want.y) * u;
@@ -787,6 +788,13 @@ static void fade_set(int slot, const Anim3D *m, int clip, float dur) {
     if (clip != f->clip) { if (f->w <= 0.001f) f->pt = 0; f->pclip = f->clip; f->clip = clip; f->w = 1; }
     if (f->w > 0) { f->pt += dt; f->w -= dt / dur; if (f->w < 0) f->w = 0; float sw = f->w * f->w * (3 - 2 * f->w); anim3d_set_blend(f->pclip, f->pt, sw); } }
 static void fade_again(int slot) { Fade *f = &g_fades[slot]; if (f->w > 0) anim3d_set_blend(f->pclip, f->pt, f->w * f->w * (3 - 2 * f->w)); }   /* the same pose once more (a glow pass on top) */
+#ifdef __wiiu__
+#define CAM_HINT "MINUS: CHANGE VIEW"
+#else
+#define CAM_HINT "SELECT OR VIEW BUTTON: CHANGE VIEW"
+#endif
+/* is this dragon swimming? under the sea, or afloat in a pond */
+static int dragon_in_water(const Dragon *d) { return d->mode == DM_SWIM || (d->mode == DM_AIR && g_world.sea_on && !g_side && d->y < g_world.sea - 0.25f); }
 static void draw_dragon(const Dragon *d) {
     int st = d->stage; float sc = kind_scale(0, st);
     if (d->evolve_t > 0) {   /* grows from the old size to the new in the first second, with a glow */
@@ -797,6 +805,8 @@ static void draw_dragon(const Dragon *d) {
     if (d->stage < ST_BEYONDER) sc *= 0.85f + 0.15f * clampf(d->growth / dragon_need(d->stage), 0, 1);   /* grows a little bigger with every meal on the way to the next stage */
     Mat4 base = dragon_matrix(d, sc); int clip = anim3d_clip(m, dragon_anim_name(d->anim)); if (clip < 0) clip = 0;
     if (d->mode == DM_AIR && d->anim == DA_GLIDE && d->pitch < -0.3f) { int dv = anim3d_clip(m, "dive"); if (dv >= 0) clip = dv; }   /* nose down: wings swept back in a dive */
+    int swim = dragon_in_water(d) && (d->anim == DA_FLY || d->anim == DA_GLIDE || d->anim == DA_WALK || d->anim == DA_RUN || d->anim == DA_IDLE);
+    if (swim) { int sw = anim3d_clip(m, "swim"); if (sw < 0) sw = anim3d_clip(m, "dive"); if (sw >= 0) clip = sw; }   /* in the water: wings and legs tucked in, the whole body snaking */
     gfx_state(ST_SOLID);
     float glow = d->evolve_t > 0 ? 0.5f + 0.5f * sinf(g_time * 20) : (d == &g_dragon && g_upgrade_t > 0 ? (0.35f + 0.25f * sinf(g_time * 12)) * fminf(1, g_upgrade_t) : 0);
     float fl = g_dflash[d == &g_dragon ? 0 : 1]; glow += 3.0f * fl * fl;   /* hit: a white flash */
@@ -805,7 +815,8 @@ static void draw_dragon(const Dragon *d) {
         float hop = t < 0.45f ? 2.4f * t - 5.3f * t * t : 0; base = m4_mul(m4_translate(0, fmaxf(0, hop) + 0.25f * e * dragon_length(st) * sc, 0), base); base = m4_mul(base, m4_rotate_z(r)); }
     { int air = d->mode == DM_AIR; float arc = clampf(g_turn * (air ? 0.55f : 0.35f), -1, 1);
       float climb = air ? clampf(d->vy / 5.0f, 0, 1) : 0; float side = air ? 0.35f + 0.25f * fabsf(arc) : (d->speed > 0.5f ? 0.25f : 0.0f);
-      anim3d_set_bend(arc, side, air ? 0.3f + 0.9f * climb : 0, g_bodyph); }
+      anim3d_set_bend(arc, side, air ? 0.3f + 0.9f * climb : 0, g_bodyph);
+      if (swim) { anim3d_set_bend(arc * 1.3f, 0.55f + 1.25f * clampf(d->speed / 6.0f, 0, 1), 0, g_bodyph); anim3d_set_swim(1); } }
     float at = gait_time(0, m, clip, d->anim, d->speed, dragon_length(st) * sc / dragon_scale(st), d->anim_t);
     fade_set(0, m, clip, d->anim == DA_HIT || d->anim == DA_TAILWHIP || d->anim == DA_CLAW ? 0.1f : 0.22f);
     gfx_bump(2); anim3d_draw(m, clip, at, &base, 1.12f + glow, 1.12f + glow, 1.1f + 0.6f * glow, 1); gfx_bump(0); gfx_bind(NULL); }
@@ -943,6 +954,7 @@ static void draw_kind_dragon(int k, int st, float x, float y, float z, float yaw
     Anim3D *m = kind_model(k, st); if (!m) return; float scale = kind_scale(k, st); int clip = anim3d_clip(m, dragon_anim_name(anim)); if (clip < 0) clip = 0;
     Mat4 mm = m4_mul(m4_mul(m4_translate(x, y, z), m4_rotate_y(yaw)), m4_scale(scale, scale, scale));
     anim3d_set_bend(0, air ? 0.35f : 0, air ? 0.4f : 0, g_time * 5.5f + 1.3f);
+    if (air && g_world.sea_on && !g_side && y < g_world.sea - 0.25f && (anim == DA_FLY || anim == DA_GLIDE)) { int sw = anim3d_clip(m, "swim"); if (sw >= 0) { clip = sw; anim3d_set_bend(0, 1.3f, 0, g_time * 5.0f + 1.3f); anim3d_set_swim(1); } }   /* under the sea everyone swims like a snake */
     if (g_kd_speed >= 0) { anim_t = gait_time(1, m, clip, anim, g_kd_speed, dragon_length(st) * scale / dragon_scale(st), anim_t); g_kd_speed = -1; }
     if (g_kd_fade >= 0) { fade_set(g_kd_fade, m, clip, 0.22f); g_kd_fade = -1; }
     gfx_state(ST_SOLID); gfx_bump(2); anim3d_draw(m, clip, anim_t, &mm, 1.1f, 1.1f, 1.1f, 1); gfx_bump(0); gfx_bind(NULL); }
@@ -1177,7 +1189,7 @@ static void draw_hud(int drc) {
     if (g_title_t > 0) { float a = clampf(g_title_t, 0, 1); ui_pic_c(&g_ua, UI_GLOW, 640, 300, 1200, 260, 1, 0.6f, 0.25f, 0.15f * a); ui_logo(640, 220, 980, a); ui_divider(640, 330, 560, a); text_cg(TH->name, 352, 34, a); }
     static const char *cams[3] = {"OVERHEAD VIEW", "RIDER VIEW", "DRAGON EYES"}; batch_text(&g_b, cams[g_cam_mode], 1240 - text_width(cams[g_cam_mode], 20), 36, 20, 1, 1, 1, 0.6f);
     { static const char *PW[K_N] = {"LEAFNADO", "FIRE", "FROST", "SHARDS", "SANDSTORM", "WATERNADO", "LAVA", "ALL POWERS"}; char cl[200]; snprintf(cl, sizeof cl, "A : JUMP/FLY   B : TAIL (AIR: %s)   X : CLAW/EAT%s   Y : %s   + : MENU", d->stage >= ST_DRAGON ? "ROLL" : "POUNCE", d->stage >= ST_DRAGON ? " (AIR: TALONS)" : "", d->stage >= ST_BEYONDER ? PW[g_kind] : d->stage >= ST_DRAGON ? PW[g_kind] : "SPARK CHIRP"); if (d->stage >= ST_BEYONDER) { size_t l = strlen(cl); snprintf(cl + l, sizeof cl - l, "   HOLD Y : MEGA BLAST"); }
-      { static int had_pad; if (pads_source_pro()) had_pad = 1; if (had_pad) { size_t l = strlen(cl); snprintf(cl + l, sizeof cl - l, "   R2 : POWER   L2 : DIVE   R1 : RUN"); } }
+      { static int had_pad; if (pads_source_pro()) had_pad = 1; if (had_pad) { size_t l = strlen(cl); snprintf(cl + l, sizeof cl - l, "   R2 : POWER   L2 : DIVE   R1 : RUN   SELECT : VIEW"); } }
       float hs = 16; while (hs > 10 && text_width(cl, hs) > 1220) hs -= 0.5f; batch_text(&g_b, cl, 640 - text_width(cl, hs) / 2, 692, hs, 1, 1, 1, 0.5f);
       if (d->stage >= ST_DRAGON) { static const float WH[3] = {1, 1, 1}; const float *pc = g_kind == 7 ? WH : THEMES[g_kind].portal; float f = g_charge >= 0 ? fminf(1, g_charge / 1.1f) : g_power_cd > 0 ? 1 - fminf(1, g_power_cd / 2.6f) : 1;   /* the power meter: fills as it comes back, and as you charge */
           int full = g_charge >= 1.1f; float pu = full ? 0.6f + 0.4f * sinf(g_time * 18) : 1; ui_bar(1040, 96, 180, 12, f, pc[0] * pu + (full ? 0.4f : 0), pc[1] * pu + (full ? 0.4f : 0), pc[2] * pu + (full ? 0.4f : 0));
@@ -1237,7 +1249,7 @@ static void tour_input_base(Pad *p, float t) {
     if (t < 4) return; if (g_state != G_PLAY || g_tale_i >= 0) { p->a = fmodf(t, 0.9f) < 0.12f && (g_state != G_NAME || t > 6); return; }
     static float play_t0 = -1; if (play_t0 < 0) play_t0 = t; float pt = t - play_t0;   /* show off the views once playing: rider, then the dragon's eyes */
     static float swap_t = -1; if (g_kind == 2 && swap_t < 0) swap_t = pt;
-    int wantcam = pt > 3 && g_boss.state != B_DOWN ? 1 : (swap_t >= 0 && pt < swap_t + 15 ? 2 : 0);   /* the fight from on its back, overhead after, the snow dragon's eyes after the swap */ int press = wantcam != g_cam_mode && !prev_up; p->up = press; prev_up = press;
+    int wantcam = pt > 3 && g_boss.state != B_DOWN ? 1 : (swap_t >= 0 && pt < swap_t + 15 ? 2 : 0);   /* the fight from on its back, overhead after, the snow dragon's eyes after the swap */ int press = wantcam != g_cam_mode && !prev_up; p->cam = press; prev_up = press;
     float ax = g_world.arena_x - d->x, az = g_world.arena_z - d->z, adist = sqrtf(ax * ax + az * az);
     if (g_wk == WK_SKY && g_wrescued[WK_SKY] && g_kind == 2) {   /* after the swap: walk home over the bridge and ride the wind column down */
         static int reached; float tx, tz;
@@ -1315,7 +1327,7 @@ static void draw_map(void) {
     char line[64]; snprintf(line, sizeof line, "%s", dragon_stage_name(d->stage)); batch_text(&g_b, line, 90, 116, 26, 1, 0.95f, 0.85f, 0.9f);
     float need = dragon_need(d->stage); if (need < 1e8f) { snprintf(line, sizeof line, "GROW %d/%d", (int)d->growth, (int)need); batch_text(&g_b, line, 90, 148, 22, 0.8f, 1, 0.7f, 0.9f); }
     batch_text(&g_b, "RED: BERRIES  WHITE: MUSHROOMS", 90, 612, 18, 1, 1, 1, 0.8f); batch_text(&g_b, "YELLOW: GRUBS  BLUE: FISH (MEAT)  DARK RED: DRONES", 90, 640, 18, 1, 1, 1, 0.8f);
-    batch_text(&g_b, "D-PAD UP: CHANGE VIEW", 1190 - text_width("D-PAD UP: CHANGE VIEW", 18), 640, 18, 1, 1, 1, 0.8f);
+    { const char *cv = CAM_HINT; batch_text(&g_b, cv, 1190 - text_width(cv, 18), 640, 18, 1, 1, 1, 0.8f); }
     gfx_camera_2d(); gfx_state(ST_HUD); gfx_bind(tx_font); gfx_mesh_update(m_dynhud, g_b.v, g_b.n); Mat4 id = m4_identity(); gfx_draw_ex(m_dynhud, &id, 1, 1, 1, 1, 0, 1, 0, 0); gfx_bind(NULL);
     batch_clear(&g_b); ui_begin(); ui_frame(0, 0, 1280, 720, 1); ui_glint(30, 30, 1220, 660, g_time * 0.05f, 90, 0.7f); ui_flush();   /* the gold frame on top */
 #undef MX
@@ -1478,7 +1490,6 @@ static void kind_quirks(Dragon *d, int kind, const DragonInput *in, float dt, in
     if (kind == 4 && d->mode == DM_GROUND && d->speed > 1) {                          /* sand: skitters low and fast like a lizard */
         float nx = d->x + sinf(d->yaw) * d->speed * 0.25f * dt, nz = d->z + cosf(d->yaw) * d->speed * 0.25f * dt;
         if (!(WK_ISLES(g_world.kind) && world_is_void(&g_world, nx, nz))) { d->x = nx; d->z = nz; d->y = world_height(&g_world, d->x, d->z); } }
-    if (kind == 5 && d->mode == DM_SWIM && d->speed > 0.5f) { d->x += sinf(d->yaw) * d->speed * 0.6f * dt; d->z += cosf(d->yaw) * d->speed * 0.6f * dt; }   /* water: a born swimmer */
     if (kind == 6 && (*ev & 8) && d == &g_dragon) { g_shake_t = fmaxf(g_shake_t, 0.25f); platform_rumble(0.5f, 0.15f); }   /* lava: lands with a heavy stomp */
     if (d->stage > ST_DRAGONET && !kind_has_stage(kind, d->stage)) {
         d->stage--; d->growth = dragon_need(d->stage) - 1; d->evolve_t = 0; d->max_hearts = 3 + 2 * d->stage; d->hearts = fminf(d->hearts, d->max_hearts); *ev &= ~2;
@@ -1664,6 +1675,9 @@ void game_frame(const Pad *pads, int npads, float dt) {
         g_p1pad = p1; if (p1) { p = &pads[p1]; q = &g_prev[p1]; }
       p1_locked:; }
     DragonInput in = {0}; in.sx = p->sx; in.sy = p->sy; in.a = p->a; in.a_press = p->a && !q->a; in.b_press = p->b && !q->b; in.x_press = p->x && !q->x; in.y_press = p->y && !q->y; in.zr = p->zr; in.zl = p->zl; in.side = g_side;
+#ifndef __wiiu__
+    { const char *ds = getenv("DB_STICK"); if (ds && g_time > 1.0f) { float fx = 0, fy = 0; int fa = 0; sscanf(ds, "%f,%f,%d", &fx, &fy, &fa); in.sx = fx; in.sy = fy; in.a = fa; } }   /* PC look check: a held stick */
+#endif
     g_state_t += dt;
     if (g_state != G_PLAY) {
         int upk = (p->up && !q->up) || (p->sy > 0.6f && q->sy <= 0.6f), downk = (p->down && !q->down) || (p->sy < -0.6f && q->sy >= -0.6f);
@@ -1750,7 +1764,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
                 else snprintf(g_msg, sizeof g_msg, "SHARED FOOD WITH YOUR FRIEND");
                 g_msg_t = 3; save_progress(); } }
         goto paused; }
-    if (p->up && !q->up && !g_side) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
+    if (p->cam && !q->cam && !g_side) { g_cam_mode = (g_cam_mode + 1) % 3; sfx_play(SFX_MENU_MOVE, 0.4f, 0); }
     g_look_x = p->rx;
     float yaw_before = g_dragon.yaw;
     if (getenv("DB_SWAPTEST")) { static int done; if (!done && g_time > 1.0f) { done = 1; for (int k = 0; k < K_N; k++) { g_has[k] = 1; ensure_kind(k, 0); } g_swap_open = 1; g_swap_sel = atoi(getenv("DB_SWAPTEST")); } }
@@ -1770,7 +1784,11 @@ void game_frame(const Pad *pads, int npads, float dt) {
       if ((g_wk == WK_LAVA || g_wk == WK_KAINE) && g_dragon.mode != DM_AIR && world_in_pond(&g_world, g_dragon.x, g_dragon.z) && lava_cd <= 0 && g_dragon.invuln_t <= 0) { lava_cd = 1.0f; hurt_dragon(&g_dragon, 0.5f, "HOT HOT HOT! THAT IS LAVA: GET OUT!"); } }
     if (g_ko_t >= 0) { memset(&in, 0, sizeof in); g_ko_t += dt; g_dragon.anim = DA_HIT; g_dragon.act_t = 0.5f;   /* knocked out: lie there a moment, then back to the start */
         if (g_ko_t > 1.8f) { g_ko_t = -1; g_dragon.hearts = 1; dragon_respawn(&g_dragon); g_kvx = g_kvz = 0; snprintf(g_msg, sizeof g_msg, "OUCH! BACK TO THE START. EAT TO GET HEARTS BACK"); g_msg_t = 5; } }
+    g_dragon.swim_mul = g_kind == 5 ? 3.0f : 1.0f;   /* only the water dragon is a born swimmer: nearly three times as fast as anyone else in the water */
     int ev = dragon_update(&g_dragon, &g_world, &in, g_cam_yaw, dt); solid_body(&g_dragon);
+#ifndef __wiiu__
+    if (getenv("DB_DBG")) { static int fc; if (fc++ % 20 == 0) fprintf(stderr, "DBG t %.1f mode %d pos %.1f %.1f %.1f gy %.1f sea %.1f spd %.1f vy %.1f anim %d eye %.1f %.1f %.1f\n", g_time, g_dragon.mode, g_dragon.x, g_dragon.y, g_dragon.z, world_height(&g_world, g_dragon.x, g_dragon.z), g_world.sea, g_dragon.speed, g_dragon.vy, g_dragon.anim, g_eye.x, g_eye.y, g_eye.z); }
+#endif
     if (g_kvx * g_kvx + g_kvz * g_kvz > 0.01f) { g_dragon.x += g_kvx * dt; g_dragon.z += g_kvz * dt; float k = expf(-7 * dt); g_kvx *= k; g_kvz *= k;   /* knocked back, sliding to a stop */
         if (!(WK_ISLES(g_world.kind) && world_is_void(&g_world, g_dragon.x, g_dragon.z))) { solid_body(&g_dragon); if (g_dragon.mode != DM_AIR) g_dragon.y = fmaxf(g_dragon.y, world_height(&g_world, g_dragon.x, g_dragon.z)); } }
     kind_quirks(&g_dragon, g_kind, &in, dt, &ev);
@@ -1798,7 +1816,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
       float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4)); { const char *ft = getenv("DB_FORCETURN"); if (ft) g_turn = (float)atof(ft); }
       float want_bank = g_dragon.mode == DM_AIR ? clampf(-g_turn * 0.6f, -0.95f, 0.95f) : 0; g_bank += (want_bank - g_bank) * (1 - expf(-dt * 3));
-      float spd = g_dragon.mode == DM_AIR ? 5.5f : 2.0f + g_dragon.speed * 1.2f; g_bodyph = fmodf(g_bodyph + dt * spd, 6.28318f * 100); }
+      float spd = g_dragon.mode == DM_AIR ? 5.5f : 2.0f + g_dragon.speed * 1.2f; if (dragon_in_water(&g_dragon)) spd = 2.6f + fminf(g_dragon.speed, 9.0f) * 0.75f;   /* swimming: the coils run down the body faster the faster it swims */ g_bodyph = fmodf(g_bodyph + dt * spd, 6.28318f * 100); }
 #ifdef DB_TOUR
     g_tour_a = in.a; g_tour_presses += in.a_press; g_tour_takeoffs += (ev & 4) != 0;
 #endif

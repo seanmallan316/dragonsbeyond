@@ -58,7 +58,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
     if (in->side) { mag = fabsf(in->sx); if (mag > 1) mag = 1; if (mag > 0.15f) want_yaw = cam_yaw + (in->sx > 0 ? -1.5707963f : 1.5707963f); else mag = 0; }   /* along the lane only */
     else if (mag > 0.1f) want_yaw = cam_yaw + atan2f(-in->sx, d->mode == DM_AIR ? fmaxf(in->sy, 0.25f) : in->sy);   /* the camera's right is -yaw: stick right turns right; in the air, down is a dive, not a U-turn */
     if (d->mode == DM_GROUND || d->mode == DM_SWIM) {
-        float top = (in->zr ? RUN[d->stage] : WALK[d->stage]) * mag * (1 + 0.08f * d->power); if (d->mode == DM_SWIM) top *= 0.55f;
+        float top = (in->zr ? RUN[d->stage] : WALK[d->stage]) * mag * (1 + 0.08f * d->power); if (d->mode == DM_SWIM) top *= 0.55f * (d->swim_mul > 1 ? d->swim_mul : 1);
         float turn = 7.0f * dt, dyaw = wrapa(want_yaw - d->yaw); d->yaw += clampf(dyaw * (1 - expf(-dt * 9.0f)), -turn, turn);   /* eases into and out of a turn */
         d->speed = lerp(d->speed, top, 1 - expf(-dt * (top > d->speed ? 5.0f : 8.0f)));
         float sy = sinf(d->yaw), cy = cosf(d->yaw); float px = d->x, pz = d->z, py = d->y;
@@ -74,6 +74,8 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         gy = world_height(w, d->x, d->z); inpond = world_in_pond(w, d->x, d->z); waterline = inpond ? w->pond_y : -1e9f;
         if (!inpond && gy < py - (w->kind == WK_SKY ? 2.0f : 0.8f) && d->act_t <= 0) {   /* walked off a ledge: fall (glide) instead of snapping down the drop */
             d->mode = DM_AIR; d->y = py; d->vy = 0; d->vx = sy * d->speed; d->vz = cy * d->speed; set_anim(d, DA_GLIDE); return ev; }
+        if (w->sea_on && gy < w->sea - 0.75f * L - 0.4f) {   /* deep enough to float: nobody walks on the sea bed, they swim */
+            d->mode = DM_AIR; d->y = fmaxf(py, gy + 0.04f); d->vy = 0.8f; d->vx = d->vz = 0; d->pitch = 0; set_anim(d, DA_GLIDE); return ev; }
         if (gy < waterline - 0.3f * L) { d->mode = DM_SWIM; d->y = waterline - 0.25f * L; }
         else { d->mode = DM_GROUND; d->y = gy; }
         /* jump, and from stage 2 on: fly */
@@ -112,14 +114,14 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
             /* hold A: flap and climb; stick up/down pitches; speed builds when diving */
             /* stick up: nose up and climb; a little down: nose down and sink faster; hard down (or ZL): tuck the wings and DIVE */
             int diving = in->sy < -0.55f || in->zl; d->dive += ((diving ? 1.0f : 0.0f) - d->dive) * (1 - expf(-dt * (diving ? 4.0f : 3.0f)));
-            float wantp = diving ? -1.1f : clampf(in->sy * 0.6f, -0.7f, 0.7f); d->pitch = lerp(d->pitch, wantp, 1 - expf(-dt * (diving ? 5 : 3)));
+            float wantp = diving ? -1.1f : clampf(in->sy * 0.6f, -0.7f, 0.7f); if (uw) wantp = diving ? -0.75f : (in->a ? 0.45f : 0.0f);   /* in the water the stick only steers: A swims up, stick back (or dive) swims down, otherwise level */ d->pitch = lerp(d->pitch, wantp, 1 - expf(-dt * (diving ? 5 : 3)));
             float top = FLY[d->stage] * (1 + 0.08f * d->power) * (1.0f - 0.5f * fmaxf(0, d->pitch)) * (1.0f + 0.6f * fmaxf(0, -d->pitch)) * (1.0f + 0.5f * d->dive);
-            if (uw) top = fmaxf(top * 0.7f, 6.0f) * (mag > 0.1f || d->stage >= ST_DRAGON ? 1.0f : 0.15f) * (d->stage < ST_DRAGON ? fminf(1, mag * 1.2f + 0.15f) : 1);   /* swimming: slower than flying; little ones stop when you let go */
+            if (uw) top = (4.2f + 1.3f * d->stage) * (mag > 0.1f ? 0.3f + 0.7f * mag : 0.0f) * (1.0f + 0.25f * d->dive) * (in->zr ? 1.3f : 1.0f) * (d->swim_mul > 1 ? d->swim_mul : 1) * (1 + 0.05f * d->power);   /* swimming: a steady glide through the water, and you stop when you let go; only a born swimmer is fast */
             if (in->side) top *= fminf(1, fabsf(in->sx) * 1.3f);   /* side levels: the stick decides how fast you fly along */
             d->speed = lerp(d->speed, top, 1 - expf(-dt * (diving ? 3.0f : 1.5f)));
             float lift = in->a && !diving ? 5.0f : 0.5f; if (in->a) d->stamina = fmaxf(0, d->stamina - dt * (in->side ? 0.24f : 0.12f)); else if (!in->side) d->stamina = fminf(1, d->stamina + dt * 0.2f);   /* side levels: wings only rest on the ground */
             if (d->stamina <= 0.01f) lift = 0.5f;
-            if (uw) { d->stamina = fminf(1, d->stamina + dt * 0.3f); float want = (in->a ? 5.0f : 0) + d->pitch * 7.0f - (diving ? 7.0f : 0) - 0.3f; d->vy = lerp(d->vy, want, 1 - expf(-dt * 3.5f)); d->slam = 0; d->dive *= 0.5f; }
+            if (uw) { d->stamina = fminf(1, d->stamina + dt * 0.3f); float want = (in->a ? 4.5f : 0) + d->pitch * (2.0f + 0.9f * d->speed) - (diving ? 5.0f : 0) - 0.08f; d->vy = lerp(d->vy, want, 1 - expf(-dt * 3.5f)); d->slam = 0; d->dive *= 0.5f; }
             else if (d->dive > 0.3f) { d->vy = lerp(d->vy, -30.0f * d->dive, 1 - expf(-dt * 3)); if (d->vy < -12) d->slam = 1; }   /* a dive that hits the ground lands as a crashing pounce */
             else { d->vy += (lift - 3.5f + d->pitch * 6.0f) * dt; d->vy = clampf(d->vy, -12, 6); d->slam = 0; }
             d->x += sinf(d->yaw) * d->speed * dt; d->z += cosf(d->yaw) * d->speed * dt; d->y += d->vy * dt;
@@ -137,7 +139,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         if (d->y <= floor_y && fn.y < 0.6f && gy > waterline) {   /* came down on a cliff face: slide off it and keep falling, never land on the wall */
             float ux = fn.x, uz = fn.z, ul = sqrtf(ux * ux + uz * uz) + 1e-5f; d->x += ux / ul * 6.0f * dt; d->z += uz / ul * 6.0f * dt;
             d->vx = ux / ul * 3.0f; d->vz = uz / ul * 3.0f; d->y = floor_y; if (d->vy > 0 && !canfly) d->vy = 0; if (d->vy < -2) d->vy = -2; }
-        else if (d->y <= floor_y && uw && !(in->sy < -0.3f || in->zl) && mag > 0.1f) { d->y = floor_y + 0.02f; if (d->vy < 0) d->vy = 0; }   /* skim along the sea bed */
+        else if (d->y <= floor_y && w->sea_on && gy < w->sea - 0.75f * L - 0.4f) { d->y = floor_y + 0.02f; if (d->vy < 0) d->vy = 0; if (d->pitch < 0) d->pitch *= 0.8f; }   /* the sea bed: glide along just above it, never stand on it */
         else if (d->y <= floor_y) { d->y = floor_y; d->mode = (gy < waterline - 0.3f * L) ? DM_SWIM : DM_GROUND; d->vy = 0; d->land_t = 0.3f; d->pitch = 0; ev |= 8; set_anim(d, DA_IDLE);
             d->air_act = 0; d->roll = 0; d->dive = 0;
             if (d->slam) { d->slam = 0; d->act_t = 0.45f; set_anim(d, DA_POUNCE); d->speed = 0; ev |= 32; hitbox(d, ATK_SLAM, 0.2f * L, 0.2f, 3.2f + 0.4f * L); } }

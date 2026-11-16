@@ -206,7 +206,7 @@ static void touch_pad(Pad *p) {
     { static int was[16]; for (int i = 0; i < NBTN && i < 16; i++) { if (BTN[i].down && !was[i]) haptic_tap(); was[i] = BTN[i].down; } }
     for (int i = 0; i < NBTN; i++) if (BTN[i].down) switch (BTN[i].key) {
         case K_A: p->a = 1; break; case K_B: p->b = 1; break; case K_X: p->x = 1; break; case K_Y: p->y = 1; break;
-        case K_CAM: p->up = 1; break; default: break; }
+        case K_CAM: p->cam = 1; break; default: break; }
     { static int was_plus = 0; int now = 0; for (int i = 0; i < NBTN; i++) if (BTN[i].key == K_PLUS && BTN[i].down) now = 1; p->plus = now && !was_plus; was_plus = now; }   /* + is a press, not a hold */
     if (g_stick_finger >= 0) {
         float dx = g_stick_dx, dy = -g_stick_dy; float m = sqrtf(dx * dx + dy * dy);
@@ -248,10 +248,11 @@ static void controller_pad(int k, Pad *w) {
     static int was[4]; int st = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_START); w->plus = st && !was[k]; was[k] = st;
     w->rx = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f; if (fabsf(w->rx) < 0.15f) w->rx = 0;
     w->ry = -SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f; if (fabsf(w->ry) < 0.15f) w->ry = 0;
-    w->up = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_UP) || SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_BACK); /* Select / View also changes the camera */ w->down = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+    w->up = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_UP);
+    w->cam = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_BACK) || SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_RIGHTSTICK);   /* Select / View, or a click of the right stick, changes the camera - never the d-pad, which moves the dragon */ w->down = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
     w->left = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_LEFT); w->right = SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
     w->source = 2;   /* a Pro Controller */
-    if (w->a || w->b || w->x || w->y || w->zr || w->zl || w->plus || w->sx || w->sy || w->rx) g_touch_mode = 0;
+    if (w->a || w->b || w->x || w->y || w->zr || w->zl || w->plus || w->sx || w->sy || w->rx || w->cam) g_touch_mode = 0;
 }
 static float g_rumble_left[KK_PADS];
 void platform_rumble_pad(int slot, float strength, float seconds) {
@@ -301,7 +302,7 @@ static void view_frame(const char *spec) {
         gfx_light(v3(1.05f, 0.98f, 0.86f), v3(0.62f, 0.72f, 0.86f), v3(0.42f, 0.44f, 0.32f), eye); gfx_camera(&vp, L, 0.44f, 0.7f, 0.8f, 0.9f, 140, 620);
     } else { gfx_light(v3(1.0f, 0.92f, 0.78f), v3(0.5f, 0.62f, 0.82f), v3(0.3f, 0.33f, 0.2f), eye); gfx_camera(&vp, L, 0.34f, 0.7f, 0.8f, 0.9f, 140, 620); }
     bump = bump % 10;
-    { const char *bs = getenv("KK_BEND"); float b0 = 0, b1 = 0, b2 = 0, b3 = 0; if (bs) { sscanf(bs, "%f %f %f %f", &b0, &b1, &b2, &b3); anim3d_set_bend(b0, b1, b2, b3); } }
+    { const char *bs = getenv("KK_BEND"); float b0 = 0, b1 = 0, b2 = 0, b3 = 0; if (bs) { sscanf(bs, "%f %f %f %f", &b0, &b1, &b2, &b3); anim3d_set_bend(b0, b1, b2, b3); if (getenv("KK_SWIM")) anim3d_set_swim(1); } }
     Mat4 id = m4_identity(); gfx_state(ST_SOLID); gfx_bump(bump); anim3d_draw(&a, c, tt, &id, 1.12f, 1.12f, 1.1f, 1); gfx_bump(0);
     gfx_post(0, 0.9f, 0.3f, 0.3f);
     gfx_view_end(0); gfx_frame_end();

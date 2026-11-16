@@ -5,7 +5,7 @@
 
 #define KK_VERSION "0.1 proof of concept"
 #define KK_PADS 5      /* controller slots: 0 the GamePad, 1..4 the Wii controllers */
-typedef struct { float sx, sy, rx, ry; int a, b, zl, zr, plus, x, y; int source; int touch; float tx, ty; int up, down, left, right; } Pad;
+typedef struct { float sx, sy, rx, ry; int a, b, zl, zr, plus, x, y; int source; int touch; float tx, ty; int up, down, left, right; int cam; } Pad;   /* cam: the change-view button (never the d-pad, which moves the dragon) */
 
 int  game_init(int gfx_status);
 void game_frame(const Pad *pads, int npads, float dt);

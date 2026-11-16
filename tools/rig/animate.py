@@ -70,8 +70,10 @@ def tail(t, amp=10, ph=0.0, nod=0.0):
     return {f'tail{i+1}': (nod + 0.25 * amp * (0.3 + 0.25 * i) * S(t * 2, ph + i * 1.1), 0, amp * (0.55 + 0.22 * i) * S(t, ph - i * 0.85)) for i in range(5)}
 def wings_folded():
     if TRACED:   # lowered about halfway and swept back along the body, fingers folded in
-        d = -min(0.55 * ELEV, 40)
-        return {'wingL_1': (d - 6, 0, 8), 'wingR_1': (d - 6, 0, -8), 'wingL_2': (-4, 0, 14), 'wingR_2': (-4, 0, -14), 'wingL_3': (-4, 0, 12), 'wingR_3': (-4, 0, -12)}
+        A, B, Cc, K = 34.0, 52.0, 44.0, 0.7   # tucked: the whole wing swings back against the flank and each joint folds further, so it lies along the body
+        d = -min(K * ELEV, 48)
+        if ELEV > 20: d, A, B, Cc = -40.0, 80.0, 75.0, 50.0   # wings that stand up in the model's own pose close together over the back instead, like a resting bird's
+        return {'wingL_1': (d - 6, 0, A), 'wingR_1': (d - 6, 0, -A), 'wingL_2': (-6, 0, B), 'wingR_2': (-6, 0, -B), 'wingL_3': (-4, 0, Cc), 'wingR_3': (-4, 0, -Cc)}
     return {'wingL_1': (-35, 0, -25), 'wingR_1': (-35, 0, 25), 'wingL_2': (0, 0, 45), 'wingR_2': (0, 0, -45), 'wingL_3': (0, 0, 30), 'wingR_3': (0, 0, -30)} if has_wings else {}
 def wings_flap(t, amp=45, base=10):
     # the shoulder does the work (a deep, slightly quick downstroke), the outer wing lags behind and bends further
@@ -152,6 +154,15 @@ def dive(t):
     rots.update({k: v for k, v in fly(t)[0].items() if k.startswith('leg')})
     rots.update({'spine1': (-4, 0, 0), 'spine2': (-2, 0, 0), 'neck1': (-12, 0, 0), 'neck2': (-8, 0, 0), 'head': (16, 0, 0)})
     rots.update(tail(t, 3, 0.0, nod=-3))
+    return rots, {}
+def swim(t):
+    # swimming like a snake: wings folded flat against the flanks, every leg swept back along the body, neck stretched out.
+    # (the game adds the big side-to-side coils that run from the head to the tail tip; here the head only weaves a little against them)
+    rots = dict(wings_folded())
+    for tag in ('FL', 'FR'): rots[f'leg{tag}_upper@body'] = (62, 0, 0); rots[f'leg{tag}_lower@body'] = (20, 0, 0); rots[f'leg{tag}_foot@body'] = (28 + 6 * S(t, 0.4), 0, 0)
+    for tag in ('BL', 'BR'): rots[f'leg{tag}_upper@body'] = (74, 0, 0); rots[f'leg{tag}_lower@body'] = (34, 0, 0); rots[f'leg{tag}_foot@body'] = (26 + 6 * S(t, 1.4), 0, 0)
+    rots.update({'spine1': (-3, 0, 0), 'spine2': (-2, 0, 0), 'neck1': (-10, 0, 0), 'neck2': (-8, 0, 0), 'head': (14, 0, 0)})
+    rots.update(tail(t, 5, 0.0, nod=-3))
     return rots, {}
 def eat(t):    # 0-0.3 lower head, 0.3-0.8 chomp x3, 0.8-1 raise
     down = min(1, t / 0.3) if t < 0.8 else max(0, 1 - (t - 0.8) / 0.2)
@@ -263,7 +274,7 @@ def with_life(kind, fn):
         rots, locs = fn(t); return life(t, kind, dict(rots)), locs
     return g
 
-CLIPS = [('idle', 120, True, idle), ('walk', 30, True, walk), ('run', 18, True, run), ('fly', 24, True, fly), ('glide', 60, True, glide), ('dive', 30, True, dive),
+CLIPS = [('idle', 120, True, idle), ('walk', 30, True, walk), ('run', 18, True, run), ('fly', 24, True, fly), ('glide', 60, True, glide), ('dive', 30, True, dive), ('swim', 30, True, swim),
          ('eat', 54, False, eat), ('roar', 60, False, roar), ('tailwhip', 30, False, tailwhip), ('hit', 24, False, hit), ('chirp', 24, False, chirp),
          ('claw', 18, False, claw), ('pounce', 30, True, pounce), ('talon', 18, False, talon)]
 for name, frames, loop, fn in CLIPS:

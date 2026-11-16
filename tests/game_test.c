@@ -14,7 +14,7 @@ int main(void) {
         pads[0].x = (f % 90) == 0;                                     /* try to eat now and then */
         pads[0].zr = t > 10;                                           /* run */
         pads[0].a = (f % 300) < 60; pads[0].y = f == 1200;             /* hop or flap in bursts, roar once */
-        pads[0].up = (f % 1200) == 599;                                /* change the view */
+        pads[0].cam = (f % 1200) == 599;                                /* change the view */
         game_frame(pads, KK_PADS, 1.0f / 60);
         if (f % 600 == 0) printf("t=%.0fs  %s\n", t, game_where());
     }

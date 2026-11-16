@@ -12,6 +12,7 @@ enum { ATK_NONE = 0, ATK_CLAW, ATK_TAIL, ATK_SLAM, ATK_TALON, ATK_ROLL, ATK_CHIR
 typedef struct {
     int stage;                  /* ST_* */
     float growth;               /* 0..100 toward the next stage */
+    float swim_mul;             /* how fast this dragon swims (0 or 1 = normal; the water dragon is far faster) */
     float x, y, z, yaw;         /* feet on the ground at y when on the ground */
     float vx, vy, vz;           /* velocity */
     float speed;                /* forward speed (m/s), for the animation */

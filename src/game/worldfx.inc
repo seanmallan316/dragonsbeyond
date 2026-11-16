@@ -81,7 +81,7 @@ static void wfx_update(float dt) {
         if (g_zapw_next <= 0) { g_zapw_next = 3.5f + 5 * wfx_h((int)(g_time * 7), 11); float a = wfx_h((int)(g_time * 13), 12) * 6.2831853f, r = 12 + 60 * wfx_h((int)(g_time * 17), 13); g_zapw_x = d->x + cosf(a) * r; g_zapw_z = d->z + sinf(a) * r; g_zapw_t = 0.35f;
             sfx_play(SFX_CRUMBLE, clampf(1.1f - r / 70, 0.25f, 1), 0); if (r < 30) g_shake_t = fmaxf(g_shake_t, 0.15f); } }
     if (g_world.sea_on) { static int was; int in = d->y < g_world.sea - 0.2f && world_height(&g_world, d->x, d->z) < g_world.sea - 0.5f;   /* a splash going in and out */
-        if (in != was) { was = in; sfx_play(SFX_SPLASH, 0.8f, 0); burst(v3(d->x, g_world.sea + 0.2f, d->z), 30, 6, 0.3f, 0.7f, 0.9f, 1, 0.6f); if (in) { static int told; if (!told) { told = 1; snprintf(g_msg, sizeof g_msg, "UNDER THE SEA! HOLD A TO SWIM UP, STICK DOWN TO SWIM DOWN. X SNAPS UP FISH"); g_msg_t = 6; } } } } }
+        if (in != was) { was = in; sfx_play(SFX_SPLASH, 0.8f, 0); burst(v3(d->x, g_world.sea + 0.2f, d->z), 30, 6, 0.3f, 0.7f, 0.9f, 1, 0.6f); if (in) { static int told; if (!told) { told = 1; snprintf(g_msg, sizeof g_msg, g_kind == 5 ? "UNDER THE SEA! THE WATER DRAGON SWIMS LIKE AN ARROW. A: UP, STICK BACK: DOWN" : "UNDER THE SEA! STICK TO SWIM, HOLD A TO RISE, STICK BACK TO SINK. X SNAPS UP FISH"); g_msg_t = 6; } } } } }
 
 /* solid things, drawn with the scenery */
 static void wfx_draw_solid(Vec3 eye) {

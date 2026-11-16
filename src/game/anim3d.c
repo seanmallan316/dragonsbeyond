@@ -27,8 +27,9 @@ int anim3d_load(Anim3D *a, const char *name) {
     a->ok = a->nc > 0 && a->tex && a->vb && a->mesh;
     gfx_log("animated %s: %s (%d corners, %d triangles, %d moves)", name, a->ok ? "loaded" : "failed", a->nv, a->nt, a->nc);
     return a->ok; }
-static float g_arc, g_side, g_up, g_phase;
-void anim3d_set_bend(float arc, float side, float up, float phase) { g_arc = arc; g_side = side; g_up = up; g_phase = phase; }
+static float g_arc, g_side, g_up, g_phase, g_swim;
+void anim3d_set_bend(float arc, float side, float up, float phase) { g_arc = arc; g_side = side; g_up = up; g_phase = phase; g_swim = 0; }
+void anim3d_set_swim(float s) { g_swim = s; }   /* after set_bend: 1 = the body wave becomes a snake's - tighter coils, small at the head and growing all the way to the tail tip */
 static int g_bc = -1; static float g_bt, g_bw;   /* the next draw only: blend with clip g_bc at time g_bt, weight g_bw (a crossfade out of the last move) */
 void anim3d_set_blend(int c, float t, float w) { g_bc = w > 0.001f ? c : -1; g_bt = t; g_bw = w; }
 static void frame_pick(const A3Clip *cl, float t, int *i0, int *i1, float *w) {
@@ -48,7 +49,7 @@ void anim3d_draw(Anim3D *a, int c, float t, const Mat4 *base, float r, float g, 
     int bc = (g_bc >= 0 && g_bc < a->nc && g_bc != c) ? g_bc : -1; float bw = g_bw; int j0 = 0, j1 = 0; float wj = 0; const uint8_t *g0 = NULL, *g1 = NULL;
     if (bc >= 0) { frame_pick(&a->clip[bc], g_bt, &j0, &j1, &wj); g0 = a->clip[bc].data + (size_t)j0 * a->nv * 10; g1 = a->clip[bc].data + (size_t)j1 * a->nv * 10; }
     g_bc = -1;
-    float bendkey = g_arc * 7.1f + g_side * 3.3f + g_up * 1.7f + g_phase * 0.013f + (bc >= 0 ? bc * 31.7f + g_bt * 0.37f + bw * 5.3f : 0);
+    float bendkey = g_arc * 7.1f + g_side * 3.3f + g_up * 1.7f + g_phase * 0.013f + g_swim * 11.3f + (bc >= 0 ? bc * 31.7f + g_bt * 0.37f + bw * 5.3f : 0);
     if (a->filled && a->last_c == c && a->last_t == t && a->last_bend == bendkey) { gfx_bind(a->tex); gfx_draw_ex(a->mesh, base, r, g, b, alpha, 0.25f, 0, 0, 0); return; }   /* same pose as the last call this frame: reuse it */
     a->filled = 1; a->last_c = c; a->last_t = t; a->last_bend = bendkey; int bend = g_arc != 0 || g_side != 0 || g_up != 0;
     const uint8_t *f0 = cl->data + (size_t)i0 * a->nv * 10, *f1 = cl->data + (size_t)i1 * a->nv * 10;
@@ -61,10 +62,11 @@ void anim3d_draw(Anim3D *a, int c, float t, const Mat4 *base, float r, float g, 
             o->nx = o->nx * iw + ((int8_t)q0[6] + ((int8_t)q1[6] - (int8_t)q0[6]) * wj) * (1.0f / 127) * bw; o->ny = o->ny * iw + ((int8_t)q0[7] + ((int8_t)q1[7] - (int8_t)q0[7]) * wj) * (1.0f / 127) * bw;
             o->nz = o->nz * iw + ((int8_t)q0[8] + ((int8_t)q1[8] - (int8_t)q0[8]) * wj) * (1.0f / 127) * bw; }
         if (bend) {   /* u: -1 at the tail tip .. +1 at the snout. The spine bends; each slice turns with it (no shear), and the head ahead of the neck moves as one rigid piece */
-            const float U0 = 0.38f; float u = o->pz * (1.0f / 0.95f), uc = u > U0 ? U0 : u, au = fabsf(uc), env = 0.25f + 0.75f * au;
-            float ph = g_phase - uc * 2.6f, wv = sinf(ph), wc = cosf(ph);
+            const float U0 = 0.38f; float u = o->pz * (1.0f / 0.95f), uc = u > U0 ? U0 : u, au = fabsf(uc), env = 0.25f + 0.75f * au, denv = 0.75f * (uc < 0 ? -1.0f : 1.0f), kw = 2.6f;
+            if (g_swim > 0) { float e2 = 0.16f + 0.84f * (U0 - uc) * (1.0f / 1.38f); env += (e2 - env) * g_swim; denv += (-0.84f / 1.38f - denv) * g_swim; kw += 2.0f * g_swim; }
+            float ph = g_phase - uc * kw, wv = sinf(ph), wc = cosf(ph);
             float f = g_arc * uc * uc * 0.5f + g_side * wv * 0.16f * env;                       /* sideways offset of the spine */
-            float df = (g_arc * uc + g_side * (-2.6f * wc * 0.16f * env + wv * 0.16f * 0.75f * (uc < 0 ? -1.0f : 1.0f))) * (1.0f / 0.95f);   /* its slope per metre */
+            float df = (g_arc * uc + g_side * (-kw * wc * 0.16f * env + wv * 0.16f * denv)) * (1.0f / 0.95f);   /* its slope per metre */
             if (df > 1.2f) df = 1.2f; if (df < -1.2f) df = -1.2f;
             float cs = 1.0f / sqrtf(1 + df * df), sn = df * cs;                                 /* turn angle of this slice */
             float zc = uc * 0.95f, lx = o->px, lz = o->pz - zc;                                 /* position relative to the spine point */
