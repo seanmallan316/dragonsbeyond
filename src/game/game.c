@@ -56,7 +56,7 @@ static const Theme THEMES[WK_N] = {
   { "EMBER VOLCANO", "basalt", "ash", {1, 1, 1}, {0.45f, 0.26f, 0.2f}, {0.95f, 0.55f, 0.42f}, {0.55f, 0.35f, 0.3f}, 9999, {PM_CHAR, PM_CHAR, PM_LAVAROCK, PM_BUSH, PM_ROCK, PM_LAVAROCK}, {1.0f, 1.0f, 0.35f, 1.6f, 1, 1.0f},
     0, {1.35f, 0.7f, 0.5f}, {1.0f, 0.45f, 0.1f}, {1.0f, 0.85f, 0.2f}, "MAGMAHORN", "MAGMAHORN GUARDS THE CAGE! DODGE ITS CHARGE SO IT HITS A LAVA ROCK", "ITS HORNS ARE STUCK! HIT IT NOW: TAIL (B) OR CLAW", "danger" },
   { "BLACKFEATHER KEEP", "basalt", "ash", {0.8f, 0.8f, 0.9f}, {0.12f, 0.12f, 0.17f}, {0.3f, 0.3f, 0.4f}, {0.35f, 0.33f, 0.4f}, 9999, {PM_CHAR, PM_CHAR, PM_LAVAROCK, PM_BUSH, PM_ROCK, PM_LAVAROCK}, {1.1f, 1.1f, 0.35f, 1.6f, 1, 1.2f},
-    1, {3.2f, 3.0f, 3.2f}, {1.0f, 0.12f, 0.1f}, {0.25f, 0.2f, 0.3f}, "KAINE'S MECH DRAGON", "KAINE BLACKFEATHER RIDES HIS MECH DRAGON! DODGE ITS SWOOP SO IT HITS A BURNT TREE", "THE MECH DRAGON IS STUCK! HIT IT NOW: TAIL (B) OR CLAW", "danger" } };
+    1, {3.2f, 3.0f, 3.2f}, {1.0f, 0.12f, 0.1f}, {0.25f, 0.2f, 0.3f}, "KAINE'S MECH DRAGON", "KAINE'S MECH DRAGON! DODGE THE RED FIRE RINGS. MAKE IT HIT A BURNT TREE OR MEGA BLAST IT, THEN STRIKE!", "THE MECH DRAGON IS STUCK! HIT IT NOW: TAIL (B) OR CLAW", "danger" } };
 #define TH (&THEMES[g_wk])
 #define FOGC(i) (g_env.fog[i])
 #define FOGC_OLD(i) ((g_sky_photo ? (0.66f + 0.04f * (i) + ((i) == 2 ? 0.06f : 0)) / (0.74f + 0.08f * (i) + ((i) == 2 ? 0.02f : 0)) : 1.0f) * TH->fog[i])   /* fog matches the sky picture's horizon, tinted for the world */
@@ -92,7 +92,7 @@ static int world_captive(void) { return final_keep() ? -1 : CAPTIVE[g_wk]; }
 static const char *boss_name(void) { return final_master() ? "EVERWING" : TH->boss; }
 static void master_freed(void); static void allies_update(float dt); static void boss_reset(int wk);
 static float g_mech_wait;   /* > 0: the mech is still dropping out of the storm (it cannot be woken yet) */
-static float kind_scale(int k, int st) { if (k == 7) return dragon_scale(st) * 1.1f; if (k == 0) return dragon_scale(st) * (st == ST_DRAGONET ? 1.3f : 1);   /* the new dragonets are long and low: drawn a bit bigger */ while (st > 0 && !g_km_ok[k][st]) st--; return st == ST_DRAGONET ? dragon_scale(ST_DRAGONET) * (k == 1 ? 0.85f : 1.3f) : dragon_scale(st); }
+static float kind_scale(int k, int st) { if (k == 7) return dragon_scale(st) * 1.75f;   /* the Master Dragon towers over every other dragon */ if (k == 0) return dragon_scale(st) * (st == ST_DRAGONET ? 1.3f : 1);   /* the new dragonets are long and low: drawn a bit bigger */ while (st > 0 && !g_km_ok[k][st]) st--; return st == ST_DRAGONET ? dragon_scale(ST_DRAGONET) * (k == 1 ? 0.85f : 1.3f) : dragon_scale(st); }
 static struct { int on, mode, anim; float x, y, z, yaw, speed, anim_t; } g_friend;
 static const char *SKY_NAMES[2] = {"SCARLET", "WINDSLY"}, *SNOW_NAMES[2] = {"SNOWFALL", "SNOWSTORM"};
 static const char *MORE_NAMES[4][2] = {{"DIAMOND FEATHER", "DIAMOND FEATHER"}, {"SAND STORM", "SAND STORM"}, {"TSUNAMI", "RIPTIDE"}, {"LAVA BREATHER", "LAVA BREATHER"}};
@@ -581,7 +581,7 @@ static Mat4 dragon_matrix(const Dragon *d, float scale) {
 static void camera_update(float dt) {
     if (g_shake_t > 0) g_shake_t -= dt; if (g_growpulse_t > 0) g_growpulse_t -= dt;
     if (g_side) { side_camera(dt); return; }
-    const Dragon *d = &g_dragon; float L = dragon_length(d->stage);
+    const Dragon *d = &g_dragon; float L = dragon_length(d->stage) * (g_kind == 7 ? 1.6f : 1.0f);   /* the camera stands further back from the huge Master Dragon */
     float k = 1 - expf(-dt * (d->mode == DM_AIR ? 2.2f : 3.5f));
     /* the camera turns to look where the dragon goes */
     float dy = d->yaw - g_cam_yaw; while (dy > 3.14159f) dy -= 6.2831853f; while (dy < -3.14159f) dy += 6.2831853f;
@@ -939,8 +939,8 @@ static void draw_ironhorn(Vec3 eye) {
         int c = anim3d_clip(ba, cn); if (c < 0) c = 0; float rate = !bk && (c == anim3d_clip(ba, "walk")) ? sp / 4.5f : (!bk && c == anim3d_clip(ba, "run") ? fmaxf(0.8f, sp / 11) : 1);
         if (c != last_clip) { at = 0; last_clip = c; } at += g_dt * rate; fade_set(2 + bk, ba, c, 0.3f);
         if (b->state == B_STUCK || b->state == B_STUNNED || b->state == B_HURT || b->state == B_DOWN) at -= g_dt * rate * 0.7f;   /* slow, dazed */
-        float k = (mech == 2 ? 5.6f : mech ? 7.5f : BOSSA_SCALE[bk]) * BOSS_SCALE; Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
-        if (mech) am = m4_mul(m4_translate(0, b->state == B_DOWN ? (mech == 2 ? 0.6f : 0) : (mech == 2 ? 1.0f : 1.6f), 0), am);
+        float k = (mech == 2 ? 7.6f : mech ? 8.6f : BOSSA_SCALE[bk]) * BOSS_SCALE;   /* the Master Dragon and the mech are giants */ Mat4 am = m4_mul(mm, m4_scale(k / BOSS_SCALE, k / BOSS_SCALE, k / BOSS_SCALE));
+        if (mech) am = m4_mul(m4_translate(0, b->state == B_DOWN ? (mech == 2 ? 0.8f : 0) : (mech == 2 ? 1.3f : 1.9f), 0), am);
         if (mech == 1 && g_mech_wait > 0.35f) { float u = (g_mech_wait - 0.35f) / 4.65f; am = m4_mul(m4_translate(0, 70.0f * u * u, 0), am); }   /* falling out of the storm */
         { float f = 1 + 3.5f * g_bflash * g_bflash; gfx_state(ST_SOLID); float tr = TH->boss_tint[0], tg = TH->boss_tint[1], tb = TH->boss_tint[2]; if (mech == 2) { tr = 2.7f; tg = 2.0f; tb = 3.6f; }   /* the spell's violet cast */
           anim3d_draw(ba, c, at, &am, tr * f, tg * f, tb * f, 1); }   /* flashes white when hit */
@@ -985,6 +985,7 @@ static void draw_kaine(void) {
 /* ---- the last fight ---- */
 static void boss_reset(int wk) {
     boss_init(&g_boss, &g_world); g_boss.hp = BOSS_HITS[g_diff]; g_boss.max_speed = BOSS_SPEED[g_diff]; g_boss.tired_need = BOSS_TIRED[g_diff]; if (wk == WK_KAINE && (g_side || g_has[7])) g_boss.hp += 2;
+    if (wk == WK_KAINE && !g_side && g_has[7]) { g_boss.hp += 3; g_boss.max_speed *= 1.35f; g_boss.tired_need += 2; }   /* Kaine's mech is the hardest fight in the game: tougher, faster, and it does not tire */
     if (THEMES[wk].boss_isles) { g_boss.core_fwd = 0.55f; g_boss.core_h = 3.1f; } g_boss.core_fwd *= BOSS_SCALE; g_boss.core_h *= BOSS_SCALE; }
 /* every dragon you have freed (bar the one you are playing and the friend at your side) circles the keep's arena on the wing and takes turns blasting the boss with its power */
 static float g_ally_t = 2.0f; static int g_ally_i, g_ally_shots;
@@ -1013,6 +1014,19 @@ static void master_freed(void) {
     boss_reset(g_wk); g_mech_wait = 5.0f;   /* the mech drops out of the storm, and wakes as soon as it lands */
     { float a = g_boss.yaw; g_boss.x = g_world.arena_x - sinf(a) * g_world.arena_r * 0.8f; g_boss.z = g_world.arena_z - cosf(a) * g_world.arena_r * 0.8f; g_boss.y = world_height(&g_world, g_boss.x, g_boss.z); }
     snprintf(g_msg, sizeof g_msg, "THE SPELL IS BROKEN! YOU ARE EVERWING, THE MASTER DRAGON, NOW. AND HERE COMES KAINE IN HIS MECH DRAGON!"); g_msg_t = 9; save_progress(); }
+/* Kaine's mech rains fire: a ring of red sparks marks the spot under you, and a second later it blows. Keep moving! Faster and in threes as the mech gets hurt. */
+#define MB_N 3
+static struct { float t, x, z; } g_mb[MB_N]; static float g_mb_next = 4.0f;
+static void mech_bombs(float dt, Dragon *d) {
+    if (!g_boss.woke || g_boss.state == B_DOWN || g_mech_wait > 0) { for (int i = 0; i < MB_N; i++) g_mb[i].t = 0; return; }
+    int hurt = BOSS_HITS[g_diff] + 5 - g_boss.hp; g_mb_next -= dt;
+    if (g_mb_next <= 0 && boss_vulnerable(&g_boss) == 0) { g_mb_next = fmaxf(1.6f, 3.6f - 0.22f * hurt); int n = hurt >= 6 ? 3 : hurt >= 3 ? 2 : 1;
+        for (int i = 0, made = 0; i < MB_N && made < n; i++) if (g_mb[i].t <= 0) { float lead = 0.7f * made; g_mb[i].t = 1.15f + 0.25f * made; g_mb[i].x = d->x + sinf(d->yaw) * d->speed * lead + (made ? sinf(g_time * 7 + made * 2.1f) * 5 : 0); g_mb[i].z = d->z + cosf(d->yaw) * d->speed * lead + (made ? cosf(g_time * 5 + made * 1.3f) * 5 : 0); made++; }
+        sfx_play(SFX_CHARGE, 0.5f, 0); }
+    for (int i = 0; i < MB_N; i++) { if (g_mb[i].t <= 0) continue; float gy = world_height(&g_world, g_mb[i].x, g_mb[i].z); const float R = 4.2f; g_mb[i].t -= dt;
+        for (int k = 0; k < 3; k++) { float a = g_time * 9 + k * 2.094f + i; burst(v3(g_mb[i].x + cosf(a) * R, gy + 0.3f, g_mb[i].z + sinf(a) * R), 1, 0.6f, 0.5f, 1.0f, 0.2f, 0.1f, 0.3f); }   /* the warning ring */
+        if (g_mb[i].t <= 0) { burst(v3(g_mb[i].x, gy + 1.0f, g_mb[i].z), 36, 11, 0.7f, 1.0f, 0.45f, 0.1f, 0.7f); burst(v3(g_mb[i].x, gy + 0.6f, g_mb[i].z), 14, 5, 1.0f, 1, 0.9f, 0.6f, 0.5f); g_shake_t = fmaxf(g_shake_t, 0.3f); sfx_play(SFX_BOOM, 0.7f, 0); platform_rumble(0.6f, 0.25f);
+            float dx = d->x - g_mb[i].x, dz = d->z - g_mb[i].z; if (dx * dx + dz * dz < (R + 1.0f) * (R + 1.0f) && d->y < gy + 7.0f) hurt_dragon(d, 1.0f, "KAINE'S FIRE HIT YOU! WATCH FOR THE RED RINGS AND KEEP MOVING"); } } }
 static void draw_arena(Vec3 eye) {
     allies_draw(eye);
     draw_ironhorn(eye); draw_kaine();
@@ -1210,7 +1224,7 @@ static void draw_hud(int drc) {
     /* Ironhorn's health, while the fight is on and the player is near */
     if (g_boss.woke && g_boss.state != B_DOWN) { float dx = d->x - g_boss.x, dz = d->z - g_boss.z;
         if (dx * dx + dz * dz < 60 * 60) { ui_panel(440, 132, 400, 90, 0.9f, 0); text_cg(boss_name(), 150, 26, 1);
-            int bmax = BOSS_HITS[g_diff] + (g_wk == WK_KAINE && !final_master() ? 2 : 0); for (int i = 0; i < bmax; i++) { float x = 640 - bmax * 34 + i * 68; ui_bar(x + 8, 188, 52, 10, i < g_boss.hp, 1.0f, 0.4f, 0.08f); } } }
+            int bmax = BOSS_HITS[g_diff] + (g_wk == WK_KAINE && !final_master() ? (g_side ? 2 : 5) : 0); float sp = bmax > 5 ? 360.0f / bmax : 68.0f; for (int i = 0; i < bmax; i++) { float x = 640 - bmax * sp * 0.5f + i * sp; ui_bar(x + sp * 0.12f, 188, sp * 0.76f, 10, i < g_boss.hp, 1.0f, 0.4f, 0.08f); } } }
     /* near a whirlwind: where it goes, and who is caged there */
     { Portal PP[2]; int np = portals(PP); for (int q = 0; q < np; q++) { float dx = d->x - PP[q].x, dz = d->z - PP[q].z; if (dx * dx + dz * dz > 26 * 26) continue;
         const Theme *T = &THEMES[PP[q].to]; char l1[64], l2[80]; snprintf(l1, sizeof l1, "WHIRLWIND TO %s", T->name);
@@ -1575,11 +1589,12 @@ static void boss_frame(float dt) {
     if (g_side && g_side_n > 1 && g_other.hearts > 0 && fabsf(g_other.x - g_boss.x) < fabsf(g_dragon.x - g_boss.x)) d = &g_other;
     float L = dragon_length(d->stage);
     int whip = d->atk_r > 0; int roar = (d->anim == DA_ROAR && d->act_t > 1.0f) || g_power_t > 0.3f;
+    int mechfight = final_keep() && g_has[7] && !g_rescued; if (mechfight) roar = g_power_t > 0.3f && g_power_big;   /* the mech shrugs off roars and small blasts: only a MEGA blast staggers it */
     int bev = 0; if (g_mech_wait > 0 && final_keep()) { float was = g_mech_wait; g_mech_wait -= dt; if (was > 0.35f && g_mech_wait <= 0.35f) { g_shake_t = fmaxf(g_shake_t, 0.5f); sfx_play(SFX_CRUMBLE, 1.0f, 0); platform_rumble(1, 0.5f); burst(v3(g_boss.x, g_boss.y + 0.5f, g_boss.z), 40, 7, 0.8f, 0.6f, 0.55f, 0.5f, 0.9f); } }
     else { g_mech_wait = 0; bev = boss_update(&g_boss, &g_world, dt, d->x, d->y, d->z, 0.6f * L + 0.8f, whip, roar); }
     if (bev & 1) { snprintf(g_msg, sizeof g_msg, "%s", final_master() ? "EVERWING, THE MASTER DRAGON, IS UNDER KAINE'S SPELL! YOUR DRAGONS ARE BLASTING HIM WITH THEIR POWERS. DODGE HIS SWOOPS!" : TH->guard); g_msg_t = 6; sfx_play(SFX_ROAR, 0.9f, 0); platform_rumble(0.6f, 0.5f); }
     if (bev & 64) { sfx_play(SFX_BUMP, 0.8f, 0); platform_rumble(0.3f, 0.3f); }
-    if (bev & 2) { { char hm[96]; snprintf(hm, sizeof hm, TH->boss_isles ? "%s HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : (g_side ? "%s RAMMED YOU! JUMP (A) OVER IT WHEN IT CHARGES" : "%s RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES"), boss_name()); hurt_dragon(d, 0.75f, hm); }
+    if (bev & 2) { { char hm[96]; snprintf(hm, sizeof hm, TH->boss_isles ? "%s HIT YOU! RUN (ZR) TO THE SIDE WHEN IT SWOOPS" : (g_side ? "%s RAMMED YOU! JUMP (A) OVER IT WHEN IT CHARGES" : "%s RAMMED YOU! RUN (ZR) TO THE SIDE WHEN IT CHARGES"), boss_name()); hurt_dragon(d, mechfight ? 1.5f : 0.75f, hm); }
         d->x += g_boss.cx * 3; d->z += g_boss.cz * 3; }
     if (bev & 16) { snprintf(g_msg, sizeof g_msg, "%s", final_master() ? "EVERWING IS STUCK! HIT HIM NOW TO SHAKE THE SPELL: TAIL (B) OR CLAW" : TH->stuck); g_msg_t = 4; sfx_play(SFX_CRUMBLE, 0.8f, 0); platform_rumble(1, 0.5f); }
     if (bev & 32) { snprintf(g_msg, sizeof g_msg, "IT IS DIZZY! QUICK, HIT IT: TAIL (B) OR CLAW"); g_msg_t = 3; }
@@ -1604,7 +1619,7 @@ static void boss_frame(float dt) {
             else snprintf(g_msg, sizeof g_msg, "%s IS FREE! HUGE UPGRADE: +2 HEARTS, FASTER, STRONGER ATTACKS. PRESS + TO SWAP DRAGONS", kind_name(c)); }
         else snprintf(g_msg, sizeof g_msg, "THE WIND GATE IS OPEN! HUGE UPGRADE: +2 HEARTS, FASTER, STRONGER ATTACKS. RIDE THE WHIRLWIND TO THE %s!", THEMES[g_wk + 1].name);
         g_msg_t = 9; g_tale_i = 0; g_tale_t = 0; g_tale_w = g_wk; sfx_play(SFX_CHIRP, 1.0f, 0); sfx_play(SFX_GROW, 1.0f, 0); platform_rumble(1, 1); save_progress(); }
-    allies_update(dt);
+    allies_update(dt); if (mechfight) mech_bombs(dt, d);
 #ifndef __wiiu__
     { const char *e = getenv("DB_FINAL"); static int st; if (e && final_keep()) {   /* PC look check of the last fight: the whole team, then the boss falls at the given time */
         if (!st) { st = 1; for (int k = 1; k < 7; k++) { g_has[k] = 1; g_team[k].stage = 1 + (k & 1); } }

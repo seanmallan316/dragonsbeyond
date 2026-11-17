@@ -99,7 +99,9 @@ def tail(t, amp=10, ph=0.0, nod=0.0):
 def wings_folded():
     if TRACED:   # tucked: the wing swings a little back, then folds DOWN flat against the dragon's side, its tip toward the belly
         k = max(0.0, WING_RATIO - 1.3)   # long wings are swung further back first (and their outer joints curl in more), so the tip never hangs below the feet
-        D, SW, F2, F3 = 78.0, min(60.0, 22.0 + 65.0 * k), 14.0 + 22.0 * k, 10.0 + 14.0 * k
+        S0 = float(arm.get('wing_sweep', 40.0))   # (swung back past sideways-on, 'down' would turn into 'up': the swing back stops short of that, and long wings curl their outer joints in under the belly instead)
+        D, SW, F2, F3 = [float(v) for v in os.environ.get('DB_FOLD', '78 40 60 45').split()]
+        SW = SW - S0; F2 = 20.0 + F2 * k; F3 = 15.0 + F3 * k   # the wing is brought to a fixed lean back (wherever the model had it), then folded down
         d = -(ELEV + D)
         return {'wingL_1': (d, 0, SW), 'wingR_1': (d, 0, -SW), 'wingL_2': (-F2, 0, 0), 'wingR_2': (-F2, 0, 0), 'wingL_3': (-F3, 0, 0), 'wingR_3': (-F3, 0, 0)}
     return {'wingL_1': (-35, 0, -25), 'wingR_1': (-35, 0, 25), 'wingL_2': (0, 0, 45), 'wingR_2': (0, 0, -45), 'wingL_3': (0, 0, 30), 'wingR_3': (0, 0, -30)} if has_wings else {}

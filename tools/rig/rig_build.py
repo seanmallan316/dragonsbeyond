@@ -113,6 +113,33 @@ try:
         cb, cv = best
         dist = dijkstra(G, directed=False, indices=cb, min_only=True)
         g = dist[cv]; ok = np.isfinite(g); cv = cv[ok]; g = g[ok]; gmax = g.max()
+        # a tail sculpted in a full ring, its tip fused back onto its own root, reads as TWO arms leaving the body. Find where they part,
+        # tell the thin arm (the tip end) from the thick one (the real root), and cut the tip free there, so the tail is one long chain again.
+        try:
+            gn = g / gmax; cut = None
+            for q in np.arange(0.06, 0.5, 0.03):
+                bandv = cv[(gn > q) & (gn < q + 0.1)]
+                if len(bandv) < 40: continue
+                nb, lb = connected_components(G[bandv][:, bandv], directed=False)
+                cnt = np.bincount(lb); bigc = np.nonzero(cnt > 0.2 * len(bandv))[0]
+                if len(bigc) == 2:
+                    def thick(c):
+                        X = P[bandv[lb == c]]; ev = np.linalg.eigvalsh(np.cov((X - X.mean(0)).T)); return float(np.sqrt(ev[0] + ev[1]))
+                    t0, t1 = thick(bigc[0]), thick(bigc[1]); thin = bigc[0] if t0 < t1 else bigc[1]
+                    cut = bandv[lb == thin]; print(' tail is a closed ring: cutting the tip free at g=%.2f (arm widths %.3f / %.3f, %d verts)' % (q, t0, t1, len(cut))); break
+                if len(bigc) > 2: break
+            if cut is not None:
+                import bmesh as _bm
+                wall = np.zeros(len(P), bool); wall[cut[gn[np.searchsorted(cv, cut)] < gn[np.searchsorted(cv, cut)].min() + 0.035]] = True   # a thin slice of the tip arm, right where it meets the root
+                bmc = _bm.new(); bmc.from_mesh(mesh.data); bmc.faces.ensure_lookup_table()
+                dead = [f for f in bmc.faces if any(wall[v.index] for v in f.verts)]
+                _bm.ops.delete(bmc, geom=dead, context='FACES_ONLY'); bmc.to_mesh(mesh.data); bmc.free(); mesh.data.update()
+                keep = ~(wall[Er[:, 0]] | wall[Er[:, 1]]); Er2 = Er[keep]; el2 = el[keep]
+                G = sps.coo_matrix((np.r_[el2, el2], (np.r_[Er2[:, 0], Er2[:, 1]], np.r_[Er2[:, 1], Er2[:, 0]])), shape=(len(P), len(P))).tocsr()
+                dist = dijkstra(G, directed=False, indices=cb, min_only=True)
+                cv = np.nonzero(np.isfinite(dist) & region & ~wall)[0]; g = dist[cv]; gmax = g.max(); print('  tail length along the ring now %.2f (was %.2f)' % (gmax, gmax if False else 0))
+        except Exception as ex2:
+            print(' ring check skipped:', ex2)
         if gmax > 0.25 * L:
             g = g / gmax
             joints = [P[cb].mean(0)]
