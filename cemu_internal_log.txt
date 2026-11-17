@@ -1,0 +1,61 @@
+[00:49:16.000] can't create cubeb audio api
+[00:49:16.000] can't create cubeb audio api
+[00:49:16.004] ------- Init Cemu 2.6 -------
+[00:49:16.004] Init Wii U memory space (base: 0x000077598c000000)
+[00:49:16.004] mlc01 path: /home/runner/.local/share/Cemu/mlc01
+[00:49:16.004] CPU: Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz
+[00:49:16.004] RAM: 15982MB
+[00:49:16.004] Platform: Linux
+[00:49:16.004] Used CPU extensions: SSSE3, SSE4.1, AVX, AVX2, LZCNT, MOVBE, BMI2, AES-NI, INVARIANT-TSC
+[00:49:16.009] Unable to open or create PlayStats.dat
+[00:49:16.009] IOSU_CRYPTO: No otp.bin found. Online mode cannot be used
+[00:49:16.009] IOSU_CRYPTO: No Seeprom.bin found. Online mode cannot be used
+[00:49:16.226] Mounting title 0005000012345678
+[00:49:16.226] Base: /home/runner/work/dragonsbeyond/dragonsbeyond/title [Folder]
+[00:49:16.226] Update: Not present
+[00:49:16.226] DLC: Not present
+[00:49:16.251] COS: System fonts found. Generated shareddata (26609KB)
+[00:49:16.267] Recompiler initialized
+[00:49:16.306] RPLLoader: Section 11 uncompresses to 32 bytes but sectionSize is 44
+[00:49:16.306] RPLLoader: Section 20 uncompresses to 24 bytes but sectionSize is 27
+[00:49:16.359] ------- Init Vulkan graphics backend -------
+[00:49:16.365] Vulkan instance version: 1.4
+[00:49:16.372] Using GPU: llvmpipe (LLVM 21.1.8, 256 bits)
+[00:49:16.372] Driver version: Mesa 26.0.8-1ubuntu0.3 (LLVM 21.1.8)
+[00:49:16.373] Vulkan: present_wait extension: unsupported
+[00:49:16.373] VulkanLimits: UBAlignment 16 nonCoherentAtomSize 64
+[00:49:16.745] Using available debug function: vkCreateDebugUtilsMessengerEXT()
+[00:49:16.745] Vulkan device memory info:
+[00:49:16.745] Heap 0 - Size 15982MB Flags 0x00000001
+[00:49:16.745] Memory 0 - HeapIndex 0 Flags 0x0000000f
+[00:49:16.745] VK_FORMAT_R4G4_UNORM_PACK8 not supported
+[00:49:19.040] ------- Loaded title -------
+[00:49:19.040] TitleId: 00050000-12345678
+[00:49:19.040] TitleVersion: v0
+[00:49:19.040] Save path:   /home/runner/.local/share/Cemu/mlc01/usr/save/00050000/12345678/user/ (not present)
+[00:49:19.040] Shader cache file: shaderCache/transferable/0005000012345678.bin
+[00:49:19.040] gameprofile path:  (not present)
+[00:49:19.040] RPX hash (updated): 4a0b3df5
+[00:49:19.040] RPX hash (base): 4a0b3df5
+[00:49:19.046] Loaded module 'dragonsbeyond' with checksum 0x5516eaf6
+[00:49:19.046] RPL link time: 4ms
+[00:49:19.048] HLE scan time: 2ms
+[00:49:19.048] ------- Active settings -------
+[00:49:19.048] CPU-Mode: 3
+[00:49:19.048] Load shared libraries: true
+[00:49:19.048] Use precompiled shaders: 0
+[00:49:19.048] Full sync at GX2DrawDone: true
+[00:49:19.048] Strict shader mul: true
+[00:49:19.048] Async compile: true
+[00:49:19.048] Console language: 1
+[00:49:19.188] ------- Activate graphic packs -------
+[00:49:19.188] ------- Init Audio backend -------
+[00:49:19.188] DirectSound: not supported
+[00:49:19.188] XAudio 2.8: not supported
+[00:49:19.188] XAudio 2.7: not supported
+[00:49:19.188] Cubeb: not supported
+[00:49:19.188] ------- Init Audio input backend -------
+[00:49:19.188] Cubeb: not supported
+[00:49:19.188] ------- Run title -------
+[00:49:19.467] Loading RPL: /cafeLibs/glslcompiler.rpl
+[00:49:19.581] Loaded module 'glslcompiler' with checksum 0x133d4fab
