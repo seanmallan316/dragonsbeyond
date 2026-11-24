@@ -589,7 +589,7 @@ static void camera_update(float dt) {
     else { g_look_hold -= dt; if (g_look_hold <= 0) g_cam_yaw += dy * k * (fabsf(d->speed) > 0.3f || d->mode == DM_AIR ? 1.0f : 0.35f); }
     Vec3 want, at;
     if (g_cam_mode == 0) {        /* overhead: behind and above, the whole dragon in view */
-        float back = 1.6f * L + 1.2f, up = 0.75f * L + 0.9f; if (d->mode == DM_AIR) { back *= 1.15f; up *= 1.1f; }
+        float back = 1.6f * L + 1.2f, up = 0.75f * L + 0.9f; if (d->mode == DM_AIR) { back *= 0.92f; up *= 0.82f; }   /* in the air the camera rides close over the dragon's back, the great wings filling the view */
         if (g_p2 >= 0) { float px = g_other.x - d->x, pz = g_other.z - d->z; float extra = clampf(sqrtf(px * px + pz * pz) - 6, 0, 30) * 0.45f; back += extra; up += extra * 0.5f; }   /* keep player 2 in the picture */
         want = v3(d->x - sinf(g_cam_yaw) * back, d->y + up, d->z - cosf(g_cam_yaw) * back);
         at = v3(d->x + sinf(g_cam_yaw) * 1.5f * L, d->y + 0.45f * L + (d->mode == DM_AIR ? d->pitch * 2 : 0), d->z + cosf(g_cam_yaw) * 1.5f * L); }
@@ -827,6 +827,8 @@ static void draw_dragon(const Dragon *d) {
       anim3d_set_bend(arc, side, air ? 0.3f + 0.9f * climb : 0, g_bodyph);
       if (swim) { anim3d_set_bend(arc * 1.3f, 0.22f + 0.38f * clampf(d->speed / 6.0f, 0, 1), 0, g_bodyph); anim3d_set_swim(1); } }   /* a gentle sway of the whole body; the clip's own spine and tail do the swimming */
     float at = gait_time(0, m, clip, d->anim, d->speed, dragon_length(st) * sc / dragon_scale(st), d->anim_t);
+    if (!swim && d->mode == DM_AIR && d->anim == DA_FLY) at *= 0.74f;   /* slow, heavy wingbeats */
+    else if (!swim && d->mode == DM_AIR && d->anim == DA_GLIDE) at *= 0.6f;
     if (swim) { static float sw_t, sw_last; float dq = g_time - sw_last; sw_last = g_time; if (dq < 0 || dq > 0.1f) dq = 0.016f; sw_t += dq * (0.4f + 0.1f * fminf(d->speed, 9.0f)); at = sw_t; }   /* strokes slow when it drifts and quicken as it speeds up */
     fade_set(0, m, clip, d->anim == DA_HIT || d->anim == DA_TAILWHIP || d->anim == DA_CLAW ? 0.1f : 0.22f);
     gfx_bump(2); anim3d_draw(m, clip, at, &base, 1.12f + glow, 1.12f + glow, 1.1f + 0.6f * glow, 1); gfx_bump(0); gfx_bind(NULL); }
@@ -1042,7 +1044,7 @@ static float g_fov_speed;   /* the view opens up as the dragon flies faster */
 static void draw_scene(int drc) {
     float aspect = gfx_aspect(drc); Vec3 eye = g_eye, at = g_at;
     if (g_shake_t > 0) { float a = g_shake_t * 0.6f; Vec3 o = v3(sinf(g_time * 71) * a, sinf(g_time * 83 + 1) * a, cosf(g_time * 67) * a); eye = v3(eye.x + o.x, eye.y + o.y, eye.z + o.z); at = v3(at.x + o.x * 0.5f, at.y + o.y * 0.5f, at.z + o.z * 0.5f); }
-    float cr = g_dragon.mode == DM_AIR ? g_bank * (g_cam_mode == 0 ? 0.3f : 0.85f) : 0;   /* the camera leans into a banked turn with the dragon */
+    float cr = g_dragon.mode == DM_AIR ? g_bank * (g_cam_mode == 0 ? 0.6f : 0.85f) : 0;   /* the camera leans into a banked turn with the dragon */
     Vec3 up = v3(-sinf(cr) * cosf(g_cam_yaw), cosf(cr), sinf(cr) * sinf(g_cam_yaw));
     Mat4 proj = m4_perspective((g_side ? 0.85f : g_cam_mode == 2 ? 1.25f : 1.05f) + 0.28f * g_dragon.dive + g_fov_speed, aspect, 0.2f, 1500.0f), view = m4_look_at(eye, at, up); Mat4 vp = m4_mul(proj, view);
     Vec3 L = sun_dir(); env_compute(eye);
@@ -1891,7 +1893,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
         if (g_travel_t > 1.8f) g_travel_t = -1; }
     { float dy = g_dragon.yaw - yaw_before; while (dy > 3.14159f) dy -= 6.28318f; while (dy < -3.14159f) dy += 6.28318f;
       float rate = dt > 0 ? dy / dt : 0; g_turn += (rate - g_turn) * (1 - expf(-dt * 4)); { const char *ft = getenv("DB_FORCETURN"); if (ft) g_turn = (float)atof(ft); }
-      float want_bank = g_dragon.mode == DM_AIR ? clampf(-g_turn * 0.6f, -0.95f, 0.95f) : 0; g_bank += (want_bank - g_bank) * (1 - expf(-dt * 3));
+      float want_bank = g_dragon.mode == DM_AIR ? clampf(-g_turn * 0.8f, -1.15f, 1.15f) : 0; g_bank += (want_bank - g_bank) * (1 - expf(-dt * 2.4f));   /* a deep, unhurried lean into every turn */
       float spd = g_dragon.mode == DM_AIR ? 5.5f : 2.0f + g_dragon.speed * 1.2f; if (dragon_in_water(&g_dragon)) spd = 2.2f + fminf(g_dragon.speed, 9.0f) * 0.45f;   /* swimming: the coils run down the body faster the faster it swims */ g_bodyph = fmodf(g_bodyph + dt * spd, 6.28318f * 100); }
 #ifdef DB_TOUR
     g_tour_a = in.a; g_tour_presses += in.a_press; g_tour_takeoffs += (ev & 4) != 0;

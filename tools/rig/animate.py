@@ -26,8 +26,10 @@ class Clip:
         self.act.use_frame_range = True; self.act.frame_start = 1; self.act.frame_end = frames
         self.act.use_cyclic = loop
     def key(self, f, rots, locs=None):
-        for b in pb: b.rotation_euler = (0, 0, 0); b.location = (0, 0, 0)
-        rots = dict(rots)
+        for b in pb: b.rotation_euler = (0, 0, 0); b.location = (0, 0, 0); b.scale = (1, 1, 1)
+        rots = dict(rots); span = rots.pop('__span', 1.0)   # in the air the wings open out bigger than they sit folded (a great sail of a wing, like a real flying dragon's)
+        for nm in ('wingL_1', 'wingR_1'):
+            if nm in pb: pb[nm].scale = (span, span, span)
         for nm in TAIL_STRAIGHT: rots.setdefault(nm, (0, 0, 0))   # every pose gets the combed-out tail
         for name, (x, y, z) in rots.items():
             if name.endswith('@body'):   # x = turn about the body's left-right axis: + swings the foot back toward the tail
@@ -53,6 +55,7 @@ class Clip:
         for b in pb:
             b.keyframe_insert('rotation_euler', frame=f)
             if b.name in ('root', 'hips'): b.keyframe_insert('location', frame=f)
+            if b.name in ('wingL_1', 'wingR_1'): b.keyframe_insert('scale', frame=f)
     def bake(self, fn, step=2):
         for f in range(1, self.frames + 1, step):
             t = (f - 1) / self.frames
@@ -110,12 +113,12 @@ def wings_flap(t, amp=45, base=10):
     s1 = S(t); down = s1 - 0.25 * (1 - s1 * s1)   # a little sharper at the bottom of the stroke
     a = base + amp * down * (1.0 if down > 0 else 1.45)   # the wing is swept back, so the downstroke needs more turn to bring the tips under the belly
     b = 0.12 * amp * S(t, -0.6); c = 0.1 * amp * S(t, -1.0)   # outer wing follows the shoulder, only a slight lag
-    if TRACED: b = 0.26 * amp * S(t, -0.9); c = 0.3 * amp * S(t, -1.5)   # a wave rolls out along the wing: wrist, then fingers, then tip (like a whip, not a plank)
+    if TRACED: b = 0.36 * amp * S(t, -1.0); c = 0.42 * amp * S(t, -1.7)   # a wave rolls out along the wing: wrist, then fingers, then tip (like a whip, not a plank)
     sweep = 0.18 * amp * S(t, -0.5)   # the wing also sweeps a little forward on the downstroke
     # on the way up the wing half-folds at the wrist and elbow (less air to push), then opens wide for the downstroke
     f = max(0.0, C(t, -0.2)) * 0.42 * amp; b -= 0.15 * f
     if TRACED:
-        a = base + amp * down * (1.0 if down > 0 else 0.8); f = max(0.0, C(t, -0.2)) * 0.22 * amp
+        a = base + amp * down; f = max(0.0, C(t, -0.2)) * 0.22 * amp
         return {'wingL_1': (a, 0, -FWD - sweep), 'wingR_1': (a, 0, FWD + sweep), 'wingL_2': (b, 0, f - 0.2 * FWD), 'wingR_2': (b, 0, -f + 0.2 * FWD), 'wingL_3': (c, 0, 0.7 * f - 0.1 * FWD), 'wingR_3': (c, 0, -0.7 * f + 0.1 * FWD)}   # (left wing: - = forward)
     return {'wingL_1': (a, 0, -sweep), 'wingR_1': (a, 0, sweep), 'wingL_2': (b, 0, f), 'wingR_2': (b, 0, -f), 'wingL_3': (c, 0, 0.7 * f), 'wingR_3': (c, 0, -0.7 * f)} if has_wings else {}
 def legs_walk(t, swing=28, lift=22, ph_fl=0.0):
@@ -152,28 +155,36 @@ def run(t):
     rots.update({'hips': (0, 2 * S(t, 0.4), 3 * S(t))})
     rots.update(tail(t, 22, 0.9, nod=-5)); rots.update(wings_folded())
     return rots, {'hips': (0, 0, (0.055 if CH < 1 else 0.025) * H * max(0, S(2 * t, 0.3)))}
+SPAN = 1.24
 def fly(t):
-    # bird-like stroke: the wing rests ~42 deg up, so -42 = level; +-88 around level brings the tips nearly together
-    # over the back on the upstroke and under the belly on the downstroke
-    rots = wings_flap(t, 52, 6 - ELEV) if TRACED else wings_flap(t, 88, -42)
-    # flying pose: front legs folded up under the chest, back legs swept back along the tail
+    # a great slow beat, as the big flying dragons do it: the shoulder drives a deep stroke, the wrist follows late and the tip later still,
+    # so the wing rolls through the air like a whip; the chest is thrown up by every downstroke and sinks between
+    rots = wings_flap(t, 56, float(os.environ.get('DB_FE', '-6')) - ELEV) if TRACED else wings_flap(t, 88, -42)
+    rots['__span'] = SPAN
+    # flying pose: front legs folded up under the chest, back legs trailing straight back under the tail
     tuck = {}
-    for tag in ('FL', 'FR'): tuck[f'leg{tag}_upper@body'] = (88, 0, 0); tuck[f'leg{tag}_lower@body'] = (8, 0, 0); tuck[f'leg{tag}_foot@body'] = (15, 0, 0)
-    for tag in ('BL', 'BR'): tuck[f'leg{tag}_upper@body'] = (72, 0, 0); tuck[f'leg{tag}_lower@body'] = (38, 0, 0); tuck[f'leg{tag}_foot@body'] = (25, 0, 0)
+    for tag in ('FL', 'FR'): tuck[f'leg{tag}_upper@body'] = (88, 0, 0); tuck[f'leg{tag}_lower@body'] = (8, 0, 0); tuck[f'leg{tag}_foot@body'] = (15 + 4 * S(t, 0.5), 0, 0)
+    for tag in ('BL', 'BR'): tuck[f'leg{tag}_upper@body'] = (76, 0, 0); tuck[f'leg{tag}_lower@body'] = (34, 0, 0); tuck[f'leg{tag}_foot@body'] = (25 + 5 * S(t, 1.2), 0, 0)
     rots.update(tuck)
-    # the body answers every beat: chest rises on the downstroke, a wave runs from the neck back through the tail
-    rots.update({'spine1': (-6 + 5 * S(t, 0.6), 0, 0), 'spine2': (-4 + 5 * S(t, 1.2), 0, 0), 'chest': (-4 + 4 * S(t), 0, 0),
-                 'neck1': (-6 - 5 * S(t, -0.4), 0, 0), 'neck2': (-6 - 4 * S(t, -0.8), 0, 0), 'head': (14 + 6 * S(t, -1.2), 0, 0)})
-    rots.update({f'tail{i+1}': (-4 + 9 * S(t, 1.6 + i * 0.8), 0, 6 * S(t * 0.5, i * 0.9)) for i in range(5)})
-    return rots, {'hips': (0, 0, -0.07 * H * S(t))}   # the body sinks while the wings are up, lifts on the downstroke
+    rots.update({'spine1': (-6 + 6 * S(t, 0.6), 0, 0), 'spine2': (-4 + 6 * S(t, 1.2), 0, 0), 'chest': (-4 + 5 * S(t), 0, 0),
+                 'neck1': (-6 - 6 * S(t, -0.4), 0, 0), 'neck2': (-6 - 5 * S(t, -0.8), 0, 0), 'head': (14 + 7 * S(t, -1.2), 0, 0)})
+    tl = tail(t * 0.5, 7, 0.4, nod=-3)   # the long tail streams out behind as a rudder: a slow sway, and a wave from each beat running down it
+    rots.update({k: (v[0] + 7 * S(t, 1.6 + i * 0.8), 0, v[2]) for i, (k, v) in enumerate(tl.items())})
+    return rots, {'hips': (0, 0, 0.045 * H * S(t, 0.35))}
 def glide(t):
-    # soaring: wings spread flat with the tips a little up (a shallow V), only small trimming movements
-    rots = wings_flap(t, 3, 10 - ELEV) if TRACED else wings_flap(t, 3, -35)
-    if has_wings: rots.update({'wingL_3': (3 + 2 * S(t, 1.0), 0, 0), 'wingR_3': (3 + 2 * S(t, 1.0), 0, 0)})
+    # soaring: the wings reach right out to the side at full stretch and hold a shallow M - shoulders lifted, the outer wing drooping
+    # to the tips - breathing slowly on the air; the body hangs still beneath them
+    if TRACED:
+        e = float(os.environ.get('DB_GE', '-4')) - ELEV + 2.0 * S(t); o = FWD + 8
+        rots = {'wingL_1': (e, 0, -o), 'wingR_1': (e, 0, o), 'wingL_2': (-9 + 2.5 * S(t, -0.8), 0, -0.2 * FWD), 'wingR_2': (-9 + 2.5 * S(t, -0.8), 0, 0.2 * FWD), 'wingL_3': (-7 + 3 * S(t, -1.5), 0, -0.1 * FWD), 'wingR_3': (-7 + 3 * S(t, -1.5), 0, 0.1 * FWD)}
+    else:
+        rots = wings_flap(t, 3, -35)
+        if has_wings: rots.update({'wingL_3': (3 + 2 * S(t, 1.0), 0, 0), 'wingR_3': (3 + 2 * S(t, 1.0), 0, 0)})
+    rots['__span'] = SPAN
     rots.update({k: v for k, v in fly(t)[0].items() if k.startswith('leg')})
-    rots.update({'spine1': (-5, 0, 0), 'spine2': (-3, 0, 0), 'neck1': (-5, 0, 0), 'head': (10, 0, 0)})
-    rots.update(tail(t, 5, 0.0, nod=-6))
-    return rots, {'hips': (0, 0, 0.01 * H * S(t))}
+    rots.update({'spine1': (-5, 0, 0), 'spine2': (-3, 0, 0), 'neck1': (-5 + 1.5 * S(t, 0.5), 0, 0), 'head': (10 - 1.5 * S(t, 0.5), 0, 0)})
+    rots.update(tail(t, 6, 0.0, nod=-4))
+    return rots, {'hips': (0, 0, 0.012 * H * S(t))}
 def dive(t):
     # diving: wings half-folded and swept back along the body, neck stretched forward, tail straight behind
     rots = {}
