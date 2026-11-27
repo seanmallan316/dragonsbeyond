@@ -126,6 +126,7 @@ try:
                     def thick(c):
                         X = P[bandv[lb == c]]; ev = np.linalg.eigvalsh(np.cov((X - X.mean(0)).T)); return float(np.sqrt(ev[0] + ev[1]))
                     t0, t1 = thick(bigc[0]), thick(bigc[1]); thin = bigc[0] if t0 < t1 else bigc[1]
+                    if min(t0, t1) > 0.6 * max(t0, t1) or q < 0.15: break   # two arms of the same width, or a split right at the root, are not a ring (legs, a forked tip)
                     cut = bandv[lb == thin]; print(' tail is a closed ring: cutting the tip free at g=%.2f (arm widths %.3f / %.3f, %d verts)' % (q, t0, t1, len(cut))); break
                 if len(bigc) > 2: break
             if cut is not None:

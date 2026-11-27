@@ -19,6 +19,9 @@ if img is None:
             if nd.type == 'TEX_IMAGE' and nd.image: img = nd.image; break
 assert img, 'no base colour texture'
 img.filepath_raw = out + '_anim.png'; img.file_format = 'PNG'; img.save(); print('texture', img.size[:])
+try:   # some models (TRELLIS) carry a WebP texture that img.save() writes unchanged: re-encode it as a plain JPEG the game can read
+    from PIL import Image as _I; _I.open(out + '_anim.png').convert('RGB').save(out + '_anim.png', 'JPEG', quality=90)
+except Exception as e: print('texture re-encode skipped', e)
 # reduce the mesh (before the armature in the stack) so the game moves far fewer corners
 ntri0 = sum(len(p.vertices) - 2 for p in me.data.polygons)
 bpy.context.view_layer.objects.active = me
