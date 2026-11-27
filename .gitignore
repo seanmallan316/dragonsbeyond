@@ -17,3 +17,9 @@ android/app/src/main/assets/
 android/.gradle/
 android/app/build/
 android/port/build-*/
+tools/vfxproj/vfx/godot/
+tools/vfxproj/vfx/work/
+tools/vfxproj/vfx/previews/
+meshy/real/
+navt.a
+build/

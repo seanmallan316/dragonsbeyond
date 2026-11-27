@@ -61,6 +61,18 @@ void gfx_grade(float film, float rim, float wrap, float rich);   /* the look of 
 void gfx_camera_ui3d(float eye);                             /* the menus in 3D: vertices in screen pixels (x right, y down) with z toward the viewer */
 void gfx_camera_ui3d_v(float eye, float vw, float vh);   /* gfx_camera_ui3d for a view vw x vh (split screen) */
 void gfx_camera_2d_virtual(float vw, float vh);               /* the same, with the 2D helpers' 1280 x 720 layout mapped onto a view of vw x vh pixels */
+/* Effekseer effects (the phone version and the PC test build; on the Wii U gfx_fx_ok() is 0 and the game keeps its own particles).
+   Handles are 0 when nothing plays. Effects are found by name in content/efk/<name>.efk. */
+int  gfx_fx_ok(void);
+int  gfx_fx_play(const char *name, float x, float y, float z, float yaw, float scale);
+void gfx_fx_move(int h, float x, float y, float z, float yaw, float scale);
+void gfx_fx_color(int h, float r, float g, float b, float a);
+void gfx_fx_input(int h, int i, float v);
+void gfx_fx_stop(int h);
+int  gfx_fx_alive(int h);
+void gfx_fx_update(float dt);
+void gfx_fx_draw(const Mat4 *view, const Mat4 *proj);
+void gfx_state_reset(void);
 void gfx_bind(Texture *t);
 void gfx_state(int flags);
 void gfx_light(Vec3 sun, Vec3 sky, Vec3 ground, Vec3 eye);   /* sun color, ambient from above and from below, camera position; call before gfx_camera */

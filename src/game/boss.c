@@ -1,5 +1,6 @@
 // boss.c - see boss.h
 #include "boss.h"
+#include "nav.h"
 #include <math.h>
 #include <string.h>
 static float wrapa(float a) { while (a > 3.14159265f) a -= 6.2831853f; while (a < -3.14159265f) a += 6.2831853f; return a; }
@@ -18,7 +19,9 @@ int boss_update(Boss *b, const World *w, float dt, float px, float py, float pz,
     else if (b->state == B_STALK) {
         /* prowl round the dragon at a distance, walking where it looks; then turn to face, paw the ground, and charge */
         float want = atan2f(dx, dz), gx = 0, gz = 0, gs = 0;
-        if (!in_arena) { float hx = w->arena_x - b->x, hz = w->arena_z - b->z, hl = sqrtf(hx * hx + hz * hz); if (hl > 2) { gx = hx / hl; gz = hz / hl; gs = 4.5f; } b->t = 0; }
+        if (!in_arena) { float hx = w->arena_x - b->x, hz = w->arena_z - b->z, hl = sqrtf(hx * hx + hz * hz), cx, cz;   /* back to its clearing, round the trees on the way */
+            if (hl > 6 && nav_steer(0, b->x, b->y, b->z, w->arena_x, w->arena_y, w->arena_z, &cx, &cz)) { hx = cx - b->x; hz = cz - b->z; hl = sqrtf(hx * hx + hz * hz); }
+            if (hl > 2) { gx = hx / hl; gz = hz / hl; gs = 4.5f; } b->t = 0; }
         else if (b->t < b->prowl) {
             float ux = dist > 0.01f ? dx / dist : 0, uz = dist > 0.01f ? dz / dist : 1; float tx = -uz * b->orbit, tz = ux * b->orbit;   /* tangent round the dragon */
             float rad = (dist - 13) * 0.25f; if (rad > 1) rad = 1; if (rad < -1) rad = -1;   /* keep about 13 m away */

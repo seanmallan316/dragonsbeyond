@@ -1,5 +1,6 @@
 // game.c - Dragons Beyond, proof of concept: Everleaf Wilds with the forest dragonet. Walk, eat, grow, fly.
 #include "game.h"
+#include "nav.h"
 #include "world.h"
 #include "dragon.h"
 #include "anim3d.h"
@@ -564,7 +565,8 @@ static void burst(Vec3 at, int n, float speed, float size, float r, float g, flo
     for (int i = 0; i < n; i++) { Part *q = &g_parts[g_npart++ % 320]; float a = frand01(&seed) * 6.2832f, e = frand01(&seed) * 1.3f - 0.2f, sp = speed * (0.4f + 0.8f * frand01(&seed));
         q->p = at; q->v = v3(cosf(a) * cosf(e) * sp, sinf(e) * sp + speed * 0.4f, sinf(a) * cosf(e) * sp); q->max = q->life = life * (0.6f + 0.6f * frand01(&seed)); q->size = size * (0.6f + 0.8f * frand01(&seed)); q->r = r; q->g = g; q->b = b; } }
 static void parts_update(float dt) { for (int i = 0; i < 320; i++) { Part *q = &g_parts[i]; if (q->life <= 0) continue; q->life -= dt; q->v.y -= 9 * dt; float dm = 1 - 1.5f * dt; q->v = v3(q->v.x * dm, q->v.y * dm, q->v.z * dm); q->p = v3(q->p.x + q->v.x * dt, q->p.y + q->v.y * dt, q->p.z + q->v.z * dt); } }
-static void hit_juice(Vec3 at, float stop, float shake, float r, float g, float b) { if (g_hitstop < stop) g_hitstop = stop; if (g_shake_t < shake) g_shake_t = shake; burst(at, 18, 7, 0.22f, r, g, b, 0.45f); burst(at, 6, 3, 0.5f, 1, 1, 1, 0.18f); }
+static void fx_hit(Vec3 at, float power, float r, float g, float b);
+static void hit_juice(Vec3 at, float stop, float shake, float r, float g, float b) { fx_hit(at, shake, r, g, b); if (g_hitstop < stop) g_hitstop = stop; if (g_shake_t < shake) g_shake_t = shake; burst(at, 18, 7, 0.22f, r, g, b, 0.45f); burst(at, 6, 3, 0.5f, 1, 1, 1, 0.18f); }
 /* how a knocked-out robot moves: thrown back with a hop, tumbles over, bounces, lies still, then pops in a puff of sparks */
 typedef struct { float ox, oy, oz, roll, spin, scale, flash; int show; } KO;
 static KO ko_pose(const Drone *d, int airborne) {
@@ -835,7 +837,10 @@ static void draw_dragon(const Dragon *d) {
 
 static void hurt_dragon(Dragon *D, float amount, const char *msg);
 #include "worldfx.inc"
+static void fx_shatter(Vec3 at, float s, float r, float g, float b); static void fx_power_start(int k, int big, const Dragon *d);
+#include "breakables.inc"
 #include "powers.inc"
+#include "fx.inc"
 static void draw_sparkles(const Dragon *d, Vec3 eye) {
     float ccx, ccz; int col = column_at(&ccx, &ccz) && (ccx - eye.x) * (ccx - eye.x) + (ccz - eye.z) * (ccz - eye.z) < 170 * 170;
     batch_clear(&g_b);
@@ -1072,7 +1077,7 @@ static void draw_scene(int drc) {
     gfx_bind(tx_flower); if (m_flowers) gfx_draw(m_flowers, &id, 1, 1, 1, 1);
     draw_food3d(eye);
     wfx_draw_solid(eye);
-    draw_arena(eye);
+    draw_arena(eye); shards_draw();
     if (g_cam_mode != 2) {   /* the player's dragon gets a character light, as in films: the sun swung round toward the camera and a
                                 brighter fill, so the side we see (usually its back) shows its shape and colours instead of a dark flat cut-out */
         Vec3 tc = v3_norm(v3(eye.x - g_dragon.x, 0, eye.z - g_dragon.z)); Vec3 L2 = v3_norm(v3(L.x * 0.5f + tc.x * 0.6f, L.y * 0.7f + 0.35f, L.z * 0.5f + tc.z * 0.6f));
@@ -1088,6 +1093,7 @@ static void draw_scene(int drc) {
     scenelayer_draw_faded();   /* trees and rocks between the camera and the dragon, see-through */
     draw_sparkles(&g_dragon, eye);
     clouds_draw(eye);
+    gfx_fx_draw(&view, &proj);   /* the Effekseer effects (phone and PC) */
     gfx_bind(NULL); }
 
 static void shadow_pass(void) {
@@ -1530,7 +1536,7 @@ static void enter_world(int wk, float x, float z, float yaw) {
         gfx_sync();
         Mesh **ms[] = {&m_ground, &m_ground_dirt, &m_ground_rock, &m_water, &m_bark, &m_leaves, &m_fern, &m_bushes, &m_rock, &m_tufts, &m_flowers, &m_clouds, &m_mountains, &m_apron, &m_cloudsea, &m_sky, &m_sun};
         for (int i = 0; i < (int)(sizeof ms / sizeof ms[0]); i++) if (*ms[i]) { gfx_mesh_free(*ms[i]); *ms[i] = NULL; }
-        theme_textures(); build_ground(); build_props(); build_layers(); wfx_build(); water_build(); g_ng_wk = -1; memset(g_ring_t, 0, sizeof g_ring_t); }
+        theme_textures(); build_ground(); build_props(); build_layers(); wfx_build(); water_build(); g_ng_wk = -1; nav_build(&g_world); memset(g_ring_t, 0, sizeof g_ring_t); }
     if (CAPTIVE[wk] >= 0) ensure_kind(CAPTIVE[wk], ST_DRAGONET); if (wk + 1 < WK_N) ensure_kind(CAPTIVE[wk + 1], ST_DRAGONET); for (int k = 1; k < K_N; k++) if (g_has[k]) ensure_kind(k, ST_BEYONDER);
     boss_reset(wk);
     if (g_wrescued[wk]) { g_boss.state = B_DOWN; g_boss.hp = 0; g_boss.cage_open = 1; g_boss.t = 10; }
@@ -1605,7 +1611,7 @@ static void boss_frame(float dt) {
     else if ((bev & 4) && !(bev & 8) && g_wk == WK_KAINE) { static const char *TAUNT[6] = {"KAINE: \"LUCKY HIT, LIZARD!\"", "KAINE: \"MY MECH CANNOT LOSE!\"", "KAINE: \"STOP THAT! DO YOU KNOW WHAT THIS COST?\"", "KAINE: \"NO, NO, NO! HOLD TOGETHER!\"", "KAINE: \"EVERWING IS MINE! MINE!\"", "KAINE: \"THIS IS NOT FAIR!\""};
         snprintf(g_msg, sizeof g_msg, "%s   %d MORE", TAUNT[g_boss.hp % 6], g_boss.hp); g_msg_t = 4; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
     else if ((bev & 4) && !(bev & 8)) { snprintf(g_msg, sizeof g_msg, g_boss.hp == 1 ? "HIT! ONE MORE" : "HIT! %d MORE", g_boss.hp); g_msg_t = 3; sfx_play(SFX_BLOCK, 0.9f, 0); platform_rumble(0.8f, 0.3f); }
-    if (bev & 8) { if (final_master()) snprintf(g_msg, sizeof g_msg, "EVERWING FALLS... THE DARK SPELL IS CRACKING!"); else if (final_keep()) snprintf(g_msg, sizeof g_msg, "THE MECH DRAGON IS FALLING TO PIECES!"); else snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", TH->boss); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
+    if (bev & 8) { fx_boom(v3(g_boss.x, g_boss.y + 1.0f, g_boss.z), 0.12f * BOSS_SCALE); if (final_master()) snprintf(g_msg, sizeof g_msg, "EVERWING FALLS... THE DARK SPELL IS CRACKING!"); else if (final_keep()) snprintf(g_msg, sizeof g_msg, "THE MECH DRAGON IS FALLING TO PIECES!"); else snprintf(g_msg, sizeof g_msg, "%s IS DOWN! THE CAGE IS OPENING", TH->boss); g_msg_t = 5; sfx_play(SFX_WIN, 0.9f, 0); platform_rumble(1, 0.8f); g_dragon.growth += 20; }
     if (g_side && g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued) { g_rescued = 1; sfx_play(SFX_CHIRP, 1.0f, 0); }   /* multiplayer: freeing it ends the level */
     else if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued && final_master()) master_freed();
     else if (g_boss.state == B_DOWN && g_boss.cage_open >= 1 && !g_rescued && final_keep()) {   /* the mech is beaten: the end of the story */
@@ -1636,7 +1642,9 @@ static void boss_frame(float dt) {
         float dx = tx - g_friend.x, dz = tz - g_friend.z, dy = ty - g_friend.y, dist = sqrtf(dx * dx + dz * dz);
         float cap = fmaxf(d->mode == DM_AIR ? 22.0f : 11.0f, fabsf(d->speed) * 1.3f + 3); float want = dist > 0.3f ? fminf(dist * 1.8f, cap) : 0;   /* always fast enough to keep up */ g_friend.speed += (want - g_friend.speed) * (1 - expf(-dt * 4));
         if (dist > 28) { g_friend.x = tx; g_friend.z = tz; g_friend.y = ty; }   /* fell far behind: catch up */
-        else if (dist > 0.01f) { g_friend.x += dx / dist * g_friend.speed * dt; g_friend.z += dz / dist * g_friend.speed * dt; }
+        else if (dist > 0.01f) { float mx = dx, mz = dz, ml = dist, cx, cz;   /* on foot it walks the path round trees and rocks, not through them */
+            if (!air && dist > 3 && nav_steer(1, g_friend.x, g_friend.y, g_friend.z, tx, gy, tz, &cx, &cz)) { mx = cx - g_friend.x; mz = cz - g_friend.z; ml = sqrtf(mx * mx + mz * mz); if (ml < 0.05f) { mx = dx; mz = dz; ml = dist; } else { dx = mx; dz = mz; } }
+            float stp = fminf(g_friend.speed * dt, ml); g_friend.x += mx / ml * stp; g_friend.z += mz / ml * stp; if (!air) world_push_out(&g_world, &g_friend.x, &g_friend.y, &g_friend.z, 0.8f, 0); }
         g_friend.y += dy * (1 - expf(-dt * (air ? 3 : 10))); if (!air) g_friend.y = fmaxf(g_friend.y, world_height(&g_world, g_friend.x, g_friend.z));
         float fyaw = g_friend.speed > 0.5f ? atan2f(dx, dz) : d->yaw; float dyaw = fyaw - g_friend.yaw; while (dyaw > 3.14159f) dyaw -= 6.28318f; while (dyaw < -3.14159f) dyaw += 6.28318f; g_friend.yaw += dyaw * (1 - expf(-dt * 5));
         int anim = air ? (dy > 0.2f || g_friend.speed > 6 ? DA_FLY : DA_GLIDE) : (g_friend.speed > 6 ? DA_RUN : (g_friend.speed > 0.6f ? DA_WALK : DA_IDLE));
@@ -1692,6 +1700,7 @@ static void robot_drops(void) {
 static void robots_vs(Dragon *D, float dt) {
     { /* whatever attack the dragon is doing this step (claw, tail, pounce, talons, barrel roll, spark chirp) hits anything in its reach */
       Attack atk = {D->atk_x, D->atk_y, D->atk_z, D->atk_r}; int safe = D->invuln_t > 0 || D->slam;
+      if (atk.r > 0 && D == &g_dragon) smash(atk.x, atk.y, atk.z, 0, 0, atk.r + 0.4f, -2, 0.9f + 0.35f * D->stage + 0.15f * D->power);   /* tail and claws crack rocks and crystals (bigger dragons, bigger rocks) */
       int roar = D->anim == DA_ROAR && D->act_t > 1.0f;
       int dev = world_drones(&g_world, dt, D->x, D->y + 0.4f * dragon_length(D->stage), D->z, 0.8f * dragon_length(D->stage) + 1.0f, atk, roar);
       if ((dev & 1) && D->evolve_t <= 0 && !safe) { D->hearts -= 0.5f * DMG[g_diff]; D->act_t = 0.77f; D->anim = DA_HIT; D->anim_t = 0; sfx_play(SFX_HIT, 0.6f, 0); platform_rumble(0.7f, 0.3f); snprintf(g_msg, sizeof g_msg, D->stage >= ST_DRAGON ? "A FEATHER DRONE! WHEN ITS EYE FLASHES RED IT DIVES: ROLL (B) OR TALONS (X)" : "A FEATHER DRONE! WHEN ITS EYE FLASHES RED IT DIVES: TAIL (B), OR HOP AND POUNCE (A THEN B)"); g_msg_t = 4;
@@ -1844,6 +1853,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     g_look_x = p->rx;
     float yaw_before = g_dragon.yaw;
     if (getenv("DB_SWAPTEST")) { static int done; if (!done && g_time > 1.0f) { done = 1; for (int k = 0; k < K_N; k++) { g_has[k] = 1; ensure_kind(k, 0); } g_swap_open = 1; g_swap_sel = atoi(getenv("DB_SWAPTEST")); } }
+    if (getenv("DB_SMASH")) { static int done; if (!done && g_time > 1.3f) { done = 1; float gy = world_height(&g_world, g_dragon.x, g_dragon.z); smash(g_dragon.x, gy + 1, g_dragon.z, 0, 0, 40, -2, 99); if (atoi(getenv("DB_SMASH")) > 1) crater(g_dragon.x + sinf(g_dragon.yaw) * 6, g_dragon.z + cosf(g_dragon.yaw) * 6, 7, 2.2f); } }
     if (getenv("DB_POWER")) { static int done; if (!done && g_time > 1.3f) { done = 1; g_dragon.stage = ST_BEYONDER; power_start(atoi(getenv("DB_POWER")) > 1); } }
     if (p->source == 2) g_pro_pad = 1;
     if (g_friend.on && g_p2 < 0 && !g_side && g_other.stage >= ST_DRAGON) { static float fcd = 5; fcd -= dt;   /* your friend fights too: now and then it blasts a robot that comes too close to it */
@@ -1868,7 +1878,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     if (g_kvx * g_kvx + g_kvz * g_kvz > 0.01f) { g_dragon.x += g_kvx * dt; g_dragon.z += g_kvz * dt; float k = expf(-7 * dt); g_kvx *= k; g_kvz *= k;   /* knocked back, sliding to a stop */
         if (!(WK_ISLES(g_world.kind) && world_is_void(&g_world, g_dragon.x, g_dragon.z))) { solid_body(&g_dragon); if (g_dragon.mode != DM_AIR) g_dragon.y = fmaxf(g_dragon.y, world_height(&g_world, g_dragon.x, g_dragon.z)); } }
     kind_quirks(&g_dragon, g_kind, &in, dt, &ev);
-    wfx_update(dt); neargrass_update(g_dragon.x, g_dragon.z);
+    wfx_update(dt); shards_update(dt); fx_frame(dt); neargrass_update(g_dragon.x, g_dragon.z);
     if (sky_fall(&g_dragon, &g_safe_x, &g_safe_z)) { g_dragon.hearts -= 1.0f * DMG[g_diff]; sfx_play(SFX_SPLASH, 0.6f, 0); platform_rumble(0.6f, 0.3f);
         if (g_dragon.hearts <= 0) { g_dragon.hearts = g_dragon.max_hearts; dragon_respawn(&g_dragon); world_safe_spot(&g_world, g_dragon.x, g_dragon.z, &g_dragon.x, &g_dragon.z); g_dragon.y = world_height(&g_world, g_dragon.x, g_dragon.z); g_safe_x = g_dragon.x; g_safe_z = g_dragon.z;
             snprintf(g_msg, sizeof g_msg, "YOU FELL TOO MANY TIMES! BACK TO THE START"); }
@@ -1906,7 +1916,7 @@ void game_frame(const Pad *pads, int npads, float dt) {
     coop_frame(pads, npads, dt);
     if (g_side) side_frame(dt);
     if (ev & 1) { platform_rumble(0.3f, 0.1f); sfx_play(SFX_MUNCH, 0.6f, 0); sfx_play(SFX_PICKUP, 0.3f, 0); }
-    if (ev & 2) { snprintf(g_msg, sizeof g_msg, g_dragon.stage == ST_DRAGON ? "YOU GREW INTO A DRAGON! HOLD A TO FLY" : "BEYONDER! THE SKY IS YOURS"); g_msg_t = 6; platform_rumble(1, 0.8f); }
+    if (ev & 2) { fx_grow(&g_dragon); snprintf(g_msg, sizeof g_msg, g_dragon.stage == ST_DRAGON ? "YOU GREW INTO A DRAGON! HOLD A TO FLY" : "BEYONDER! THE SKY IS YOURS"); g_msg_t = 6; platform_rumble(1, 0.8f); }
     if (ev & 16) { platform_rumble(0.6f, 0.4f); sfx_play(g_dragon.stage == ST_DRAGONET ? SFX_CHIRP : SFX_ROAR, 0.8f, 0); }
     if (ev & 2) sfx_play(SFX_GROW, 0.8f, 0);
     if (ev & 4) sfx_play(SFX_FLAP, 0.6f, 0);

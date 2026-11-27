@@ -1,0 +1,1068 @@
+{
+  "id": "VFX_Kaiju_Explosion",
+  "name": "Kaiju Explosion",
+  "category": "explosion",
+  "element": "fire",
+  "duration": 5.75,
+  "loop": false,
+  "attach": "impact",
+  "peak": 0.075,
+  "impact": 0.9,
+  "light": [
+    1,
+    0.72,
+    0.45
+  ],
+  "seed": 1729,
+  "layers": [
+    {
+      "name": "Heat haze",
+      "texture": "vfx/textures/processed/T_DistortHaze01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "material": "BackDistortion",
+      "distortion": 0.7,
+      "life": 175,
+      "delay": 5.0,
+      "size": 168.0,
+      "size_curve": [
+        [
+          0,
+          0.5
+        ],
+        [
+          25,
+          1
+        ],
+        [
+          100,
+          1.2
+        ]
+      ],
+      "billboard": "Billboard",
+      "uv_scroll": [
+        0.0,
+        0.0024000000000000002
+      ],
+      "fade_in": 7.5,
+      "fade_out": 105.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Smoke column",
+      "texture": "vfx/textures/processed/T_SmokeSheet02.png",
+      "color": [
+        92,
+        84,
+        78,
+        215
+      ],
+      "color_end": [
+        92,
+        84,
+        78,
+        90
+      ],
+      "count": 9,
+      "life": [
+        210,
+        225
+      ],
+      "delay": 20.0,
+      "interval": 12.5,
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.0,
+          24.0
+        ],
+        "rotate": false
+      },
+      "velocity": [
+        0.0,
+        [
+          0.064,
+          0.144
+        ],
+        0.0
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -12,
+          12
+        ]
+      ],
+      "spin": [
+        0.0,
+        0.0,
+        [
+          -0.04,
+          0.04
+        ]
+      ],
+      "size": [
+        92.0,
+        120.0
+      ],
+      "size_end": [
+        184.0,
+        240.0
+      ],
+      "easing": "EaseOutCubic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0.0,
+            0.000768,
+            0.0
+          ]
+        }
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "fade_in": 5.0,
+      "fade_out": 60.0,
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 20,
+        "loop": "Once"
+      },
+      "cutoff": {
+        "start": 0,
+        "end": 0.3,
+        "easing": "EaseInCubic"
+      },
+      "position": [
+        0.0,
+        16.0,
+        0.0
+      ],
+      "soft": 20.0,
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Soot body",
+      "texture": "vfx/textures/processed/T_FireballSootSheet01.png",
+      "color": [
+        38,
+        32,
+        29,
+        235
+      ],
+      "color_end": [
+        38,
+        32,
+        29,
+        0
+      ],
+      "life": 175,
+      "delay": 12.5,
+      "size": 128.0,
+      "size_curve": [
+        [
+          0,
+          0.45
+        ],
+        [
+          25,
+          0.9
+        ],
+        [
+          100,
+          1.2
+        ]
+      ],
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "rotation": [
+        0,
+        0,
+        20
+      ],
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 10,
+        "loop": "Once"
+      },
+      "velocity": [
+        0.0,
+        0.096,
+        0.0
+      ],
+      "fade_in": 5.0,
+      "fade_out": 75.0,
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Fireball",
+      "texture": "vfx/textures/processed/T_FireballSheet01.png",
+      "color": [
+        255,
+        168,
+        72,
+        255
+      ],
+      "color_curve": {
+        "R": [
+          [
+            0,
+            255
+          ],
+          [
+            40,
+            214
+          ],
+          [
+            75,
+            120
+          ],
+          [
+            100,
+            60
+          ]
+        ],
+        "G": [
+          [
+            0,
+            168
+          ],
+          [
+            40,
+            84
+          ],
+          [
+            75,
+            40
+          ],
+          [
+            100,
+            20
+          ]
+        ],
+        "B": [
+          [
+            0,
+            72
+          ],
+          [
+            40,
+            28
+          ],
+          [
+            75,
+            18
+          ],
+          [
+            100,
+            10
+          ]
+        ],
+        "A": [
+          [
+            0,
+            255
+          ],
+          [
+            40,
+            255
+          ],
+          [
+            75,
+            160
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "life": 145,
+      "delay": 2.5,
+      "size": 120.0,
+      "size_curve": [
+        [
+          0,
+          0.25
+        ],
+        [
+          18,
+          0.85
+        ],
+        [
+          100,
+          1.15
+        ]
+      ],
+      "billboard": "RotatedBillboard",
+      "rotation": [
+        0,
+        0,
+        20
+      ],
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 10,
+        "start": 2,
+        "loop": "Once"
+      },
+      "velocity": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "fade_in": 0,
+      "fade_out": 35.0,
+      "emissive": 0.85,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Fire lobes",
+      "texture": "vfx/textures/processed/T_FireballSheet01.png",
+      "color": [
+        255,
+        168,
+        72,
+        255
+      ],
+      "color_curve": {
+        "R": [
+          [
+            0,
+            255
+          ],
+          [
+            60,
+            214
+          ],
+          [
+            100,
+            90
+          ]
+        ],
+        "G": [
+          [
+            0,
+            168
+          ],
+          [
+            60,
+            84
+          ],
+          [
+            100,
+            30
+          ]
+        ],
+        "B": [
+          [
+            0,
+            72
+          ],
+          [
+            60,
+            28
+          ],
+          [
+            100,
+            12
+          ]
+        ],
+        "A": [
+          [
+            0,
+            255
+          ],
+          [
+            60,
+            255
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "count": 3,
+      "life": [
+        100,
+        130
+      ],
+      "delay": 10.0,
+      "size": [
+        48.0,
+        68.0
+      ],
+      "billboard": "RotatedBillboard",
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 7,
+        "loop": "Once"
+      },
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.0,
+          8.0
+        ],
+        "rotate": false
+      },
+      "travel": {
+        "end": [
+          [
+            -60.0,
+            60.0
+          ],
+          [
+            8.0,
+            64.0
+          ],
+          [
+            -24.0,
+            24.0
+          ]
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "fade_in": 0,
+      "fade_out": 30.0,
+      "emissive": 1.6,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Contact flash",
+      "texture": "vfx/textures/processed/T_Flare01.png",
+      "color": [
+        255,
+        244,
+        214,
+        255
+      ],
+      "life": 10,
+      "delay": 2.5,
+      "size": 180.0,
+      "size_curve": [
+        [
+          0,
+          0.55
+        ],
+        [
+          25,
+          1
+        ],
+        [
+          100,
+          0.15
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "fade_in": 0,
+      "fade_out": 6.0,
+      "emissive": 1.6,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Bloom",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        255,
+        190,
+        110,
+        140
+      ],
+      "life": 15,
+      "delay": 2.5,
+      "size": 140.0,
+      "size_curve": [
+        [
+          0,
+          0.25
+        ],
+        [
+          18,
+          1
+        ],
+        [
+          100,
+          1.25
+        ]
+      ],
+      "billboard": "Billboard",
+      "fade_in": 0,
+      "fade_out": 12.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Ground pivot",
+      "renderer": "None",
+      "life": 300,
+      "position": [
+        0.0,
+        -50.0,
+        0.0
+      ],
+      "children": [
+        {
+          "name": "Dust skirt",
+          "texture": "vfx/textures/processed/T_SmokeSheet02.png",
+          "color": [
+            150,
+            136,
+            118,
+            170
+          ],
+          "color_end": [
+            150,
+            136,
+            118,
+            0
+          ],
+          "count": 10,
+          "life": [
+            150,
+            225
+          ],
+          "delay": 10.0,
+          "interval": 0,
+          "blend": "Blend",
+          "billboard": "RotatedBillboard",
+          "spawn": {
+            "shape": "Circle",
+            "radius": [
+              0.4,
+              0.8
+            ],
+            "division": 8
+          },
+          "velocity": [
+            0.0,
+            [
+              0.0,
+              0.0
+            ],
+            0.0
+          ],
+          "rotation": [
+            0,
+            0,
+            [
+              -12,
+              12
+            ]
+          ],
+          "spin": [
+            0.0,
+            0.0,
+            [
+              -0.04,
+              0.04
+            ]
+          ],
+          "size": [
+            1.4,
+            1.9
+          ],
+          "size_end": [
+            2.52,
+            3.42
+          ],
+          "easing": "EaseOutCubic",
+          "forces": [
+            {
+              "type": "Gravity",
+              "gravity": [
+                0.0,
+                3.2000000000000005e-05,
+                0.0
+              ]
+            }
+          ],
+          "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+          "fade_in": 5.0,
+          "fade_out": 25.0,
+          "flipbook": {
+            "x": 4,
+            "y": 4,
+            "frame_length": 15,
+            "loop": "Once"
+          },
+          "cutoff": {
+            "start": 0,
+            "end": 0.3,
+            "easing": "EaseInCubic"
+          },
+          "travel": {
+            "end": [
+              [
+                2.4,
+                3.4
+              ],
+              0,
+              0
+            ],
+            "easing": "EaseOutCubic"
+          },
+          "soft": 14.0,
+          "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+        }
+      ],
+      "scale_start": [
+        40.0,
+        40.0,
+        40.0
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shock ring",
+      "renderer": "Ring",
+      "color": [
+        255,
+        210,
+        160,
+        150
+      ],
+      "life": 40,
+      "delay": 5.0,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "ring": {
+        "outer": [
+          1,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.65,
+            0
+          ],
+          "end": [
+            0.97,
+            0
+          ]
+        },
+        "center_ratio": 0.8,
+        "outer_color": [
+          255,
+          210,
+          160,
+          75
+        ],
+        "center_color": [
+          255,
+          210,
+          160,
+          150
+        ],
+        "inner_color": [
+          255,
+          210,
+          160,
+          0
+        ]
+      },
+      "size": 240.0,
+      "size_curve": [
+        [
+          0,
+          0.12
+        ],
+        [
+          35,
+          0.72
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "fade_in": 0,
+      "fade_out": 28.0,
+      "position": [
+        0.0,
+        -48.8,
+        0.0
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shock refraction",
+      "texture": "vfx/textures/processed/T_DistortRing01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "material": "BackDistortion",
+      "distortion": 1.0,
+      "life": 40,
+      "delay": 5.0,
+      "size": 400.0,
+      "size_curve": [
+        [
+          0,
+          0.15
+        ],
+        [
+          40,
+          0.75
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "billboard": "Billboard",
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "fade_in": 0,
+      "fade_out": 28.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Embers streaks",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "color_end": [
+        255,
+        200,
+        120,
+        255
+      ],
+      "count": 6,
+      "life": [
+        15,
+        25
+      ],
+      "delay": 5.0,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.0,
+          3.2
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0.0,
+          [
+            83.2,
+            201.6
+          ],
+          0.0
+        ],
+        "easing": "EaseOutQuartic"
+      },
+      "scale_start": [
+        2.0,
+        [
+          24.000000000000004,
+          57.60000000000001
+        ],
+        40.0
+      ],
+      "scale_end": [
+        0.6,
+        4.800000000000001,
+        40.0
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [],
+      "fade_in": 0,
+      "fade_out": 7.5,
+      "emissive": 2.2,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Embers",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        255,
+        200,
+        120,
+        255
+      ],
+      "color_end": [
+        200,
+        70,
+        20,
+        255
+      ],
+      "count": 18,
+      "life": [
+        60,
+        100
+      ],
+      "delay": 5.0,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.0,
+          3.2
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0.0,
+          [
+            64.0,
+            144.0
+          ],
+          0.0
+        ],
+        "easing": "EaseOutQuartic"
+      },
+      "scale_start": [
+        4.0,
+        [
+          16.0,
+          36.0
+        ],
+        40.0
+      ],
+      "scale_end": [
+        1.2,
+        3.2000000000000006,
+        40.0
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0.0,
+            -0.007679999999999999,
+            0.0
+          ]
+        }
+      ],
+      "fade_in": 0,
+      "fade_out": 12.5,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Embers heavy",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        255,
+        200,
+        120,
+        255
+      ],
+      "color_end": [
+        200,
+        70,
+        20,
+        255
+      ],
+      "count": 3,
+      "life": [
+        75,
+        120
+      ],
+      "delay": 5.0,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.0,
+          3.2
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0.0,
+          [
+            44.8,
+            129.60000000000002
+          ],
+          0.0
+        ],
+        "easing": "EaseOutQuartic"
+      },
+      "scale_start": [
+        6.0,
+        [
+          9.6,
+          25.2
+        ],
+        40.0
+      ],
+      "scale_end": [
+        1.7999999999999998,
+        1.92,
+        40.0
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0.0,
+            -0.016896,
+            0.0
+          ]
+        }
+      ],
+      "fade_in": 0,
+      "fade_out": 12.5,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Debris",
+      "texture": "vfx/textures/processed/T_Shard01.png",
+      "color": [
+        46,
+        41,
+        38,
+        255
+      ],
+      "color_end": [
+        27,
+        24,
+        22,
+        255
+      ],
+      "count": 8,
+      "life": [
+        125,
+        200
+      ],
+      "delay": 5.0,
+      "blend": "Blend",
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0.0,
+        0.0,
+        [
+          -4.8,
+          4.8
+        ]
+      ],
+      "size": [
+        4.0,
+        8.8
+      ],
+      "size_end": [
+        3.2000000000000006,
+        7.040000000000001
+      ],
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0.0,
+            -0.022400000000000003,
+            0.0
+          ]
+        }
+      ],
+      "fade_in": 0,
+      "fade_out": 15.0,
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.0,
+          4.0
+        ],
+        "rotate": false
+      },
+      "travel": {
+        "end": [
+          [
+            -120.0,
+            120.0
+          ],
+          [
+            24.0,
+            120.0
+          ],
+          [
+            -48.0,
+            48.0
+          ]
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "collide": {
+        "height": -50.0,
+        "bounce": [
+          0.15,
+          0.35
+        ],
+        "friction": 0.6,
+        "reduction": 0.2
+      },
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    }
+  ],
+  "design": "A pale yellow-white flash becomes an orange fireball rolling up out of its own soot, lobes break off it, a dust skirt rolls along the ground and a brown-grey smoke column keeps climbing after the fire is gone.",
+  "delivery": {
+    "kind": "targeted"
+  },
+  "scale": {
+    "profile": "kaiju",
+    "world": 40.0,
+    "time": 2.5,
+    "budget": 3.0
+  }
+}

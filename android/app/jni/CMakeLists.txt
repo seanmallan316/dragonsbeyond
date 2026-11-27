@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.6)
-project(DRAGONSBEYOND C)
+project(DRAGONSBEYOND C CXX)
 # SDL's own source sits in jni/SDL (put there by the build)
 add_subdirectory(SDL)
 add_subdirectory(src)

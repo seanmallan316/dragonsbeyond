@@ -674,3 +674,15 @@ void gfx_draw_ex(const Mesh *m, const Mat4 *model, float r, float g, float b, fl
     GX2RSetAttributeBuffer((GX2RBuffer *)&m->buf[m->cur], 0, sizeof(Vertex), 0);
     GX2DrawEx(GX2_PRIMITIVE_MODE_TRIANGLES, m->count, 0, 1);
 }
+
+/* no Effekseer here: the game keeps its own particles */
+int  gfx_fx_ok(void) { return 0; }
+int  gfx_fx_play(const char *name, float x, float y, float z, float yaw, float scale) { (void)name; (void)x; (void)y; (void)z; (void)yaw; (void)scale; return 0; }
+void gfx_fx_move(int h, float x, float y, float z, float yaw, float scale) { (void)h; (void)x; (void)y; (void)z; (void)yaw; (void)scale; }
+void gfx_fx_color(int h, float r, float g, float b, float a) { (void)h; (void)r; (void)g; (void)b; (void)a; }
+void gfx_fx_input(int h, int i, float v) { (void)h; (void)i; (void)v; }
+void gfx_fx_stop(int h) { (void)h; }
+int  gfx_fx_alive(int h) { (void)h; return 0; }
+void gfx_fx_update(float dt) { (void)dt; }
+void gfx_fx_draw(const Mat4 *view, const Mat4 *proj) { (void)view; (void)proj; }
+void gfx_state_reset(void) { }

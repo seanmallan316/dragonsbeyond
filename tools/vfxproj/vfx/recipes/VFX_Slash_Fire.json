@@ -1,0 +1,971 @@
+{
+  "id": "VFX_Slash_Fire",
+  "name": "Fire Slash",
+  "category": "slash",
+  "element": "fire",
+  "duration": 0.6,
+  "loop": false,
+  "attach": "impact",
+  "peak": 0.08,
+  "impact": 0.6,
+  "light": [
+    1,
+    0.55,
+    0.2
+  ],
+  "seed": 1729,
+  "layers": [
+    {
+      "name": "Swing plane",
+      "renderer": "None",
+      "life": 22,
+      "rotation": [
+        0,
+        -32,
+        0
+      ],
+      "children": [
+        {
+          "name": "Afterimage",
+          "renderer": "Ring",
+          "texture": "vfx/textures/processed/T_Trail01.png",
+          "color": [
+            255,
+            70,
+            15,
+            200
+          ],
+          "life": 19,
+          "delay": 3,
+          "billboard": "Fixed",
+          "rotation": [
+            -18,
+            0,
+            30
+          ],
+          "ring": {
+            "vertices": 96,
+            "outer": [
+              1.504,
+              0.096
+            ],
+            "inner": {
+              "start": [
+                0.22399999999999975,
+                -0.0576
+              ],
+              "end": [
+                1.184,
+                -0.0144
+              ]
+            },
+            "center_ratio": 0.6,
+            "outer_color": [
+              255,
+              70,
+              15,
+              200
+            ],
+            "center_color": [
+              255,
+              70,
+              15,
+              200
+            ],
+            "inner_color": [
+              255,
+              70,
+              15,
+              200
+            ],
+            "angle_start": [
+              110,
+              170.0
+            ],
+            "angle_end": [
+              128.0,
+              260
+            ],
+            "angle_easing": "EaseOutQuartic",
+            "angle_fade": [
+              25,
+              4
+            ]
+          },
+          "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+          "cutoff": {
+            "start": 0,
+            "end": 0.75,
+            "easing": "EaseInQuadratic"
+          },
+          "fade_in": 0,
+          "fade_out": 9.5,
+          "wrap": "Clamp",
+          "position": [
+            -0.9177222981616734,
+            1.2464958232920675,
+            0.09498895574035499
+          ],
+          "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+        },
+        {
+          "name": "Blade body",
+          "renderer": "Ring",
+          "texture": "vfx/textures/processed/T_Trail01.png",
+          "color": [
+            255,
+            150,
+            40,
+            255
+          ],
+          "life": 16,
+          "delay": 1,
+          "billboard": "Fixed",
+          "rotation": [
+            -18,
+            0,
+            30
+          ],
+          "ring": {
+            "vertices": 96,
+            "outer": [
+              1.6,
+              0.16000000000000003
+            ],
+            "inner": {
+              "start": [
+                0.72,
+                -0.09600000000000002
+              ],
+              "end": [
+                1.3800000000000001,
+                -0.024000000000000004
+              ]
+            },
+            "center_ratio": 0.6,
+            "outer_color": [
+              255,
+              150,
+              40,
+              255
+            ],
+            "center_color": [
+              255,
+              150,
+              40,
+              255
+            ],
+            "inner_color": [
+              255,
+              150,
+              40,
+              255
+            ],
+            "angle_start": [
+              110,
+              170.0
+            ],
+            "angle_end": [
+              128.0,
+              260
+            ],
+            "angle_easing": "EaseOutQuartic",
+            "angle_fade": [
+              25,
+              4
+            ]
+          },
+          "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+          "cutoff": {
+            "start": 0,
+            "end": 0.75,
+            "easing": "EaseInQuadratic"
+          },
+          "fade_in": 0,
+          "fade_out": 8.0,
+          "wrap": "Clamp",
+          "alpha_scroll": [
+            -0.04,
+            0
+          ],
+          "emissive": 1.5,
+          "position": [
+            -0.9177222981616734,
+            1.2464958232920675,
+            0.09498895574035499
+          ],
+          "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+        },
+        {
+          "name": "Hot edge",
+          "renderer": "Ring",
+          "texture": "vfx/textures/processed/T_Trail02.png",
+          "color": [
+            255,
+            245,
+            200,
+            255
+          ],
+          "life": 12,
+          "delay": 1,
+          "billboard": "Fixed",
+          "rotation": [
+            -18,
+            0,
+            30
+          ],
+          "ring": {
+            "vertices": 96,
+            "outer": [
+              1.616,
+              0.16000000000000003
+            ],
+            "inner": {
+              "start": [
+                1.328,
+                -0.09600000000000002
+              ],
+              "end": [
+                1.544,
+                -0.024000000000000004
+              ]
+            },
+            "center_ratio": 0.6,
+            "outer_color": [
+              255,
+              245,
+              200,
+              255
+            ],
+            "center_color": [
+              255,
+              245,
+              200,
+              255
+            ],
+            "inner_color": [
+              255,
+              245,
+              200,
+              255
+            ],
+            "angle_start": [
+              110,
+              170.0
+            ],
+            "angle_end": [
+              128.0,
+              260
+            ],
+            "angle_easing": "EaseOutQuartic",
+            "angle_fade": [
+              25,
+              4
+            ]
+          },
+          "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+          "cutoff": {
+            "start": 0,
+            "end": 0.75,
+            "easing": "EaseInQuadratic"
+          },
+          "fade_in": 0,
+          "fade_out": 6.0,
+          "wrap": "Clamp",
+          "emissive": 2.2,
+          "position": [
+            -0.9177222981616734,
+            1.2464958232920675,
+            0.09498895574035499
+          ],
+          "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+        },
+        {
+          "name": "Refraction arc",
+          "renderer": "Ring",
+          "texture": "vfx/textures/processed/T_DistortHaze01.png",
+          "color": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "life": 16,
+          "delay": 1,
+          "billboard": "Fixed",
+          "rotation": [
+            -18,
+            0,
+            30
+          ],
+          "ring": {
+            "vertices": 96,
+            "outer": [
+              1.6320000000000001,
+              0
+            ],
+            "inner": {
+              "start": [
+                0.8320000000000001,
+                0.0
+              ],
+              "end": [
+                1.4320000000000002,
+                0.0
+              ]
+            },
+            "center_ratio": 0.6,
+            "outer_color": [
+              255,
+              255,
+              255,
+              255
+            ],
+            "center_color": [
+              255,
+              255,
+              255,
+              255
+            ],
+            "inner_color": [
+              255,
+              255,
+              255,
+              255
+            ],
+            "angle_start": [
+              110,
+              170.0
+            ],
+            "angle_end": [
+              128.0,
+              260
+            ],
+            "angle_easing": "EaseOutQuartic",
+            "angle_fade": [
+              25,
+              4
+            ]
+          },
+          "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+          "cutoff": null,
+          "fade_in": 0,
+          "fade_out": 8.0,
+          "wrap": "Clamp",
+          "material": "BackDistortion",
+          "distortion": 0.7,
+          "position": [
+            -0.9177222981616734,
+            1.2464958232920675,
+            0.09498895574035499
+          ],
+          "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+        },
+        {
+          "name": "Cel crescent",
+          "texture": "vfx/textures/processed/T_Slash02.png",
+          "color": [
+            255,
+            245,
+            200,
+            255
+          ],
+          "color_end": [
+            255,
+            150,
+            40,
+            255
+          ],
+          "delay": 2,
+          "life": 8,
+          "size": 3.6799999999999997,
+          "size_curve": [
+            [
+              0,
+              0.8
+            ],
+            [
+              20,
+              1
+            ],
+            [
+              100,
+              1.06
+            ]
+          ],
+          "billboard": "Fixed",
+          "rotation": [
+            -18,
+            0,
+            -160.00000000000003
+          ],
+          "position": [
+            -0.6332283857315545,
+            0.8600821180715263,
+            0.3205423794608451
+          ],
+          "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+          "cutoff": {
+            "start": 0,
+            "end": 0.9,
+            "easing": "EaseInQuadratic"
+          },
+          "fade_in": 0,
+          "fade_out": 3,
+          "emissive": 1.6,
+          "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+        }
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Heat bloom",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        255,
+        110,
+        20,
+        170
+      ],
+      "life": 16,
+      "delay": 2,
+      "size": 3.6,
+      "size_curve": [
+        [
+          0,
+          0.25
+        ],
+        [
+          18,
+          1
+        ],
+        [
+          100,
+          1.25
+        ]
+      ],
+      "billboard": "Billboard",
+      "fade_in": 0,
+      "fade_out": 12.8,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Flame tongues",
+      "texture": "vfx/textures/processed/T_ExplosionSheet01.png",
+      "color": [
+        255,
+        245,
+        215,
+        255
+      ],
+      "color_curve": {
+        "R": [
+          [
+            0,
+            255
+          ],
+          [
+            18,
+            255
+          ],
+          [
+            55,
+            227
+          ],
+          [
+            100,
+            200
+          ]
+        ],
+        "G": [
+          [
+            0,
+            245
+          ],
+          [
+            18,
+            150
+          ],
+          [
+            55,
+            90
+          ],
+          [
+            100,
+            30
+          ]
+        ],
+        "B": [
+          [
+            0,
+            215
+          ],
+          [
+            18,
+            40
+          ],
+          [
+            55,
+            22
+          ],
+          [
+            100,
+            5
+          ]
+        ],
+        "A": [
+          [
+            0,
+            255
+          ],
+          [
+            18,
+            255
+          ],
+          [
+            55,
+            200
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "count": 9,
+      "life": [
+        18,
+        24
+      ],
+      "size": [
+        1.3,
+        2.0
+      ],
+      "billboard": "YAxisFixed",
+      "pivot": "bottom",
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 2,
+        "loop": "Once"
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "cutoff": {
+        "start": 0.04,
+        "end": 0.5,
+        "easing": "EaseInQuintic"
+      },
+      "edge": {
+        "color": [
+          255,
+          90,
+          20,
+          255
+        ],
+        "threshold": 0.06,
+        "scaling": 2
+      },
+      "fade_in": 1,
+      "fade_out": 12,
+      "emissive": 1.5,
+      "size_end": [
+        0.5,
+        0.8
+      ],
+      "delay": 3,
+      "interval": 1,
+      "position": [
+        [
+          -1.2,
+          1.2
+        ],
+        [
+          -0.7,
+          0.2
+        ],
+        [
+          -0.7,
+          0.7
+        ]
+      ],
+      "velocity": [
+        [
+          -0.008,
+          0.008
+        ],
+        [
+          0.012,
+          0.03
+        ],
+        0
+      ],
+      "z_test": true,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Heat haze",
+      "texture": "vfx/textures/processed/T_DistortHaze01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "material": "BackDistortion",
+      "distortion": 0.4,
+      "life": 30,
+      "delay": 4,
+      "size": 3.0,
+      "size_curve": [
+        [
+          0,
+          0.5
+        ],
+        [
+          25,
+          1
+        ],
+        [
+          100,
+          1.2
+        ]
+      ],
+      "billboard": "Billboard",
+      "uv_scroll": [
+        0,
+        0.006
+      ],
+      "fade_in": 3,
+      "fade_out": 18.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Sparks",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        255,
+        245,
+        200,
+        255
+      ],
+      "color_end": [
+        255,
+        90,
+        10,
+        255
+      ],
+      "count": 16,
+      "life": [
+        14,
+        26
+      ],
+      "delay": 3,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.08
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.8,
+            2.2
+          ],
+          0
+        ],
+        "easing": "EaseOutQuartic"
+      },
+      "scale_start": [
+        0.1,
+        [
+          0.4,
+          0.8
+        ],
+        1
+      ],
+      "scale_end": [
+        0.03,
+        0.08000000000000002,
+        1
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            -0.0008,
+            0
+          ]
+        }
+      ],
+      "fade_in": 0,
+      "fade_out": 5,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Cut smoke",
+      "texture": "vfx/textures/processed/T_SmokeSheet01.png",
+      "color": [
+        90,
+        70,
+        62,
+        200
+      ],
+      "color_end": [
+        90,
+        70,
+        62,
+        0
+      ],
+      "count": 5,
+      "life": [
+        18,
+        20
+      ],
+      "delay": 10,
+      "interval": 1,
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.3,
+          1.0
+        ]
+      },
+      "velocity": [
+        0,
+        [
+          0.01,
+          0.02
+        ],
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -0.6,
+          0.6
+        ]
+      ],
+      "size": [
+        0.5,
+        0.8
+      ],
+      "size_end": [
+        1.0,
+        1.6
+      ],
+      "easing": "EaseOutCubic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            0.0005,
+            0
+          ]
+        }
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "fade_in": 2,
+      "fade_out": 10,
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 1,
+        "loop": "Once"
+      },
+      "cutoff": {
+        "start": 0,
+        "end": 0.3,
+        "easing": "EaseInCubic"
+      },
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Rising embers",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        255,
+        150,
+        40,
+        255
+      ],
+      "color_end": [
+        255,
+        40,
+        0,
+        255
+      ],
+      "count": 18,
+      "life": [
+        22,
+        30
+      ],
+      "delay": 4,
+      "interval": 0,
+      "billboard": "Billboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.3,
+          1.2
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.4,
+            1.6
+          ],
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "size": [
+        0.1,
+        0.22
+      ],
+      "size_end": 0,
+      "easing": "EaseInCubic",
+      "forces": [
+        {
+          "type": "Turbulence",
+          "power": 0.003,
+          "scale": 5
+        },
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            0.0007,
+            0
+          ]
+        }
+      ],
+      "fade_in": 1,
+      "fade_out": 6,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Heat haze",
+      "texture": "vfx/textures/processed/T_SmokeSheet01.png",
+      "color": [
+        110,
+        80,
+        65,
+        130
+      ],
+      "color_end": [
+        110,
+        80,
+        65,
+        0
+      ],
+      "count": 4,
+      "life": [
+        16,
+        22
+      ],
+      "delay": 8,
+      "interval": 0,
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.3,
+          1.0
+        ]
+      },
+      "velocity": [
+        0,
+        [
+          0.005,
+          0.02
+        ],
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -0.6,
+          0.6
+        ]
+      ],
+      "size": [
+        0.6,
+        0.9
+      ],
+      "size_end": [
+        1.14,
+        1.71
+      ],
+      "easing": "EaseOutCubic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            0.0004,
+            0
+          ]
+        }
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "fade_in": 2,
+      "fade_out": 10,
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 1,
+        "loop": "Once"
+      },
+      "cutoff": {
+        "start": 0,
+        "end": 0.3,
+        "easing": "EaseInCubic"
+      },
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    }
+  ],
+  "design": "Red-orange-white swept blade, then distorted flame tongues peel upward off the arc with embers and thin smoke.",
+  "delivery": {
+    "kind": "melee"
+  }
+}

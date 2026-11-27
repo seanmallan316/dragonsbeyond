@@ -541,6 +541,10 @@ void gfx_bind(Texture *t) {
     if (t->stream) gfx_texture_stream_gpu(t);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, t->id);
 }
+/* after something else has drawn with its own GL state (the Effekseer effects): put ours back */
+void gfx_state_reset(void) {
+    glUseProgram(P.prog); g_prog_ver = -1; g_flags = -1; g_bound = NULL; glBindVertexArray(0); glFrontFace(GL_CCW); glCullFace(GL_BACK);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, g_shadow_ok && g_shadow_have ? g_sh_tex : g_white->id); glActiveTexture(GL_TEXTURE0); gfx_bind(g_white); }
 void gfx_state(int flags) {
     if (g_in_shadow || g_skip) return;
     if (flags == g_flags) return;

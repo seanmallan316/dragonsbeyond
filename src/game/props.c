@@ -33,7 +33,7 @@ void propmodel_draw(const PropModel *m, int lod, float x, float y, float z, floa
 void scenelayer_build(SceneLayer *L, PropModel *model, const World *w, int kind, float height_scale, float sink) {
     memset(L, 0, sizeof *L); L->model = model; if (!model->ok) return;
     for (int i = 0; i < w->nprop && L->n < SC_MAX; i++) { const Prop *p = &w->prop[i]; if (p->kind != kind) continue;
-        SceneInst *I = &L->inst[L->n++]; I->x = p->x; I->z = p->z; I->y = world_height(w, p->x, p->z) - sink * p->scale; I->yaw = p->yaw; I->s = p->scale * height_scale; } }
+        SceneInst *I = &L->inst[L->n++]; I->x = p->x; I->z = p->z; I->y = world_height(w, p->x, p->z) - sink * p->scale; I->yaw = p->yaw; I->s = p->scale * height_scale; I->p = p; } }
 static float g_vfx, g_vfz; static int g_vcull;
 void scenelayer_view(float fx, float fz) { float l = sqrtf(fx * fx + fz * fz); g_vcull = l > 1e-3f; if (g_vcull) { g_vfx = fx / l; g_vfz = fz / l; } }
 static int g_foc; static Vec3 g_fe, g_ff;
@@ -51,9 +51,11 @@ void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist, float skip_di
     if (!L->model || !L->model->ok) return; gfx_bind(L->model->tex);
     for (int i = 0; i < L->n; i++) { const SceneInst *I = &L->inst[i]; float dx = I->x - eye.x, dz = I->z - eye.z; float d2 = dx * dx + dz * dz;
         if (skip_dist > 0 && d2 > skip_dist * skip_dist) continue;
+        if (I->p && I->p->broken > 0) continue;   /* smashed */
+        float gs = I->p && I->p->pop > 0 ? 1 - I->p->pop * I->p->pop : 1; gs = gs < 0.05f ? 0.05f : gs;   /* growing back */
         if (g_vcull && dx * g_vfx + dz * g_vfz < -12 * I->s - 4) continue;   /* behind the camera (with room for big canopies) */
         float a = occlude(L, I); if (a < 0.999f && g_nfade < 24) { Faded *f = &g_fade[g_nfade++]; f->L = L; f->i = i; f->a = a; continue; }
-        Mat4 mm = m4_mul(m4_mul(m4_translate(I->x, I->y, I->z), m4_rotate_y(I->yaw)), m4_scale(I->s, I->s, I->s)); gfx_draw(L->model->mesh[d2 < hi_dist * hi_dist ? 0 : 1], &mm, 1, 1, 1, 1); } }
+        Mat4 mm = m4_mul(m4_mul(m4_translate(I->x, I->y, I->z), m4_rotate_y(I->yaw)), m4_scale(I->s * gs, I->s * gs, I->s * gs)); gfx_draw(L->model->mesh[d2 < hi_dist * hi_dist ? 0 : 1], &mm, 1, 1, 1, 1); } }
 void scenelayer_draw_faded(void) {
     if (!g_nfade) { g_foc = 0; return; }
     gfx_state(ST_DEPTH | ST_BLEND | ST_CULL);

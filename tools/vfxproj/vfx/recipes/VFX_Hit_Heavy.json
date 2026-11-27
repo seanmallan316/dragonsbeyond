@@ -1,0 +1,786 @@
+{
+  "id": "VFX_Hit_Heavy",
+  "name": "Heavy Hit",
+  "category": "hit",
+  "element": "physical",
+  "duration": 0.5,
+  "loop": false,
+  "attach": "impact",
+  "peak": 0.05,
+  "impact": 0.9,
+  "light": [
+    1,
+    0.85,
+    0.6
+  ],
+  "seed": 1729,
+  "layers": [
+    {
+      "name": "Dark backing",
+      "texture": "vfx/textures/processed/T_SoftCircle.png",
+      "color": [
+        30,
+        14,
+        8,
+        150
+      ],
+      "life": 14,
+      "delay": 3,
+      "size": 3.6,
+      "size_curve": [
+        [
+          0,
+          0.6
+        ],
+        [
+          20,
+          1
+        ],
+        [
+          100,
+          1.15
+        ]
+      ],
+      "billboard": "Billboard",
+      "blend": "Blend",
+      "fade_in": 2,
+      "fade_out": 9.799999999999999,
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Anticipation",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        255,
+        200,
+        120,
+        160
+      ],
+      "life": 3,
+      "delay": 0,
+      "size": 0.5,
+      "size_curve": [
+        [
+          0,
+          0.25
+        ],
+        [
+          18,
+          1
+        ],
+        [
+          100,
+          1.25
+        ]
+      ],
+      "billboard": "Billboard",
+      "fade_in": 0,
+      "fade_out": 2.4000000000000004,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Contact flash",
+      "texture": "vfx/textures/processed/T_Flare01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "life": 5,
+      "delay": 2,
+      "size": 4.2,
+      "size_curve": [
+        [
+          0,
+          0.55
+        ],
+        [
+          25,
+          1
+        ],
+        [
+          100,
+          0.15
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        18
+      ],
+      "fade_in": 0,
+      "fade_out": 3.0,
+      "emissive": 1.6,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Impact burst",
+      "texture": "vfx/textures/processed/T_Impact01.png",
+      "color": [
+        255,
+        236,
+        170,
+        255
+      ],
+      "color_end": [
+        255,
+        140,
+        40,
+        255
+      ],
+      "delay": 2,
+      "life": 10,
+      "size": 2.6,
+      "size_curve": [
+        [
+          0,
+          0.45
+        ],
+        [
+          20,
+          1
+        ],
+        [
+          100,
+          1.12
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -30,
+          30
+        ]
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "cutoff": {
+        "start": 0,
+        "end": 0.9,
+        "easing": "EaseInQuadratic"
+      },
+      "fade_in": 0,
+      "fade_out": 4,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Speed lines",
+      "texture": "vfx/textures/processed/T_SpeedLines01.png",
+      "color": [
+        255,
+        236,
+        170,
+        255
+      ],
+      "delay": 2,
+      "life": 7,
+      "size": 4.4,
+      "size_curve": [
+        [
+          0,
+          0.4
+        ],
+        [
+          40,
+          1
+        ],
+        [
+          100,
+          1.2
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          0,
+          360
+        ]
+      ],
+      "fade_in": 0,
+      "fade_out": 5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Heat bloom",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        255,
+        120,
+        30,
+        200
+      ],
+      "life": 14,
+      "delay": 2,
+      "size": 3.4,
+      "size_curve": [
+        [
+          0,
+          0.25
+        ],
+        [
+          18,
+          1
+        ],
+        [
+          100,
+          1.25
+        ]
+      ],
+      "billboard": "Billboard",
+      "fade_in": 0,
+      "fade_out": 11.200000000000001,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Air bubble",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Air bubble",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 48,
+        "Mesh/Divisions/Y": 24
+      },
+      "color": [
+        255,
+        220,
+        170,
+        200
+      ],
+      "life": 11,
+      "fade_in": 0,
+      "fade_out": 7.699999999999999,
+      "scale_start": [
+        1.6,
+        1.6,
+        1.6
+      ],
+      "scale_curve": [
+        [
+          0,
+          0.15
+        ],
+        [
+          35,
+          0.75
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "culling": "Front",
+      "delay": 3,
+      "falloff": {
+        "begin": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "end": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "cutoff": {
+        "start": 0,
+        "end": 0.75,
+        "easing": "EaseInQuadratic"
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Air wave",
+      "renderer": "Ring",
+      "color": [
+        255,
+        220,
+        170,
+        170
+      ],
+      "life": 11,
+      "delay": 3,
+      "billboard": "Fixed",
+      "rotation": [
+        0,
+        58,
+        0
+      ],
+      "ring": {
+        "outer": [
+          1,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.78,
+            0
+          ],
+          "end": [
+            0.97,
+            0
+          ]
+        },
+        "center_ratio": 0.8,
+        "outer_color": [
+          255,
+          220,
+          170,
+          85
+        ],
+        "center_color": [
+          255,
+          220,
+          170,
+          170
+        ],
+        "inner_color": [
+          255,
+          220,
+          170,
+          0
+        ]
+      },
+      "size": 2.0,
+      "size_curve": [
+        [
+          0,
+          0.12
+        ],
+        [
+          35,
+          0.72
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "fade_in": 0,
+      "fade_out": 7.699999999999999,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Refraction wave",
+      "texture": "vfx/textures/processed/T_DistortRing01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "material": "BackDistortion",
+      "distortion": 0.8,
+      "life": 12,
+      "delay": 2,
+      "size": 4.8,
+      "size_curve": [
+        [
+          0,
+          0.15
+        ],
+        [
+          40,
+          0.75
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "billboard": "Billboard",
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "fade_in": 0,
+      "fade_out": 8.399999999999999,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Sparks streaks",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "color_end": [
+        255,
+        236,
+        170,
+        255
+      ],
+      "count": 6,
+      "life": [
+        6,
+        10
+      ],
+      "delay": 2,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.08
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            1.3,
+            3.6399999999999997
+          ],
+          0
+        ],
+        "easing": "EaseOutQuartic"
+      },
+      "scale_start": [
+        0.05,
+        [
+          0.75,
+          1.7600000000000002
+        ],
+        1
+      ],
+      "scale_end": [
+        0.015,
+        0.15000000000000002,
+        1
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [],
+      "fade_in": 0,
+      "fade_out": 3,
+      "emissive": 2.2,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Sparks",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        255,
+        236,
+        170,
+        255
+      ],
+      "color_end": [
+        255,
+        70,
+        10,
+        255
+      ],
+      "count": 20,
+      "life": [
+        10,
+        18
+      ],
+      "delay": 2,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.08
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            1.0,
+            2.6
+          ],
+          0
+        ],
+        "easing": "EaseOutQuartic"
+      },
+      "scale_start": [
+        0.1,
+        [
+          0.5,
+          1.1
+        ],
+        1
+      ],
+      "scale_end": [
+        0.03,
+        0.1,
+        1
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            -0.0015,
+            0
+          ]
+        }
+      ],
+      "fade_in": 0,
+      "fade_out": 5,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Sparks heavy",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        255,
+        236,
+        170,
+        255
+      ],
+      "color_end": [
+        255,
+        70,
+        10,
+        255
+      ],
+      "count": 4,
+      "life": [
+        16,
+        26
+      ],
+      "delay": 2,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.08
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.7,
+            2.3400000000000003
+          ],
+          0
+        ],
+        "easing": "EaseOutQuartic"
+      },
+      "scale_start": [
+        0.15,
+        [
+          0.3,
+          0.77
+        ],
+        1
+      ],
+      "scale_end": [
+        0.045,
+        0.06,
+        1
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            -0.0033000000000000004,
+            0
+          ]
+        }
+      ],
+      "fade_in": 0,
+      "fade_out": 5,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Embers",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        255,
+        140,
+        40,
+        255
+      ],
+      "color_end": [
+        255,
+        40,
+        0,
+        255
+      ],
+      "count": 12,
+      "life": [
+        22,
+        27
+      ],
+      "delay": 3,
+      "interval": 0,
+      "billboard": "Billboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.3
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.5,
+            1.6
+          ],
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "size": [
+        0.1,
+        0.22
+      ],
+      "size_end": 0,
+      "easing": "EaseInCubic",
+      "forces": [
+        {
+          "type": "Turbulence",
+          "power": 0.003,
+          "scale": 5
+        },
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            -0.0006,
+            0
+          ]
+        }
+      ],
+      "fade_in": 1,
+      "fade_out": 6,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Dust",
+      "texture": "vfx/textures/processed/T_SmokeSheet01.png",
+      "color": [
+        185,
+        160,
+        135,
+        230
+      ],
+      "color_end": [
+        150,
+        125,
+        105,
+        140
+      ],
+      "count": 5,
+      "life": [
+        22,
+        26
+      ],
+      "delay": 4,
+      "interval": 0,
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.25
+        ]
+      },
+      "velocity": [
+        0,
+        [
+          0.005,
+          0.02
+        ],
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -0.6,
+          0.6
+        ]
+      ],
+      "size": [
+        0.7,
+        1.1
+      ],
+      "size_end": [
+        1.3299999999999998,
+        2.09
+      ],
+      "easing": "EaseOutCubic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            0.0004,
+            0
+          ]
+        }
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "fade_in": 2,
+      "fade_out": 10,
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 2,
+        "loop": "Once"
+      },
+      "cutoff": {
+        "start": 0,
+        "end": 0.3,
+        "easing": "EaseInCubic"
+      },
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    }
+  ],
+  "design": "Two-frame anticipation, white flash, dissolving jagged burst, eased sparks that hang and droop, dust.",
+  "delivery": {
+    "kind": "melee"
+  }
+}

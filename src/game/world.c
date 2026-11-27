@@ -1,5 +1,6 @@
 // world.c - building and running the Everleaf Wilds patch (see world.h).
 #include "world.h"
+#include "nav.h"
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -123,6 +124,8 @@ int food_is_meat(int kind) { return kind == F_GRUB || kind == F_FISH; }
 float food_growth(int kind) { return kind == F_FISH ? 90.0f : kind == F_GRUB ? 60.0f : kind == F_MUSHROOM ? 30.0f : 25.0f; }   /* everything fills you up faster now; meat counts most (fish most of all) */
 
 void world_update(World *w, float dt, float px, float pz) {
+    for (int i = 0; i < w->nprop; i++) { Prop *p = &w->prop[i];   /* smashed rocks and crystals slowly grow back */
+        if (p->broken > 0) { p->broken -= dt; if (p->broken <= 0) { p->broken = 0; p->pop = 1; } } else if (p->pop > 0) { p->pop -= dt * 0.8f; if (p->pop < 0) p->pop = 0; } }
     for (int i = 0; i < w->nfood; i++) { Food *f = &w->food[i];
         if (!f->alive) { f->regrow -= dt; if (f->regrow <= 0) { f->alive = 1; if (f->kind == F_GRUB) { f->x += (frand() - 0.5f) * 20; f->z += (frand() - 0.5f) * 20; f->y = world_height(w, f->x, f->z); } } continue; }
         f->phase += dt;
@@ -171,6 +174,10 @@ int world_drones(World *w, float dt, float px, float py, float pz, float reach, 
             if (d->t > 8) { d->state = 0; d->t = 0; } } }
     return ev; }
 
+/* which way a walker should face to get to (tx, tz): along the path round the scenery when there is one, else straight */
+static float nav_yaw(const World *w, int id, const Drone *h, float tx, float tz) {
+    float cx, cz; if (nav_steer(id, h->x, h->y, h->z, tx, world_height(w, tx, tz), tz, &cx, &cz)) return atan2f(cx - h->x, cz - h->z);
+    return atan2f(tx - h->x, tz - h->z); }
 int world_hounds(World *w, float dt, float px, float py, float pz, float reach, Attack atk, int roar, int in_air) {
     int ev = 0; (void)py;
     for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; h->t += dt;
@@ -179,11 +186,11 @@ int world_hounds(World *w, float dt, float px, float py, float pz, float reach, 
         if (roar && dist < 12) { h->state = 2; h->t = 0; }
         if (atk_hits(atk, h->x, h->y + 0.5f, h->z, 0.3f)) { h->state = 3; h->t = 0; ev |= 2; knock_dir(h, atk.x, atk.z); note_kill(w, h->x, h->y, h->z); continue; }
         float sp = 0;
-        if (h->state == 0) { float ang = h->t * 0.35f; float tx = h->hx + cosf(ang) * 10, tz = h->hz + sinf(ang) * 10; h->yaw = atan2f(tx - h->x, tz - h->z); sp = 2.2f; if (dist < 15 && !in_air) { h->state = 1; h->t = 0; } }
-        else if (h->state == 1) { h->yaw = atan2f(dx, dz); sp = 3.4f; if (dist < 3.4f + 0.3f * reach && !in_air) { h->state = 5; h->t = 0; } if (h->t > 12 || dist > 40 || in_air) { h->state = 2; h->t = 0; } }   /* stalks, slower than a running dragonet */
+        if (h->state == 0) { float ang = h->t * 0.35f; float tx = h->hx + cosf(ang) * 10, tz = h->hz + sinf(ang) * 10; h->yaw = nav_yaw(w, 8 + i, h, tx, tz); sp = 2.2f; if (dist < 15 && !in_air) { h->state = 1; h->t = 0; } }
+        else if (h->state == 1) { h->yaw = dist > 4 ? nav_yaw(w, 8 + i, h, px, pz) : atan2f(dx, dz); sp = 3.4f; if (dist < 3.4f + 0.3f * reach && !in_air) { h->state = 5; h->t = 0; } if (h->t > 12 || dist > 40 || in_air) { h->state = 2; h->t = 0; } }   /* stalks, slower than a running dragonet */
         else if (h->state == 5) { h->yaw = atan2f(dx, dz); sp = 0; if (h->t > 0.8f) { h->state = 6; h->t = 0; } }   /* crouches and crackles: about to lunge */
         else if (h->state == 6) { sp = 8.0f; if (dist < reach * 0.6f && !in_air) { ev |= 1; h->state = 2; h->t = 0; } if (h->t > 0.45f) { h->state = 2; h->t = 0; } }   /* the lunge: a straight dash, dodge it sideways */
-        else { h->yaw = atan2f(h->hx - h->x, h->hz - h->z); sp = 4.0f; if (h->t > 6) { h->state = 0; h->t = 0; } }
+        else { h->yaw = nav_yaw(w, 8 + i, h, h->hx, h->hz); sp = 4.0f; if (h->t > 6) { h->state = 0; h->t = 0; } }
         float nx = h->x + sinf(h->yaw) * sp * dt, nz = h->z + cosf(h->yaw) * sp * dt;
         if (!world_in_pond(w, nx, nz) && fabsf(nx) < W_SIZE / 2 - 8 && fabsf(nz) < W_SIZE / 2 - 8) { h->x = nx; h->z = nz; }
         h->y = world_height(w, h->x, h->z); h->flap += dt * sp * 2.2f; }
@@ -312,12 +319,7 @@ static int push_post(float *x, float *y, float *z, float cx, float cz, float bas
     float dx = *x - cx, dz = *z - cz, R = pr + r, d2 = dx * dx + dz * dz; if (d2 >= R * R) return 0;
     float d = sqrtf(d2); if (d < 1e-4f) { dx = 1; dz = 0; d = 1; }
     *x = cx + dx / d * R; *z = cz + dz / d * R; return 1; }
-int world_push_out(const World *w, float *x, float *y, float *z, float r, int air) {
-    int hit = 0;
-    for (int i = 0; i < w->nprop; i++) { const Prop *p = &w->prop[i]; float dx = *x - p->x, dz = *z - p->z; if (dx * dx + dz * dz > 14 * 14) continue;
-        float s = p->scale, gy = world_height(w, p->x, p->z);
-        if (w->kind >= WK_SNOW) {   /* each world's own plants and rocks are solid in their own shape (crystals, cactus, coral...) */
-            static const float SH[WK_N][P_N][3] = {   /* per world, per prop kind: {radius, height, 1 = post / 0 = mound}; radius 0 = default shape below */
+static const float SH[WK_N][P_N][3] = {   /* per world, per prop kind: {radius, height, 1 = post / 0 = mound}; radius 0 = default shape below */
                 {{0}}, {{0}},
                 /* snow    */ {{0.9f, 6.5f, 1}, {1.2f, 8.5f, 1}, {0}, {0}, {0.7f, 1.4f, 0}, {1.5f, 3.4f, 0}},
                 /* crystal */ {{2.0f, 4.6f, 0}, {1.5f, 3.6f, 0}, {0}, {0}, {0.9f, 1.8f, 0}, {2.2f, 5.0f, 0}},
@@ -325,6 +327,30 @@ int world_push_out(const World *w, float *x, float *y, float *z, float r, int ai
                 /* water   */ {{-1, 0, 0}, {0}, {0}, {0}, {0.9f, 1.3f, 0}, {1.6f, 3.4f, 0}},
                 /* lava    */ {{0.6f, 6.5f, 1}, {0.6f, 6.5f, 1}, {0}, {0}, {1.3f, 2.8f, 0}, {2.1f, 8.0f, 1}},
                 /* keep    */ {{0.6f, 6.5f, 1}, {0.6f, 6.5f, 1}, {0}, {0}, {1.3f, 2.8f, 0}, {2.1f, 8.0f, 1}} };
+static int breakable(const World *w, int i) {
+    const Prop *p = &w->prop[i]; if (p->broken > 0) return 0;
+    for (int k = 0; k < w->narena_tree; k++) if (w->arena_tree[k] == i) return 0;   /* the boss clearing's ring stays: the boss crashes into it */
+    if (p->kind == P_ROCK || p->kind == P_SPIRE) return w->kind != WK_WATER || p->kind == P_ROCK;
+    return w->kind == WK_CRYSTAL && (p->kind == P_TREE || p->kind == P_PALM);   /* the crystal clusters */ }
+int world_break(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone, float max_scale, int *out, int nout) {
+    int n = 0; if (range <= 0) return 0;
+    for (int i = 0; i < w->nprop; i++) { Prop *p = &w->prop[i]; float ex = p->x - x, ez = p->z - z, d2 = ex * ex + ez * ez, R = range + world_prop_radius(w, p);
+        if (d2 > R * R || p->scale > max_scale || !breakable(w, i)) continue;
+        float gy = world_height(w, p->x, p->z); if (y > gy + 10 * p->scale + range || y < gy - range - 2) continue;
+        if (cos_cone > -1 && d2 > 1) { float d = sqrtf(d2); if ((ex * dx + ez * dz) / d < cos_cone) continue; }
+        p->broken = 75 + 30 * frand(); p->pop = 0; if (n < nout) out[n] = i; n++; }
+    return n; }
+/* how wide a prop is solid at its foot (0: soft, you go through it) - the pathfinder keeps walkers this far from it */
+float world_prop_radius(const World *w, const Prop *p) {
+    float s = p->scale;
+    if (w->kind >= WK_SNOW) { const float *sh = SH[w->kind][p->kind]; if (sh[0] < 0) return 0; if (sh[0] > 0) return sh[0] * s; }
+    switch (p->kind) { case P_TREE: return 0.55f * s; case P_PALM: return 0.4f * s; case P_ROCK: return 1.3f * s; case P_SPIRE: return 2.0f * s; default: return 0; } }
+int world_push_out(const World *w, float *x, float *y, float *z, float r, int air) {
+    int hit = 0;
+    for (int i = 0; i < w->nprop; i++) { const Prop *p = &w->prop[i]; float dx = *x - p->x, dz = *z - p->z; if (dx * dx + dz * dz > 14 * 14 || p->broken > 0) continue;
+        float s = p->scale, gy = world_height(w, p->x, p->z);
+        if (w->kind >= WK_SNOW) {   /* each world's own plants and rocks are solid in their own shape (crystals, cactus, coral...) */
+
             const float *sh = SH[w->kind][p->kind];
             if (sh[0] < 0) continue;   /* soft things (kelp) you swim straight through */
             if (sh[0] > 0) { if (sh[2] > 0) hit |= push_post(x, y, z, p->x, p->z, gy, gy + sh[1] * s, sh[0] * s, r); else hit |= push_ball(x, y, z, p->x, gy + sh[1] * s * 0.3f, p->z, sh[0] * s, sh[1] * s * 0.8f, sh[0] * s, r, air); continue; } }

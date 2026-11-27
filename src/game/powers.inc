@@ -19,8 +19,9 @@ static void power_start(int big) {
     g_power_kind = k; g_power_big = big; g_pw_dur = big ? 2.6f : (k == 0 || k == 4 || k == 5 || k == 6 ? 1.9f : 1.4f); g_power_t = g_pw_dur; g_power_cd = big ? 5.0f : 2.6f;
     g_pw_yaw = d->yaw; g_pw_len = L; g_pw_x = d->x; g_pw_y = d->y; g_pw_z = d->z;
     static const int SND[7] = {SFX_WIND, SFX_FIRE, SFX_ICE, SFX_ICE, SFX_WIND, SFX_SPLASH, SFX_FIRE};
+    fx_power_start(k, big, d);
     sfx_play(SND[k], 1.0f, 0); sfx_play(SFX_ROAR, big ? 1.0f : 0.6f, 0); platform_rumble(big ? 1.0f : 0.7f, big ? 1.2f : 0.6f);
-    if (big) { sfx_play(SFX_BOOM, 1.0f, 0); g_hitstop = 0.16f; g_shake_t = fmaxf(g_shake_t, 0.9f); g_boom_t = 1.0f;
+    if (big) { sfx_play(SFX_BOOM, 1.0f, 0); g_hitstop = 0.16f; g_shake_t = fmaxf(g_shake_t, 0.9f); g_boom_t = 1.0f; { const Dragon *dd = &g_dragon; float gy = world_height(&g_world, dd->x, dd->z); float cx = dd->x + sinf(dd->yaw) * 3, cz = dd->z + cosf(dd->yaw) * 3; smash(cx, gy + 1, cz, 0, 0, 13, -2, 99.0f); if (dd->y < gy + 4) crater(cx, cz, 6.5f + dd->stage, 2.2f); }
         static const float C[7][3] = {{0.4f, 1, 0.3f}, {1, 0.6f, 0.2f}, {0.7f, 0.9f, 1}, {0.9f, 0.6f, 1}, {1, 0.85f, 0.45f}, {0.3f, 0.7f, 1}, {1, 0.4f, 0.1f}};
         burst(v3(d->x + sinf(d->yaw) * L * 0.5f, d->y + 0.6f * L, d->z + cosf(d->yaw) * L * 0.5f), 90, 16, 0.5f, C[k][0], C[k][1], C[k][2], 1.0f); }
     if (d->mode == DM_AIR) d->act_t = 0; }
@@ -53,6 +54,7 @@ static void power_frame(const Pad *p, const Pad *q, DragonInput *in, float dt) {
     } else { g_charge = -1; if (in->y_press && can) power_start(0); }
     if (g_power_t > 0) { float x, y, z, range, cone; power_shape(&x, &y, &z, &range, &cone);
         int hit = range > 0 ? world_blast(&g_world, x, y, z, sinf(d->yaw), cosf(d->yaw), range, cone) : 0;
+        if (range > 0) smash(x, y, z, sinf(d->yaw), cosf(d->yaw), range, cone, g_power_big ? 99.0f : 1.6f + 0.2f * d->power);   /* powers blast rocks and crystals apart; a mega blast breaks anything */
         if (hit) { d->growth += 5 * hit; sfx_play(SFX_BLOCK, 0.6f, 0);
             static const char *HIT[7] = {"SLICED BY LEAVES!", "TOASTED!", "FROZEN SOLID!", "SHATTERED!", "STUNG AND BURIED!", "WASHED AWAY!", "MELTED!"}; snprintf(g_msg, sizeof g_msg, "%s", HIT[g_power_kind]); g_msg_t = 2;
             if (g_power_kind == 2) for (int k = 0; k < g_world.nkill && g_nice < 10; k++) {   /* frost: they freeze where they stand, in a block of ice, then shatter */

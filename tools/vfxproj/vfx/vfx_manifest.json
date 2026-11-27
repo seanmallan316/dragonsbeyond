@@ -1,0 +1,485 @@
+[
+  {
+    "id": "VFX_Dark_Vortex",
+    "name": "Dark Vortex",
+    "category": "element",
+    "element": "dark",
+    "duration": 1.65,
+    "loop": false,
+    "attach": "body",
+    "peak": 1.05,
+    "impact": 0.9,
+    "light": [
+      0.7,
+      0.35,
+      1
+    ],
+    "seed": 1729,
+    "design": "A black horizon inside a torn tilted accretion disk; broken wisp strokes swirl round it at shifting tilts while ground dust and rocks are dragged in. Two dark impact frames, then a long slice line, two torn disk-plane arcs with an orange under-rim and a branded ground spiral; the light goes out as grey smoke arcs and glints.",
+    "delivery": {
+      "kind": "projectile",
+      "projectile": "VFX_Projectile_Dark"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Dark_Vortex.py",
+    "file": "res://effects/VFX_Dark_Vortex.efkefc",
+    "runtime": "exports/VFX_Dark_Vortex.efk",
+    "preview": "previews/VFX_Dark_Vortex.png",
+    "particle_budget": 137,
+    "layers": 34
+  },
+  {
+    "id": "VFX_Fire_Explosion",
+    "name": "Fire Explosion",
+    "category": "element",
+    "element": "fire",
+    "duration": 1.3,
+    "loop": false,
+    "attach": "body",
+    "peak": 0.17,
+    "impact": 1,
+    "light": [
+      1,
+      0.6,
+      0.25
+    ],
+    "seed": 1729,
+    "design": "Inward gather, white detonation, a lopsided flipbook fireball thrown along the shot that rolls, cools white to red and burns open, a climbing mushroom head, two broken ground licks that go out as grey smoke, blow-through streaks, char debris that lands, a dust roll, glowing cracks over a dark scorch, ground flames, then the same billow as smoke.",
+    "delivery": {
+      "kind": "projectile",
+      "projectile": "VFX_Projectile_Fire"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Fire_Explosion.py",
+    "file": "res://effects/VFX_Fire_Explosion.efkefc",
+    "runtime": "exports/VFX_Fire_Explosion.efk",
+    "preview": "previews/VFX_Fire_Explosion.png",
+    "particle_budget": 106,
+    "layers": 24
+  },
+  {
+    "id": "VFX_Heal",
+    "name": "Heal",
+    "category": "status",
+    "element": "holy",
+    "duration": 1.7,
+    "loop": false,
+    "attach": "ground",
+    "peak": 0.6,
+    "impact": 0,
+    "light": [
+      0.5,
+      1,
+      0.7
+    ],
+    "seed": 1729,
+    "design": "No impact frame at all: slow seal, soft scrolling column, rings and plus signs drifting upward, a gentle bloom on the body.",
+    "delivery": {
+      "kind": "self"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Heal.py",
+    "file": "res://effects/VFX_Heal.efkefc",
+    "runtime": "exports/VFX_Heal.efk",
+    "preview": "previews/VFX_Heal.png",
+    "particle_budget": 56,
+    "layers": 8
+  },
+  {
+    "id": "VFX_Hit_Heavy",
+    "name": "Heavy Hit",
+    "category": "hit",
+    "element": "physical",
+    "duration": 0.5,
+    "loop": false,
+    "attach": "impact",
+    "peak": 0.05,
+    "impact": 0.9,
+    "light": [
+      1,
+      0.85,
+      0.6
+    ],
+    "seed": 1729,
+    "design": "Two-frame anticipation, white flash, dissolving jagged burst, eased sparks that hang and droop, dust.",
+    "delivery": {
+      "kind": "melee"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Hit_Heavy.py",
+    "file": "res://effects/VFX_Hit_Heavy.efkefc",
+    "runtime": "exports/VFX_Hit_Heavy.efk",
+    "preview": "previews/VFX_Hit_Heavy.png",
+    "particle_budget": 56,
+    "layers": 14
+  },
+  {
+    "id": "VFX_Ice_Spikes",
+    "name": "Ice Spikes",
+    "category": "element",
+    "element": "ice",
+    "duration": 1.35,
+    "loop": false,
+    "attach": "ground",
+    "peak": 0.2,
+    "impact": 0.7,
+    "light": [
+      0.6,
+      0.85,
+      1
+    ],
+    "seed": 1729,
+    "design": "Torn frost with bright cracks spreads on the ground; a leaning core cluster, an uneven scatter of crystals and a ripple of crystals erupting along the shot punch up with overshoot; a prism-fringed broken cold wave, rubble and dust; during the hold halo rings climb, glints wink and mist rolls out; a glint, then it cracks apart into large shards and chips.",
+    "delivery": {
+      "kind": "projectile",
+      "projectile": "VFX_Projectile_Ice"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Ice_Spikes.py",
+    "file": "res://effects/VFX_Ice_Spikes.efkefc",
+    "runtime": "exports/VFX_Ice_Spikes.efk",
+    "preview": "previews/VFX_Ice_Spikes.png",
+    "particle_budget": 87,
+    "layers": 23
+  },
+  {
+    "id": "VFX_Kaiju_Atomic_Beam",
+    "name": "Kaiju Atomic Beam",
+    "category": "beam",
+    "element": "atomic",
+    "duration": 6.3,
+    "loop": false,
+    "attach": "caster",
+    "peak": 0.075,
+    "impact": 0.6,
+    "light": [
+      0.55,
+      0.75,
+      1
+    ],
+    "seed": 1729,
+    "design": "A white-hot line inside a saturated blue beam with a wide dim rim; noise streams outward along it, steam, sparks, cooling scorch and smouldering smoke stay where it lands, and it stays locked to its end point while the game rakes it.",
+    "delivery": {
+      "kind": "beam",
+      "charge": "VFX_Kaiju_Atomic_Charge"
+    },
+    "hold": 3.75,
+    "inputs": [
+      160,
+      1.0,
+      0,
+      0
+    ],
+    "scale": {
+      "profile": "kaiju",
+      "world": 40.0,
+      "time": 2.5,
+      "budget": 3.0
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Kaiju_Atomic_Beam.py",
+    "file": "res://effects/VFX_Kaiju_Atomic_Beam.efkefc",
+    "runtime": "exports/VFX_Kaiju_Atomic_Beam.efk",
+    "preview": "previews/VFX_Kaiju_Atomic_Beam.png",
+    "particle_budget": 38,
+    "layers": 15
+  },
+  {
+    "id": "VFX_Kaiju_Atomic_Charge",
+    "name": "Kaiju Atomic Charge",
+    "category": "charge",
+    "element": "atomic",
+    "duration": 3.375,
+    "loop": false,
+    "attach": "caster",
+    "peak": 2.675,
+    "impact": 0.35,
+    "light": [
+      0.55,
+      0.75,
+      1
+    ],
+    "seed": 1729,
+    "design": "Crystal plates on the back switch on one by one from the hips to the head, each with a spark and an arc jumping to the next, and stay lit, until the mouth gathers a blue glow and one flash hands over to the beam.",
+    "delivery": {
+      "kind": "self"
+    },
+    "scale": {
+      "profile": "kaiju",
+      "world": 40.0,
+      "time": 2.5,
+      "budget": 3.0
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Kaiju_Atomic_Charge.py",
+    "file": "res://effects/VFX_Kaiju_Atomic_Charge.efkefc",
+    "runtime": "exports/VFX_Kaiju_Atomic_Charge.efk",
+    "preview": "previews/VFX_Kaiju_Atomic_Charge.png",
+    "particle_budget": 202,
+    "layers": 47
+  },
+  {
+    "id": "VFX_Kaiju_Explosion",
+    "name": "Kaiju Explosion",
+    "category": "explosion",
+    "element": "fire",
+    "duration": 5.75,
+    "loop": false,
+    "attach": "impact",
+    "peak": 0.075,
+    "impact": 0.9,
+    "light": [
+      1,
+      0.72,
+      0.45
+    ],
+    "seed": 1729,
+    "design": "A pale yellow-white flash becomes an orange fireball rolling up out of its own soot, lobes break off it, a dust skirt rolls along the ground and a brown-grey smoke column keeps climbing after the fire is gone.",
+    "delivery": {
+      "kind": "targeted"
+    },
+    "scale": {
+      "profile": "kaiju",
+      "world": 40.0,
+      "time": 2.5,
+      "budget": 3.0
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Kaiju_Explosion.py",
+    "file": "res://effects/VFX_Kaiju_Explosion.efkefc",
+    "runtime": "exports/VFX_Kaiju_Explosion.efk",
+    "preview": "previews/VFX_Kaiju_Explosion.png",
+    "particle_budget": 65,
+    "layers": 15
+  },
+  {
+    "id": "VFX_Magic_Charge",
+    "name": "Magic Charge",
+    "category": "magic",
+    "element": "arcane",
+    "duration": 1.5,
+    "loop": false,
+    "attach": "caster",
+    "peak": 1.08,
+    "impact": 0.5,
+    "light": [
+      0.6,
+      0.8,
+      1
+    ],
+    "seed": 1729,
+    "design": "Motes and streaks accelerate inward while two tilted rune bands orbit the core like a gyroscope and tighten onto it, then a single flash confirms the charge.",
+    "delivery": {
+      "kind": "self"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Magic_Charge.py",
+    "file": "res://effects/VFX_Magic_Charge.efkefc",
+    "runtime": "exports/VFX_Magic_Charge.efk",
+    "preview": "previews/VFX_Magic_Charge.png",
+    "particle_budget": 100,
+    "layers": 11
+  },
+  {
+    "id": "VFX_Poison_Cloud",
+    "name": "Poison Cloud",
+    "category": "status",
+    "element": "poison",
+    "duration": 1.75,
+    "loop": false,
+    "attach": "body",
+    "peak": 0.05,
+    "impact": 0.2,
+    "light": [
+      0.6,
+      1,
+      0.3
+    ],
+    "seed": 1729,
+    "design": "A white-hot acid splash with broken strokes and heavy drops thrown through the target that land; an uneven pool spreads underneath with a glowing rim and bubbles breaking out of it; fumes cool from acid green to murky purple-grey over a bruised underside, piled low and downwind, while heavy fog rolls out along the floor and spores drift.",
+    "delivery": {
+      "kind": "projectile",
+      "projectile": "VFX_Projectile_Poison"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Poison_Cloud.py",
+    "file": "res://effects/VFX_Poison_Cloud.efkefc",
+    "runtime": "exports/VFX_Poison_Cloud.efk",
+    "preview": "previews/VFX_Poison_Cloud.png",
+    "particle_budget": 111,
+    "layers": 18
+  },
+  {
+    "id": "VFX_Projectile_Dark",
+    "name": "Shadow Orb",
+    "category": "projectile",
+    "element": "dark",
+    "duration": 0.9,
+    "loop": false,
+    "attach": "projectile",
+    "peak": 0.05,
+    "impact": 0,
+    "light": [
+      1,
+      0.85,
+      0.6
+    ],
+    "seed": 1729,
+    "design": "An alpha-black orb with a refraction lens and an off-centre glint inside broken magenta wisp strokes that cross at shifting tilts; needles and grey-violet dust are dragged in, an orange underside accent; it leaves broken strokes on the path that cool from magenta to grey over a grey smoke wake, and glints hang after it has passed.",
+    "delivery": {
+      "kind": "projectile"
+    },
+    "flight": 0.6,
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Projectile_Dark.py",
+    "file": "res://effects/VFX_Projectile_Dark.efkefc",
+    "runtime": "exports/VFX_Projectile_Dark.efk",
+    "preview": "previews/VFX_Projectile_Dark.png",
+    "particle_budget": 86,
+    "layers": 13
+  },
+  {
+    "id": "VFX_Projectile_Fire",
+    "name": "Fireball",
+    "category": "projectile",
+    "element": "fire",
+    "duration": 1.2,
+    "loop": false,
+    "attach": "projectile",
+    "peak": 0.05,
+    "impact": 0,
+    "light": [
+      1,
+      0.85,
+      0.6
+    ],
+    "seed": 1729,
+    "design": "A boiling fireball with a stretched turbulent comet tail, a stretched white core and broken flame strokes churning round it; sparks are flung back, flame tongues peel off and rise, embers drift, and graded smoke lingers on the path.",
+    "delivery": {
+      "kind": "projectile"
+    },
+    "flight": 0.45,
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Projectile_Fire.py",
+    "file": "res://effects/VFX_Projectile_Fire.efkefc",
+    "runtime": "exports/VFX_Projectile_Fire.efk",
+    "preview": "previews/VFX_Projectile_Fire.png",
+    "particle_budget": 74,
+    "layers": 10
+  },
+  {
+    "id": "VFX_Projectile_Ice",
+    "name": "Ice Lance",
+    "category": "projectile",
+    "element": "ice",
+    "duration": 0.7,
+    "loop": false,
+    "attach": "projectile",
+    "peak": 0.05,
+    "impact": 0,
+    "light": [
+      1,
+      0.85,
+      0.6
+    ],
+    "seed": 1729,
+    "design": "A fast, crisp crystal lance with a navy backing on a thin white ribbon fringed with faint prism colours; stacked rings at the muzzle and frost rings frozen along the path, shards and chips break off and fall, twinkles hang on the line, cold mist sinks behind it.",
+    "delivery": {
+      "kind": "projectile"
+    },
+    "flight": 0.35,
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Projectile_Ice.py",
+    "file": "res://effects/VFX_Projectile_Ice.efkefc",
+    "runtime": "exports/VFX_Projectile_Ice.efk",
+    "preview": "previews/VFX_Projectile_Ice.png",
+    "particle_budget": 89,
+    "layers": 14
+  },
+  {
+    "id": "VFX_Projectile_Poison",
+    "name": "Venom Glob",
+    "category": "projectile",
+    "element": "poison",
+    "duration": 1.2,
+    "loop": false,
+    "attach": "projectile",
+    "peak": 0.05,
+    "impact": 0,
+    "light": [
+      1,
+      0.85,
+      0.6
+    ],
+    "seed": 1729,
+    "design": "A small glossy goo glob lobbed on an arc: a wobbling body with a white wet highlight over a purple dark core, a thin acid thread drawing the arc, drips and heavy drops falling and landing, bubbles and purple spores, fumes that cool from green to murky purple-grey and sink.",
+    "delivery": {
+      "kind": "projectile"
+    },
+    "flight": 0.7,
+    "arc": 1.3,
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Projectile_Poison.py",
+    "file": "res://effects/VFX_Projectile_Poison.efkefc",
+    "runtime": "exports/VFX_Projectile_Poison.efk",
+    "preview": "previews/VFX_Projectile_Poison.png",
+    "particle_budget": 79,
+    "layers": 12
+  },
+  {
+    "id": "VFX_Shield_Dome",
+    "name": "Shield Dome",
+    "category": "status",
+    "element": "arcane",
+    "duration": 1.8,
+    "loop": false,
+    "attach": "body",
+    "peak": 0.15,
+    "impact": 0.3,
+    "light": [
+      0.6,
+      0.8,
+      1
+    ],
+    "seed": 1729,
+    "design": "Fresnel shell pops with overshoot, scan bands sweep up; at expiry six partial spherical sheets separate and tumble outward, with fine shards between their gaps.",
+    "delivery": {
+      "kind": "self"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Shield_Dome.py",
+    "file": "res://effects/VFX_Shield_Dome.efkefc",
+    "runtime": "exports/VFX_Shield_Dome.efk",
+    "preview": "previews/VFX_Shield_Dome.png",
+    "particle_budget": 48,
+    "layers": 14
+  },
+  {
+    "id": "VFX_Slash_Fire",
+    "name": "Fire Slash",
+    "category": "slash",
+    "element": "fire",
+    "duration": 0.6,
+    "loop": false,
+    "attach": "impact",
+    "peak": 0.08,
+    "impact": 0.6,
+    "light": [
+      1,
+      0.55,
+      0.2
+    ],
+    "seed": 1729,
+    "design": "Red-orange-white swept blade, then distorted flame tongues peel upward off the arc with embers and thin smoke.",
+    "delivery": {
+      "kind": "melee"
+    },
+    "built_by": "effekseer-vfx",
+    "source": "vfx/src/VFX_Slash_Fire.py",
+    "file": "res://effects/VFX_Slash_Fire.efkefc",
+    "runtime": "exports/VFX_Slash_Fire.efk",
+    "preview": "previews/VFX_Slash_Fire.png",
+    "particle_budget": 60,
+    "layers": 13
+  }
+]

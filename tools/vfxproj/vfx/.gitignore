@@ -1,0 +1,9 @@
+# Local working files of the effekseer-vfx skill; the rest of vfx/ is the effect library.
+/godot/
+/work/
+/previews/*
+!/previews/strips/
+/previews/strips/*
+!/previews/strips/overview_*.png
+/previews/strips/overview_select_*.png
+!/previews/strips/metrics.json

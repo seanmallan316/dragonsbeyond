@@ -1,0 +1,1460 @@
+{
+  "id": "VFX_Shield_Dome",
+  "name": "Shield Dome",
+  "category": "status",
+  "element": "arcane",
+  "duration": 1.8,
+  "loop": false,
+  "attach": "body",
+  "peak": 0.15,
+  "impact": 0.3,
+  "light": [
+    0.6,
+    0.8,
+    1
+  ],
+  "seed": 1729,
+  "layers": [
+    {
+      "name": "Raise glint",
+      "texture": "vfx/textures/processed/T_Flare01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "life": 5,
+      "delay": 0,
+      "size": 3.6,
+      "size_curve": [
+        [
+          0,
+          0.55
+        ],
+        [
+          25,
+          1
+        ],
+        [
+          100,
+          0.15
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "fade_in": 0,
+      "fade_out": 3.0,
+      "emissive": 1.6,
+      "position": [
+        0,
+        0.4,
+        1.2
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shell",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Shell",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 48,
+        "Mesh/Divisions/Y": 24
+      },
+      "color": [
+        50,
+        120,
+        255,
+        170
+      ],
+      "life": 84,
+      "fade_in": 2,
+      "fade_out": 4,
+      "scale_start": [
+        1.45,
+        1.45,
+        1.45
+      ],
+      "scale_curve": [
+        [
+          0,
+          0.2
+        ],
+        [
+          9,
+          1.1
+        ],
+        [
+          16,
+          0.97
+        ],
+        [
+          24,
+          1
+        ],
+        [
+          85,
+          1
+        ],
+        [
+          100,
+          1.08
+        ]
+      ],
+      "culling": "Front",
+      "z_test": true,
+      "falloff": {
+        "begin": [
+          60,
+          120,
+          255,
+          90
+        ],
+        "end": [
+          150,
+          210,
+          255,
+          255
+        ],
+        "pow": 0.6,
+        "blend": "Mul"
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "alpha_scroll": [
+        0.002,
+        0.003
+      ],
+      "cutoff": {
+        "start": 0,
+        "end": 0.98,
+        "easing": "EaseInQuartic"
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Rim",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Rim",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 48,
+        "Mesh/Divisions/Y": 24
+      },
+      "color": [
+        150,
+        200,
+        255,
+        200
+      ],
+      "life": 84,
+      "fade_in": 2,
+      "fade_out": 4,
+      "scale_start": [
+        1.47,
+        1.47,
+        1.47
+      ],
+      "scale_curve": [
+        [
+          0,
+          0.2
+        ],
+        [
+          9,
+          1.1
+        ],
+        [
+          16,
+          0.97
+        ],
+        [
+          24,
+          1
+        ],
+        [
+          85,
+          1
+        ],
+        [
+          100,
+          1.08
+        ]
+      ],
+      "culling": "Front",
+      "z_test": true,
+      "falloff": {
+        "begin": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "end": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "pow": 0.4,
+        "blend": "Mul"
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "cutoff": {
+        "start": 0,
+        "end": 0.98,
+        "easing": "EaseInQuartic"
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Surface flow",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Surface flow",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 48,
+        "Mesh/Divisions/Y": 24
+      },
+      "color": [
+        110,
+        190,
+        255,
+        170
+      ],
+      "life": 80,
+      "fade_in": 8,
+      "fade_out": 4,
+      "scale_start": [
+        1.46,
+        1.46,
+        1.46
+      ],
+      "scale_curve": [
+        [
+          0,
+          0.2
+        ],
+        [
+          9,
+          1.1
+        ],
+        [
+          16,
+          0.97
+        ],
+        [
+          24,
+          1
+        ],
+        [
+          85,
+          1
+        ],
+        [
+          100,
+          1.08
+        ]
+      ],
+      "culling": "Front",
+      "z_test": true,
+      "delay": 4,
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+      "alpha_scroll": [
+        0.012,
+        0.004
+      ],
+      "cutoff": {
+        "start": 0,
+        "end": 0.98,
+        "easing": "EaseInQuartic"
+      },
+      "falloff": {
+        "begin": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "end": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "pow": 0.8,
+        "blend": "Mul"
+      },
+      "emissive": 1.4,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Equator pulse",
+      "renderer": "Ring",
+      "color": [
+        215,
+        240,
+        255,
+        255
+      ],
+      "life": 14,
+      "delay": 3,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "ring": {
+        "outer": [
+          1,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.8200000000000001,
+            0
+          ],
+          "end": [
+            0.97,
+            0
+          ]
+        },
+        "center_ratio": 0.8,
+        "outer_color": [
+          215,
+          240,
+          255,
+          127
+        ],
+        "center_color": [
+          215,
+          240,
+          255,
+          255
+        ],
+        "inner_color": [
+          215,
+          240,
+          255,
+          0
+        ]
+      },
+      "size": 1.9,
+      "size_curve": [
+        [
+          0,
+          0.12
+        ],
+        [
+          35,
+          0.72
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "fade_in": 0,
+      "fade_out": 9.799999999999999,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Scan bands",
+      "renderer": "Ring",
+      "color": [
+        90,
+        170,
+        255,
+        255
+      ],
+      "life": 30,
+      "delay": 14,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "ring": {
+        "outer": [
+          1,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.92,
+            0
+          ],
+          "end": [
+            0.97,
+            0
+          ]
+        },
+        "center_ratio": 0.8,
+        "outer_color": [
+          90,
+          170,
+          255,
+          127
+        ],
+        "center_color": [
+          90,
+          170,
+          255,
+          255
+        ],
+        "inner_color": [
+          90,
+          170,
+          255,
+          0
+        ]
+      },
+      "size": 1.5,
+      "size_curve": [
+        [
+          0,
+          0.65
+        ],
+        [
+          50,
+          1
+        ],
+        [
+          100,
+          0.6
+        ]
+      ],
+      "fade_in": 0,
+      "fade_out": 21.0,
+      "count": 3,
+      "interval": 22,
+      "travel": {
+        "start": [
+          0,
+          -1.1,
+          0
+        ],
+        "end": [
+          0,
+          1.2,
+          0
+        ],
+        "easing": "Linear"
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Surface glints",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        215,
+        240,
+        255,
+        255
+      ],
+      "color_end": [
+        90,
+        170,
+        255,
+        255
+      ],
+      "count": 18,
+      "life": [
+        18,
+        30
+      ],
+      "delay": 8,
+      "interval": 4,
+      "billboard": "Billboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          1.4,
+          1.5
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.1,
+            0.3
+          ],
+          0
+        ],
+        "easing": "EaseOutQuadratic"
+      },
+      "size": [
+        0.07,
+        0.14
+      ],
+      "size_end": 0,
+      "easing": "EaseInCubic",
+      "forces": [
+        {
+          "type": "Turbulence",
+          "power": 0.003,
+          "scale": 5
+        }
+      ],
+      "fade_in": 1,
+      "fade_out": 6,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Break shards",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        215,
+        240,
+        255,
+        255
+      ],
+      "color_end": [
+        90,
+        170,
+        255,
+        255
+      ],
+      "count": 16,
+      "life": [
+        10,
+        18
+      ],
+      "delay": 88,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          1.3,
+          1.5
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.4,
+            1.2
+          ],
+          0
+        ],
+        "easing": "EaseOutQuartic"
+      },
+      "scale_start": [
+        0.07,
+        [
+          0.3,
+          0.6
+        ],
+        1
+      ],
+      "scale_end": [
+        0.021,
+        0.06,
+        1
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [],
+      "fade_in": 0,
+      "fade_out": 5,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shell fragment 1",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Shell fragment 1",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 12,
+        "Mesh/Divisions/Y": 16,
+        "Mesh/AngleBeginEnd/X": 0.0,
+        "Mesh/AngleBeginEnd/Y": 40.0,
+        "Shape/DepthMin": -0.7,
+        "Shape/DepthMax": 0.85
+      },
+      "color": [
+        90,
+        165,
+        255,
+        230
+      ],
+      "life": 24,
+      "fade_in": 1,
+      "fade_out": 10,
+      "scale_start": [
+        1.47,
+        1.47,
+        1.47
+      ],
+      "scale_end": [
+        1.5582,
+        1.5582,
+        1.5582
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "delay": 80,
+      "travel": {
+        "end": [
+          0.6108002035108405,
+          -0.2,
+          0.22231309316168468
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "spin": [
+        0.8,
+        1.2,
+        0
+      ],
+      "culling": "Double",
+      "z_test": true,
+      "falloff": {
+        "begin": [
+          20,
+          70,
+          150,
+          30
+        ],
+        "end": [
+          225,
+          245,
+          255,
+          255
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "color_curve": {
+        "R": [
+          [
+            0,
+            90
+          ],
+          [
+            18,
+            160
+          ],
+          [
+            65,
+            70
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "G": [
+          [
+            0,
+            165
+          ],
+          [
+            18,
+            215
+          ],
+          [
+            65,
+            120
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "B": [
+          [
+            0,
+            255
+          ],
+          [
+            18,
+            255
+          ],
+          [
+            65,
+            215
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "A": [
+          [
+            0,
+            230
+          ],
+          [
+            18,
+            230
+          ],
+          [
+            65,
+            200
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "emissive": 2.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shell fragment 2",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Shell fragment 2",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 12,
+        "Mesh/Divisions/Y": 16,
+        "Mesh/AngleBeginEnd/X": 0.0,
+        "Mesh/AngleBeginEnd/Y": 40.0,
+        "Shape/DepthMin": -0.7,
+        "Shape/DepthMax": 0.85
+      },
+      "color": [
+        90,
+        165,
+        255,
+        230
+      ],
+      "life": 24,
+      "fade_in": 1,
+      "fade_out": 10,
+      "scale_start": [
+        1.47,
+        1.47,
+        1.47
+      ],
+      "scale_end": [
+        1.5582,
+        1.5582,
+        1.5582
+      ],
+      "rotation": [
+        0,
+        60,
+        0
+      ],
+      "delay": 80,
+      "travel": {
+        "end": [
+          0.11287131548350478,
+          0.2,
+          0.6401250394579352
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "spin": [
+        -0.8,
+        -1.2,
+        0
+      ],
+      "culling": "Double",
+      "z_test": true,
+      "falloff": {
+        "begin": [
+          20,
+          70,
+          150,
+          30
+        ],
+        "end": [
+          225,
+          245,
+          255,
+          255
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "color_curve": {
+        "R": [
+          [
+            0,
+            90
+          ],
+          [
+            18,
+            160
+          ],
+          [
+            65,
+            70
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "G": [
+          [
+            0,
+            165
+          ],
+          [
+            18,
+            215
+          ],
+          [
+            65,
+            120
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "B": [
+          [
+            0,
+            255
+          ],
+          [
+            18,
+            255
+          ],
+          [
+            65,
+            215
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "A": [
+          [
+            0,
+            230
+          ],
+          [
+            18,
+            230
+          ],
+          [
+            65,
+            200
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "emissive": 2.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shell fragment 3",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Shell fragment 3",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 12,
+        "Mesh/Divisions/Y": 16,
+        "Mesh/AngleBeginEnd/X": 0.0,
+        "Mesh/AngleBeginEnd/Y": 40.0,
+        "Shape/DepthMin": -0.7,
+        "Shape/DepthMax": 0.85
+      },
+      "color": [
+        90,
+        165,
+        255,
+        230
+      ],
+      "life": 24,
+      "fade_in": 1,
+      "fade_out": 10,
+      "scale_start": [
+        1.47,
+        1.47,
+        1.47
+      ],
+      "scale_end": [
+        1.5582,
+        1.5582,
+        1.5582
+      ],
+      "rotation": [
+        0,
+        120,
+        0
+      ],
+      "delay": 80,
+      "travel": {
+        "end": [
+          -0.49792888802733565,
+          -0.2,
+          0.4178119462962507
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "spin": [
+        0.8,
+        1.2,
+        0
+      ],
+      "culling": "Double",
+      "z_test": true,
+      "falloff": {
+        "begin": [
+          20,
+          70,
+          150,
+          30
+        ],
+        "end": [
+          225,
+          245,
+          255,
+          255
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "color_curve": {
+        "R": [
+          [
+            0,
+            90
+          ],
+          [
+            18,
+            160
+          ],
+          [
+            65,
+            70
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "G": [
+          [
+            0,
+            165
+          ],
+          [
+            18,
+            215
+          ],
+          [
+            65,
+            120
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "B": [
+          [
+            0,
+            255
+          ],
+          [
+            18,
+            255
+          ],
+          [
+            65,
+            215
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "A": [
+          [
+            0,
+            230
+          ],
+          [
+            18,
+            230
+          ],
+          [
+            65,
+            200
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "emissive": 2.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shell fragment 4",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Shell fragment 4",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 12,
+        "Mesh/Divisions/Y": 16,
+        "Mesh/AngleBeginEnd/X": 0.0,
+        "Mesh/AngleBeginEnd/Y": 40.0,
+        "Shape/DepthMin": -0.7,
+        "Shape/DepthMax": 0.85
+      },
+      "color": [
+        90,
+        165,
+        255,
+        230
+      ],
+      "life": 24,
+      "fade_in": 1,
+      "fade_out": 10,
+      "scale_start": [
+        1.47,
+        1.47,
+        1.47
+      ],
+      "scale_end": [
+        1.5582,
+        1.5582,
+        1.5582
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "delay": 80,
+      "travel": {
+        "end": [
+          -0.6108002035108405,
+          0.2,
+          -0.22231309316168463
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "spin": [
+        -0.8,
+        -1.2,
+        0
+      ],
+      "culling": "Double",
+      "z_test": true,
+      "falloff": {
+        "begin": [
+          20,
+          70,
+          150,
+          30
+        ],
+        "end": [
+          225,
+          245,
+          255,
+          255
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "color_curve": {
+        "R": [
+          [
+            0,
+            90
+          ],
+          [
+            18,
+            160
+          ],
+          [
+            65,
+            70
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "G": [
+          [
+            0,
+            165
+          ],
+          [
+            18,
+            215
+          ],
+          [
+            65,
+            120
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "B": [
+          [
+            0,
+            255
+          ],
+          [
+            18,
+            255
+          ],
+          [
+            65,
+            215
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "A": [
+          [
+            0,
+            230
+          ],
+          [
+            18,
+            230
+          ],
+          [
+            65,
+            200
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "emissive": 2.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shell fragment 5",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Shell fragment 5",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 12,
+        "Mesh/Divisions/Y": 16,
+        "Mesh/AngleBeginEnd/X": 0.0,
+        "Mesh/AngleBeginEnd/Y": 40.0,
+        "Shape/DepthMin": -0.7,
+        "Shape/DepthMax": 0.85
+      },
+      "color": [
+        90,
+        165,
+        255,
+        230
+      ],
+      "life": 24,
+      "fade_in": 1,
+      "fade_out": 10,
+      "scale_start": [
+        1.47,
+        1.47,
+        1.47
+      ],
+      "scale_end": [
+        1.5582,
+        1.5582,
+        1.5582
+      ],
+      "rotation": [
+        0,
+        240,
+        0
+      ],
+      "delay": 80,
+      "travel": {
+        "end": [
+          -0.11287131548350472,
+          -0.2,
+          -0.6401250394579352
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "spin": [
+        0.8,
+        1.2,
+        0
+      ],
+      "culling": "Double",
+      "z_test": true,
+      "falloff": {
+        "begin": [
+          20,
+          70,
+          150,
+          30
+        ],
+        "end": [
+          225,
+          245,
+          255,
+          255
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "color_curve": {
+        "R": [
+          [
+            0,
+            90
+          ],
+          [
+            18,
+            160
+          ],
+          [
+            65,
+            70
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "G": [
+          [
+            0,
+            165
+          ],
+          [
+            18,
+            215
+          ],
+          [
+            65,
+            120
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "B": [
+          [
+            0,
+            255
+          ],
+          [
+            18,
+            255
+          ],
+          [
+            65,
+            215
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "A": [
+          [
+            0,
+            230
+          ],
+          [
+            18,
+            230
+          ],
+          [
+            65,
+            200
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "emissive": 2.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shell fragment 6",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Shell fragment 6",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 12,
+        "Mesh/Divisions/Y": 16,
+        "Mesh/AngleBeginEnd/X": 0.0,
+        "Mesh/AngleBeginEnd/Y": 40.0,
+        "Shape/DepthMin": -0.7,
+        "Shape/DepthMax": 0.85
+      },
+      "color": [
+        90,
+        165,
+        255,
+        230
+      ],
+      "life": 24,
+      "fade_in": 1,
+      "fade_out": 10,
+      "scale_start": [
+        1.47,
+        1.47,
+        1.47
+      ],
+      "scale_end": [
+        1.5582,
+        1.5582,
+        1.5582
+      ],
+      "rotation": [
+        0,
+        300,
+        0
+      ],
+      "delay": 80,
+      "travel": {
+        "end": [
+          0.4979288880273356,
+          0.2,
+          -0.41781194629625074
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "spin": [
+        -0.8,
+        -1.2,
+        0
+      ],
+      "culling": "Double",
+      "z_test": true,
+      "falloff": {
+        "begin": [
+          20,
+          70,
+          150,
+          30
+        ],
+        "end": [
+          225,
+          245,
+          255,
+          255
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "color_curve": {
+        "R": [
+          [
+            0,
+            90
+          ],
+          [
+            18,
+            160
+          ],
+          [
+            65,
+            70
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "G": [
+          [
+            0,
+            165
+          ],
+          [
+            18,
+            215
+          ],
+          [
+            65,
+            120
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "B": [
+          [
+            0,
+            255
+          ],
+          [
+            18,
+            255
+          ],
+          [
+            65,
+            215
+          ],
+          [
+            100,
+            0
+          ]
+        ],
+        "A": [
+          [
+            0,
+            230
+          ],
+          [
+            18,
+            230
+          ],
+          [
+            65,
+            200
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "emissive": 2.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    }
+  ],
+  "design": "Fresnel shell pops with overshoot, scan bands sweep up; at expiry six partial spherical sheets separate and tumble outward, with fine shards between their gaps.",
+  "delivery": {
+    "kind": "self"
+  }
+}

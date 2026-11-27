@@ -1,0 +1,1940 @@
+{
+  "id": "VFX_Ice_Spikes",
+  "name": "Ice Spikes",
+  "category": "element",
+  "element": "ice",
+  "duration": 1.35,
+  "loop": false,
+  "attach": "ground",
+  "peak": 0.2,
+  "impact": 0.7,
+  "light": [
+    0.6,
+    0.85,
+    1
+  ],
+  "seed": 1729,
+  "layers": [
+    {
+      "name": "Frost creep",
+      "texture": "vfx/textures/processed/T_Smoke02.png",
+      "color": [
+        130,
+        215,
+        255,
+        255
+      ],
+      "life": 60,
+      "delay": 0,
+      "size": 4.2,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        60
+      ],
+      "spin": [
+        0,
+        0,
+        0
+      ],
+      "position": [
+        0,
+        0.05,
+        0
+      ],
+      "z_test": true,
+      "fade_in": 0,
+      "fade_out": 30,
+      "size_curve": [
+        [
+          0,
+          0.1
+        ],
+        [
+          12,
+          0.8
+        ],
+        [
+          30,
+          1
+        ],
+        [
+          100,
+          1.03
+        ]
+      ],
+      "color_end": [
+        50,
+        120,
+        255,
+        0
+      ],
+      "cutoff": {
+        "start": 0.05,
+        "end": 0.5,
+        "easing": "Linear"
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Frost cracks",
+      "texture": "vfx/textures/processed/T_Crack01.png",
+      "color": [
+        200,
+        240,
+        255,
+        220
+      ],
+      "life": 58,
+      "delay": 3,
+      "size": 4.0,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        25
+      ],
+      "spin": [
+        0,
+        0,
+        0
+      ],
+      "position": [
+        0,
+        0.05,
+        0
+      ],
+      "z_test": true,
+      "fade_in": 0,
+      "fade_out": 26,
+      "size_curve": [
+        [
+          0,
+          0.3
+        ],
+        [
+          14,
+          1
+        ],
+        [
+          100,
+          1.02
+        ]
+      ],
+      "color_end": [
+        50,
+        120,
+        255,
+        0
+      ],
+      "emissive": 1.3,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Frost glow",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        60,
+        150,
+        255,
+        130
+      ],
+      "life": 55,
+      "delay": 2,
+      "size": 4.6,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "spin": [
+        0,
+        0,
+        0
+      ],
+      "position": [
+        0,
+        0.05,
+        0
+      ],
+      "z_test": true,
+      "fade_in": 4,
+      "fade_out": 22.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Core crystals",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Core crystals",
+        "Shape/PrimitiveType": "Cylinder",
+        "Shape/Radius": 0.42,
+        "Mesh/Divisions/X": 6,
+        "Mesh/Divisions/Y": 2,
+        "Shape/Depth": 3.0,
+        "Shape/DepthMin": 0,
+        "Shape/DepthMax": 3.0,
+        "Shape/Radius2": 0.0168
+      },
+      "color": [
+        125,
+        210,
+        255,
+        245
+      ],
+      "life": 40,
+      "fade_in": 0,
+      "fade_out": 4,
+      "texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "uv_scroll": [
+        0.002,
+        0.004
+      ],
+      "culling": "Front",
+      "falloff": {
+        "begin": [
+          155,
+          215,
+          255,
+          235
+        ],
+        "end": [
+          205,
+          240,
+          255,
+          245
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "delay": 6,
+      "scale_start": [
+        1,
+        1,
+        1
+      ],
+      "scale_curve": [
+        [
+          0,
+          0
+        ],
+        [
+          10,
+          1.12
+        ],
+        [
+          18,
+          0.97
+        ],
+        [
+          26,
+          1
+        ],
+        [
+          70,
+          1
+        ],
+        [
+          88,
+          0.85
+        ],
+        [
+          100,
+          0.1
+        ]
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "cutoff": {
+        "start": 0,
+        "end": 0.95,
+        "easing": "EaseInQuartic"
+      },
+      "emissive": 0.85,
+      "count": 3,
+      "interval": 0.5,
+      "rotation": [
+        [
+          -16,
+          16
+        ],
+        [
+          0,
+          360
+        ],
+        [
+          -16,
+          16
+        ]
+      ],
+      "position": [
+        [
+          -0.25,
+          0.25
+        ],
+        0,
+        [
+          -0.25,
+          0.25
+        ]
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Outer crystals",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Outer crystals",
+        "Shape/PrimitiveType": "Cylinder",
+        "Shape/Radius": 0.3,
+        "Mesh/Divisions/X": 6,
+        "Mesh/Divisions/Y": 2,
+        "Shape/Depth": 1.9,
+        "Shape/DepthMin": 0,
+        "Shape/DepthMax": 1.9,
+        "Shape/Radius2": 0.012
+      },
+      "color": [
+        125,
+        210,
+        255,
+        245
+      ],
+      "life": 40,
+      "fade_in": 0,
+      "fade_out": 4,
+      "texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "uv_scroll": [
+        0.002,
+        0.004
+      ],
+      "culling": "Front",
+      "falloff": {
+        "begin": [
+          155,
+          215,
+          255,
+          235
+        ],
+        "end": [
+          205,
+          240,
+          255,
+          245
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "delay": 8,
+      "scale_start": [
+        1,
+        1,
+        1
+      ],
+      "scale_curve": [
+        [
+          0,
+          0
+        ],
+        [
+          10,
+          1.12
+        ],
+        [
+          18,
+          0.97
+        ],
+        [
+          26,
+          1
+        ],
+        [
+          70,
+          1
+        ],
+        [
+          88,
+          0.85
+        ],
+        [
+          100,
+          0.1
+        ]
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "cutoff": {
+        "start": 0,
+        "end": 0.95,
+        "easing": "EaseInQuartic"
+      },
+      "emissive": 0.85,
+      "count": 3,
+      "interval": 0.6,
+      "spawn": {
+        "shape": "Circle",
+        "radius": [
+          0.6,
+          1.3
+        ],
+        "division": 3,
+        "order": "Random",
+        "rotate": true,
+        "angle_noise": 40
+      },
+      "rotation": [
+        [
+          10,
+          34
+        ],
+        0,
+        [
+          -15,
+          15
+        ]
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Outer shards",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Outer shards",
+        "Shape/PrimitiveType": "Cylinder",
+        "Shape/Radius": 0.2,
+        "Mesh/Divisions/X": 6,
+        "Mesh/Divisions/Y": 2,
+        "Shape/Depth": 1.0,
+        "Shape/DepthMin": 0,
+        "Shape/DepthMax": 1.0,
+        "Shape/Radius2": 0.008
+      },
+      "color": [
+        125,
+        210,
+        255,
+        245
+      ],
+      "life": 40,
+      "fade_in": 0,
+      "fade_out": 4,
+      "texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "uv_scroll": [
+        0.002,
+        0.004
+      ],
+      "culling": "Front",
+      "falloff": {
+        "begin": [
+          155,
+          215,
+          255,
+          235
+        ],
+        "end": [
+          205,
+          240,
+          255,
+          245
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "delay": 9,
+      "scale_start": [
+        1,
+        1,
+        1
+      ],
+      "scale_curve": [
+        [
+          0,
+          0
+        ],
+        [
+          10,
+          1.12
+        ],
+        [
+          18,
+          0.97
+        ],
+        [
+          26,
+          1
+        ],
+        [
+          70,
+          1
+        ],
+        [
+          88,
+          0.85
+        ],
+        [
+          100,
+          0.1
+        ]
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "cutoff": {
+        "start": 0,
+        "end": 0.95,
+        "easing": "EaseInQuartic"
+      },
+      "emissive": 0.85,
+      "count": 5,
+      "interval": 0.8,
+      "spawn": {
+        "shape": "Circle",
+        "radius": [
+          0.9,
+          1.45
+        ],
+        "division": 5,
+        "order": "Random",
+        "rotate": true,
+        "angle_noise": 40
+      },
+      "rotation": [
+        [
+          22,
+          48
+        ],
+        0,
+        [
+          -18,
+          18
+        ]
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Ripple crystals",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Ripple crystals",
+        "Shape/PrimitiveType": "Cylinder",
+        "Shape/Radius": 0.24,
+        "Mesh/Divisions/X": 6,
+        "Mesh/Divisions/Y": 2,
+        "Shape/Depth": 1.1,
+        "Shape/DepthMin": 0,
+        "Shape/DepthMax": 1.1,
+        "Shape/Radius2": 0.0096
+      },
+      "color": [
+        125,
+        210,
+        255,
+        245
+      ],
+      "life": 40,
+      "fade_in": 0,
+      "fade_out": 4,
+      "texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "uv_scroll": [
+        0.002,
+        0.004
+      ],
+      "culling": "Front",
+      "falloff": {
+        "begin": [
+          155,
+          215,
+          255,
+          235
+        ],
+        "end": [
+          205,
+          240,
+          255,
+          245
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "delay": 9,
+      "scale_start": [
+        1,
+        1,
+        1
+      ],
+      "scale_curve": [
+        [
+          0,
+          0
+        ],
+        [
+          10,
+          1.12
+        ],
+        [
+          18,
+          0.97
+        ],
+        [
+          26,
+          1
+        ],
+        [
+          70,
+          1
+        ],
+        [
+          88,
+          0.85
+        ],
+        [
+          100,
+          0.1
+        ]
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "cutoff": {
+        "start": 0,
+        "end": 0.95,
+        "easing": "EaseInQuartic"
+      },
+      "emissive": 0.85,
+      "count": 3,
+      "interval": 3,
+      "spawn": {
+        "shape": "Line",
+        "start": [
+          0.7,
+          0,
+          -0.2
+        ],
+        "end": [
+          1.6,
+          0,
+          0.5
+        ],
+        "division": 5,
+        "order": "Random",
+        "rotate": false,
+        "noise": 0.4
+      },
+      "rotation": [
+        [
+          -24,
+          20
+        ],
+        [
+          0,
+          360
+        ],
+        [
+          -50,
+          -8
+        ]
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Crystal glow",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        80,
+        170,
+        255,
+        80
+      ],
+      "life": 40,
+      "delay": 6,
+      "size": 2.4,
+      "size_curve": [
+        [
+          0,
+          0.3
+        ],
+        [
+          15,
+          1
+        ],
+        [
+          100,
+          0.55
+        ]
+      ],
+      "billboard": "Billboard",
+      "fade_in": 2,
+      "fade_out": 16,
+      "position": [
+        0,
+        1.2,
+        0
+      ],
+      "color_curve": {
+        "R": [
+          [
+            0,
+            80
+          ],
+          [
+            25,
+            50
+          ],
+          [
+            100,
+            25
+          ]
+        ],
+        "G": [
+          [
+            0,
+            170
+          ],
+          [
+            25,
+            120
+          ],
+          [
+            100,
+            65
+          ]
+        ],
+        "B": [
+          [
+            0,
+            255
+          ],
+          [
+            25,
+            220
+          ],
+          [
+            100,
+            150
+          ]
+        ],
+        "A": [
+          [
+            0,
+            80
+          ],
+          [
+            25,
+            55
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Eruption glint",
+      "texture": "vfx/textures/processed/T_Star01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "life": 5,
+      "delay": 8,
+      "size": 3.4,
+      "size_curve": [
+        [
+          0,
+          0.5
+        ],
+        [
+          25,
+          1
+        ],
+        [
+          100,
+          0.2
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        17
+      ],
+      "position": [
+        0,
+        1.3,
+        0.4
+      ],
+      "fade_in": 0,
+      "fade_out": 3,
+      "emissive": 2.2,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Cold wave R",
+      "renderer": "Ring",
+      "texture": "vfx/textures/processed/T_Trail02.png",
+      "color": [
+        255,
+        140,
+        190,
+        150
+      ],
+      "count": 1,
+      "interval": 0,
+      "life": 14,
+      "delay": 8,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "size": 1,
+      "ring": {
+        "vertices": 72,
+        "outer": [
+          2.6,
+          0
+        ],
+        "inner": {
+          "start": [
+            2.35,
+            0
+          ],
+          "end": [
+            2.525,
+            0
+          ]
+        },
+        "center_ratio": 0.45,
+        "outer_color": [
+          255,
+          140,
+          190,
+          50
+        ],
+        "center_color": [
+          255,
+          140,
+          190,
+          150
+        ],
+        "inner_color": [
+          255,
+          140,
+          190,
+          0
+        ],
+        "angle_start": [
+          -30,
+          100.0
+        ],
+        "angle_end": [
+          22.0,
+          230
+        ],
+        "angle_easing": "EaseOutCubic",
+        "angle_fade": [
+          20,
+          6
+        ]
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+      "alpha_scroll": [
+        -0.06,
+        0
+      ],
+      "cutoff": {
+        "start": 0.08,
+        "end": 0.8,
+        "easing": "EaseInQuadratic"
+      },
+      "fade_in": 1,
+      "fade_out": 6.3,
+      "wrap": "Clamp",
+      "emissive": 2.0,
+      "position": [
+        -0.06,
+        0.08,
+        0
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Cold wave G",
+      "renderer": "Ring",
+      "texture": "vfx/textures/processed/T_Trail02.png",
+      "color": [
+        150,
+        255,
+        220,
+        150
+      ],
+      "count": 1,
+      "interval": 0,
+      "life": 14,
+      "delay": 8,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "size": 1,
+      "ring": {
+        "vertices": 72,
+        "outer": [
+          2.6,
+          0
+        ],
+        "inner": {
+          "start": [
+            2.35,
+            0
+          ],
+          "end": [
+            2.525,
+            0
+          ]
+        },
+        "center_ratio": 0.45,
+        "outer_color": [
+          150,
+          255,
+          220,
+          50
+        ],
+        "center_color": [
+          150,
+          255,
+          220,
+          150
+        ],
+        "inner_color": [
+          150,
+          255,
+          220,
+          0
+        ],
+        "angle_start": [
+          -30,
+          100.0
+        ],
+        "angle_end": [
+          22.0,
+          230
+        ],
+        "angle_easing": "EaseOutCubic",
+        "angle_fade": [
+          20,
+          6
+        ]
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+      "alpha_scroll": [
+        -0.06,
+        0
+      ],
+      "cutoff": {
+        "start": 0.08,
+        "end": 0.8,
+        "easing": "EaseInQuadratic"
+      },
+      "fade_in": 1,
+      "fade_out": 6.3,
+      "wrap": "Clamp",
+      "emissive": 2.0,
+      "position": [
+        0,
+        0.08,
+        0
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Cold wave B",
+      "renderer": "Ring",
+      "texture": "vfx/textures/processed/T_Trail02.png",
+      "color": [
+        130,
+        170,
+        255,
+        190
+      ],
+      "count": 1,
+      "interval": 0,
+      "life": 14,
+      "delay": 9,
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "size": 1,
+      "ring": {
+        "vertices": 72,
+        "outer": [
+          2.6,
+          0
+        ],
+        "inner": {
+          "start": [
+            2.35,
+            0
+          ],
+          "end": [
+            2.525,
+            0
+          ]
+        },
+        "center_ratio": 0.45,
+        "outer_color": [
+          130,
+          170,
+          255,
+          63
+        ],
+        "center_color": [
+          130,
+          170,
+          255,
+          190
+        ],
+        "inner_color": [
+          130,
+          170,
+          255,
+          0
+        ],
+        "angle_start": [
+          -30,
+          100.0
+        ],
+        "angle_end": [
+          22.0,
+          230
+        ],
+        "angle_easing": "EaseOutCubic",
+        "angle_fade": [
+          20,
+          6
+        ]
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+      "alpha_scroll": [
+        -0.06,
+        0
+      ],
+      "cutoff": {
+        "start": 0.08,
+        "end": 0.8,
+        "easing": "EaseInQuadratic"
+      },
+      "fade_in": 1,
+      "fade_out": 6.3,
+      "wrap": "Clamp",
+      "emissive": 2.0,
+      "position": [
+        0.06,
+        0.08,
+        0
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Cold refraction",
+      "texture": "vfx/textures/processed/T_DistortRing01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "material": "BackDistortion",
+      "distortion": 0.8,
+      "life": 14,
+      "delay": 8,
+      "size": 7.2,
+      "size_curve": [
+        [
+          0,
+          0.15
+        ],
+        [
+          40,
+          0.75
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "billboard": "Fixed",
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "fade_in": 0,
+      "fade_out": 9.799999999999999,
+      "position": [
+        0,
+        0.1,
+        0
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Halo 0",
+      "renderer": "Ring",
+      "color": [
+        210,
+        240,
+        255,
+        200
+      ],
+      "life": 20,
+      "delay": 14,
+      "billboard": "Fixed",
+      "rotation": [
+        -82,
+        0,
+        0
+      ],
+      "ring": {
+        "outer": [
+          1,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.94,
+            0
+          ],
+          "end": [
+            0.97,
+            0
+          ]
+        },
+        "center_ratio": 0.8,
+        "outer_color": [
+          210,
+          240,
+          255,
+          100
+        ],
+        "center_color": [
+          210,
+          240,
+          255,
+          200
+        ],
+        "inner_color": [
+          210,
+          240,
+          255,
+          0
+        ]
+      },
+      "size": 1.1,
+      "size_curve": [
+        [
+          0,
+          0.12
+        ],
+        [
+          35,
+          0.72
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "fade_in": 0,
+      "fade_out": 14.0,
+      "travel": {
+        "start": [
+          0,
+          0.3,
+          0
+        ],
+        "end": [
+          0,
+          2.4,
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Halo 1",
+      "renderer": "Ring",
+      "color": [
+        210,
+        240,
+        255,
+        200
+      ],
+      "life": 20,
+      "delay": 25,
+      "billboard": "Fixed",
+      "rotation": [
+        -96,
+        0,
+        0
+      ],
+      "ring": {
+        "outer": [
+          1,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.94,
+            0
+          ],
+          "end": [
+            0.97,
+            0
+          ]
+        },
+        "center_ratio": 0.8,
+        "outer_color": [
+          210,
+          240,
+          255,
+          100
+        ],
+        "center_color": [
+          210,
+          240,
+          255,
+          200
+        ],
+        "inner_color": [
+          210,
+          240,
+          255,
+          0
+        ]
+      },
+      "size": 1.6,
+      "size_curve": [
+        [
+          0,
+          0.12
+        ],
+        [
+          35,
+          0.72
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "fade_in": 0,
+      "fade_out": 14.0,
+      "travel": {
+        "start": [
+          0,
+          0.3,
+          0
+        ],
+        "end": [
+          0,
+          3.0,
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Facet glints",
+      "texture": "vfx/textures/processed/T_Star01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "count": 8,
+      "interval": 5,
+      "delay": 12,
+      "life": [
+        8,
+        12
+      ],
+      "size": 0.35,
+      "size_curve": [
+        [
+          0,
+          0.2
+        ],
+        [
+          30,
+          1
+        ],
+        [
+          100,
+          0
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          0,
+          90
+        ]
+      ],
+      "position": [
+        [
+          -0.9,
+          0.9
+        ],
+        [
+          0.6,
+          2.6
+        ],
+        [
+          -0.5,
+          0.5
+        ]
+      ],
+      "fade_in": 0,
+      "fade_out": 3,
+      "emissive": 2.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Frost mist",
+      "texture": "vfx/textures/processed/T_SmokeSheet01.png",
+      "color": [
+        165,
+        212,
+        255,
+        160
+      ],
+      "color_end": [
+        165,
+        212,
+        255,
+        0
+      ],
+      "count": 8,
+      "life": [
+        30,
+        40
+      ],
+      "delay": 10,
+      "interval": 4,
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "spawn": {
+        "shape": "Circle",
+        "radius": [
+          0.8,
+          1.4
+        ],
+        "rotate": true,
+        "division": 8
+      },
+      "velocity": [
+        0,
+        [
+          0.005,
+          0.02
+        ],
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -0.6,
+          0.6
+        ]
+      ],
+      "size": [
+        0.8,
+        1.2
+      ],
+      "size_end": [
+        1.36,
+        2.04
+      ],
+      "easing": "EaseOutCubic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            -0.0002,
+            0
+          ]
+        }
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "fade_in": 2,
+      "fade_out": 10,
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 2,
+        "loop": "Once"
+      },
+      "cutoff": {
+        "start": 0,
+        "end": 0.3,
+        "easing": "EaseInCubic"
+      },
+      "travel": {
+        "end": [
+          [
+            1.0,
+            1.6
+          ],
+          0,
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "position": [
+        0,
+        0.25,
+        0
+      ],
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Kicked dust",
+      "texture": "vfx/textures/processed/T_SmokeSheet01.png",
+      "color": [
+        170,
+        185,
+        200,
+        150
+      ],
+      "color_end": [
+        170,
+        185,
+        200,
+        0
+      ],
+      "count": 6,
+      "life": [
+        26,
+        36
+      ],
+      "delay": 8,
+      "interval": 0,
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "spawn": {
+        "shape": "Circle",
+        "radius": [
+          0.6,
+          1.0
+        ],
+        "rotate": true,
+        "division": 6
+      },
+      "velocity": [
+        0,
+        [
+          0.005,
+          0.02
+        ],
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -0.6,
+          0.6
+        ]
+      ],
+      "size": [
+        0.5,
+        0.8
+      ],
+      "size_end": [
+        0.8,
+        1.2800000000000002
+      ],
+      "easing": "EaseOutCubic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            0.0001,
+            0
+          ]
+        }
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "fade_in": 2,
+      "fade_out": 10,
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 2,
+        "loop": "Once"
+      },
+      "cutoff": {
+        "start": 0,
+        "end": 0.3,
+        "easing": "EaseInCubic"
+      },
+      "travel": {
+        "end": [
+          [
+            0.8,
+            1.4
+          ],
+          0,
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "position": [
+        0,
+        0.2,
+        0
+      ],
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Frozen rubble",
+      "texture": "vfx/textures/processed/T_Shard01.png",
+      "color": [
+        70,
+        86,
+        112,
+        255
+      ],
+      "color_end": [
+        42,
+        51,
+        67,
+        255
+      ],
+      "count": 6,
+      "life": [
+        28,
+        40
+      ],
+      "delay": 8,
+      "blend": "Blend",
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -12,
+          12
+        ]
+      ],
+      "size": [
+        0.12,
+        0.24
+      ],
+      "size_end": [
+        0.096,
+        0.192
+      ],
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            -0.004,
+            0
+          ]
+        }
+      ],
+      "fade_in": 0,
+      "fade_out": 6,
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.1
+        ],
+        "rotate": false
+      },
+      "travel": {
+        "end": [
+          [
+            -0.6,
+            2.6
+          ],
+          [
+            0.8,
+            2.2
+          ],
+          [
+            -1.2,
+            1.2
+          ]
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "collide": {
+        "height": 0.02,
+        "bounce": [
+          0.15,
+          0.35
+        ],
+        "friction": 0.6,
+        "reduction": 0.2
+      },
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Ice dust",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        240,
+        252,
+        255,
+        255
+      ],
+      "color_end": [
+        130,
+        215,
+        255,
+        255
+      ],
+      "count": 16,
+      "life": [
+        26,
+        50
+      ],
+      "delay": 8,
+      "interval": 0,
+      "billboard": "Billboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.3
+        ],
+        "rot_x": [
+          0,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.5,
+            1.8
+          ],
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "size": [
+        0.07,
+        0.15
+      ],
+      "size_end": 0,
+      "easing": "EaseInCubic",
+      "forces": [
+        {
+          "type": "Turbulence",
+          "power": 0.003,
+          "scale": 5
+        },
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            0.0002,
+            0
+          ]
+        }
+      ],
+      "fade_in": 1,
+      "fade_out": 6,
+      "emissive": 1.5,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Crack glint",
+      "texture": "vfx/textures/processed/T_Flare01.png",
+      "color": [
+        220,
+        245,
+        255,
+        255
+      ],
+      "life": 3,
+      "delay": 47,
+      "size": 3.2,
+      "size_curve": [
+        [
+          0,
+          0.55
+        ],
+        [
+          25,
+          1
+        ],
+        [
+          100,
+          0.15
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        30
+      ],
+      "fade_in": 0,
+      "fade_out": 1.7999999999999998,
+      "emissive": 1.6,
+      "position": [
+        0,
+        1.5,
+        0.3
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shatter shards",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Shatter shards",
+        "Shape/PrimitiveType": "Cylinder",
+        "Shape/Radius": 0.22,
+        "Mesh/Divisions/X": 6,
+        "Mesh/Divisions/Y": 2,
+        "Shape/Depth": 1,
+        "Shape/DepthMin": 0,
+        "Shape/DepthMax": 1,
+        "Shape/Radius2": 0.0088
+      },
+      "color": [
+        80,
+        170,
+        255,
+        170
+      ],
+      "life": [
+        16,
+        28
+      ],
+      "fade_in": 0,
+      "fade_out": 5,
+      "texture": "vfx/textures/processed/T_NoiseTile02.png",
+      "uv_scroll": [
+        0.002,
+        0.004
+      ],
+      "culling": "Double",
+      "falloff": {
+        "begin": [
+          80,
+          170,
+          255,
+          40
+        ],
+        "end": [
+          180,
+          230,
+          255,
+          200
+        ],
+        "pow": 2.2,
+        "blend": "Add"
+      },
+      "count": 5,
+      "delay": 50,
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.3,
+          0.9
+        ],
+        "rot_x": [
+          5,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.8,
+            2.0
+          ],
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            -0.002,
+            0
+          ]
+        }
+      ],
+      "spin": [
+        [
+          -9,
+          9
+        ],
+        [
+          -9,
+          9
+        ],
+        [
+          -9,
+          9
+        ]
+      ],
+      "scale_start": [
+        [
+          0.4,
+          0.55
+        ],
+        [
+          0.5,
+          0.8
+        ],
+        [
+          0.4,
+          0.55
+        ]
+      ],
+      "scale_end": [
+        0.12,
+        0.2,
+        0.12
+      ],
+      "easing": "EaseInCubic",
+      "emissive": 1.0,
+      "collide": {
+        "height": 0.02,
+        "bounce": [
+          0.2,
+          0.35
+        ],
+        "friction": 0.5,
+        "reduction": 0.3
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Shard chips",
+      "texture": "vfx/textures/processed/T_IceShard01.png",
+      "color": [
+        200,
+        235,
+        255,
+        255
+      ],
+      "count": 12,
+      "delay": 50,
+      "life": [
+        14,
+        24
+      ],
+      "size": [
+        0.12,
+        0.24
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -12,
+          12
+        ]
+      ],
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.3,
+          1.0
+        ],
+        "rot_x": [
+          5,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            1.0,
+            2.4
+          ],
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            -0.003,
+            0
+          ]
+        }
+      ],
+      "fade_in": 0,
+      "fade_out": 4,
+      "emissive": 1.4,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    }
+  ],
+  "design": "Torn frost with bright cracks spreads on the ground; a leaning core cluster, an uneven scatter of crystals and a ripple of crystals erupting along the shot punch up with overshoot; a prism-fringed broken cold wave, rubble and dust; during the hold halo rings climb, glints wink and mist rolls out; a glint, then it cracks apart into large shards and chips.",
+  "delivery": {
+    "kind": "projectile",
+    "projectile": "VFX_Projectile_Ice"
+  }
+}

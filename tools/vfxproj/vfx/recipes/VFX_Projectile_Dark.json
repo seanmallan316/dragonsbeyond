@@ -1,0 +1,1015 @@
+{
+  "id": "VFX_Projectile_Dark",
+  "name": "Shadow Orb",
+  "category": "projectile",
+  "element": "dark",
+  "duration": 0.9,
+  "loop": false,
+  "attach": "projectile",
+  "peak": 0.05,
+  "impact": 0,
+  "light": [
+    1,
+    0.85,
+    0.6
+  ],
+  "seed": 1729,
+  "layers": [
+    {
+      "name": "Shadow wake",
+      "texture": "vfx/textures/processed/T_SmokeSheet01.png",
+      "color": [
+        118,
+        106,
+        130,
+        185
+      ],
+      "color_end": [
+        118,
+        106,
+        130,
+        0
+      ],
+      "count": 1,
+      "life": [
+        14,
+        18
+      ],
+      "delay": 0,
+      "interval": 2,
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.1
+        ]
+      },
+      "velocity": [
+        0,
+        [
+          0,
+          0.002
+        ],
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -0.6,
+          0.6
+        ]
+      ],
+      "size": [
+        0.5,
+        0.75
+      ],
+      "size_end": [
+        0.225,
+        0.3375
+      ],
+      "easing": "EaseOutCubic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "fade_in": 2,
+      "fade_out": 10,
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 1,
+        "loop": "Once"
+      },
+      "cutoff": {
+        "start": 0,
+        "end": 0.3,
+        "easing": "EaseInCubic"
+      },
+      "inherit": {
+        "location": "WhenCreating",
+        "rotation": "WhenCreating",
+        "scale": "WhenCreating"
+      },
+      "infinite": true,
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Wake arcs",
+      "renderer": "Ring",
+      "texture": "vfx/textures/processed/T_WispTrail01.png",
+      "color": [
+        225,
+        120,
+        255,
+        255
+      ],
+      "count": 1,
+      "interval": 2,
+      "life": 18,
+      "delay": 0,
+      "billboard": "Fixed",
+      "rotation": [
+        [
+          -90,
+          90
+        ],
+        [
+          0,
+          360
+        ],
+        [
+          0,
+          360
+        ]
+      ],
+      "size": [
+        0.7,
+        1.3
+      ],
+      "ring": {
+        "vertices": 72,
+        "outer": [
+          0.5,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.33999999999999997,
+            0
+          ],
+          "end": [
+            0.452,
+            0
+          ]
+        },
+        "center_ratio": 0.45,
+        "outer_color": [
+          225,
+          120,
+          255,
+          85
+        ],
+        "center_color": [
+          225,
+          120,
+          255,
+          255
+        ],
+        "inner_color": [
+          225,
+          120,
+          255,
+          0
+        ],
+        "angle_start": [
+          0,
+          70.0
+        ],
+        "angle_end": [
+          28.0,
+          140
+        ],
+        "angle_easing": "EaseOutCubic",
+        "angle_fade": [
+          20,
+          6
+        ]
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+      "alpha_scroll": [
+        -0.04,
+        0
+      ],
+      "cutoff": {
+        "start": 0.1,
+        "end": 0.8,
+        "easing": "EaseInQuadratic"
+      },
+      "fade_in": 1,
+      "fade_out": 8.1,
+      "wrap": "Clamp",
+      "emissive": 1.6,
+      "inherit": {
+        "location": "WhenCreating",
+        "rotation": "WhenCreating",
+        "scale": "WhenCreating"
+      },
+      "color_curve": {
+        "R": [
+          [
+            0,
+            235
+          ],
+          [
+            30,
+            170
+          ],
+          [
+            65,
+            115
+          ],
+          [
+            100,
+            80
+          ]
+        ],
+        "G": [
+          [
+            0,
+            150
+          ],
+          [
+            30,
+            90
+          ],
+          [
+            65,
+            100
+          ],
+          [
+            100,
+            72
+          ]
+        ],
+        "B": [
+          [
+            0,
+            255
+          ],
+          [
+            30,
+            230
+          ],
+          [
+            65,
+            128
+          ],
+          [
+            100,
+            90
+          ]
+        ],
+        "A": [
+          [
+            0,
+            255
+          ],
+          [
+            30,
+            230
+          ],
+          [
+            65,
+            170
+          ],
+          [
+            100,
+            0
+          ]
+        ]
+      },
+      "infinite": true,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Violet halo",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        140,
+        60,
+        255,
+        65
+      ],
+      "life": 9,
+      "delay": 0,
+      "size": 1.35,
+      "size_curve": [
+        [
+          0,
+          0.25
+        ],
+        [
+          18,
+          1
+        ],
+        [
+          100,
+          1.25
+        ]
+      ],
+      "billboard": "Billboard",
+      "fade_in": 0,
+      "fade_out": 7.2,
+      "infinite": true,
+      "interval": 3,
+      "count": 1,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Wisp arcs",
+      "renderer": "Ring",
+      "texture": "vfx/textures/processed/T_WispTrail01.png",
+      "color": [
+        225,
+        120,
+        255,
+        255
+      ],
+      "count": 1,
+      "interval": 2,
+      "life": 10,
+      "delay": 0,
+      "billboard": "Fixed",
+      "rotation": [
+        [
+          -90,
+          90
+        ],
+        [
+          0,
+          360
+        ],
+        [
+          0,
+          360
+        ]
+      ],
+      "size": [
+        0.7,
+        1.3
+      ],
+      "ring": {
+        "vertices": 72,
+        "outer": [
+          0.65,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.35000000000000003,
+            0
+          ],
+          "end": [
+            0.56,
+            0
+          ]
+        },
+        "center_ratio": 0.45,
+        "outer_color": [
+          225,
+          120,
+          255,
+          85
+        ],
+        "center_color": [
+          225,
+          120,
+          255,
+          255
+        ],
+        "inner_color": [
+          225,
+          120,
+          255,
+          0
+        ],
+        "angle_start": [
+          0,
+          80.0
+        ],
+        "angle_end": [
+          32.0,
+          160
+        ],
+        "angle_easing": "EaseOutCubic",
+        "angle_fade": [
+          20,
+          6
+        ]
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+      "alpha_scroll": [
+        -0.08,
+        0
+      ],
+      "cutoff": {
+        "start": 0.1,
+        "end": 0.8,
+        "easing": "EaseInQuadratic"
+      },
+      "fade_in": 1,
+      "fade_out": 4.5,
+      "wrap": "Clamp",
+      "emissive": 2.2,
+      "infinite": true,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Inward needles",
+      "texture": "vfx/textures/processed/T_Spark01.png",
+      "color": [
+        235,
+        215,
+        255,
+        255
+      ],
+      "color_end": [
+        170,
+        90,
+        255,
+        255
+      ],
+      "count": 1,
+      "life": [
+        10,
+        14
+      ],
+      "delay": 0,
+      "billboard": "DirectionalBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0.95,
+          1.2
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            -1.15,
+            -0.9
+          ],
+          0
+        ],
+        "easing": "EaseInCubic"
+      },
+      "scale_start": [
+        0.06,
+        [
+          0.35,
+          0.6
+        ],
+        1
+      ],
+      "scale_end": [
+        0.018,
+        0.06999999999999999,
+        1
+      ],
+      "easing": "EaseInQuadratic",
+      "forces": [],
+      "fade_in": 2,
+      "fade_out": 2,
+      "emissive": 2.2,
+      "infinite": true,
+      "interval": 1,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Lens",
+      "texture": "vfx/textures/processed/T_DistortRing01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "material": "BackDistortion",
+      "distortion": 1.4,
+      "life": 6,
+      "delay": 0,
+      "size": 1.6,
+      "size_curve": [
+        [
+          0,
+          0.15
+        ],
+        [
+          40,
+          0.75
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "billboard": "Billboard",
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "fade_in": 1,
+      "fade_out": 3,
+      "infinite": true,
+      "interval": 3,
+      "count": 1,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Seed core",
+      "texture": "vfx/textures/processed/T_Smoke02.png",
+      "color": [
+        6,
+        1,
+        16,
+        245
+      ],
+      "life": 7,
+      "size": 0.85,
+      "size_end": 0.5,
+      "blend": "Blend",
+      "billboard": "Billboard",
+      "cutoff": {
+        "start": 0,
+        "end": 0.65,
+        "easing": "Linear"
+      },
+      "fade_in": 0,
+      "fade_out": 3,
+      "infinite": true,
+      "interval": 3,
+      "count": 1,
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Churn core",
+      "texture": "vfx/textures/processed/T_SmokeSheet01.png",
+      "color": [
+        4,
+        0,
+        10,
+        250
+      ],
+      "color_end": [
+        4,
+        0,
+        10,
+        0
+      ],
+      "count": 1,
+      "life": [
+        7,
+        9
+      ],
+      "delay": 0,
+      "interval": 1,
+      "blend": "Blend",
+      "billboard": "RotatedBillboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.07
+        ]
+      },
+      "velocity": [
+        0,
+        [
+          0,
+          0
+        ],
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        [
+          -180,
+          180
+        ]
+      ],
+      "spin": [
+        0,
+        0,
+        [
+          -0.6,
+          0.6
+        ]
+      ],
+      "size": [
+        0.85,
+        1.05
+      ],
+      "size_end": [
+        0.7224999999999999,
+        0.8925
+      ],
+      "easing": "EaseOutCubic",
+      "forces": [
+        {
+          "type": "Gravity",
+          "gravity": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "fade_in": 0,
+      "fade_out": 4,
+      "flipbook": {
+        "x": 4,
+        "y": 4,
+        "frame_length": 1,
+        "loop": "Once"
+      },
+      "cutoff": {
+        "start": 0,
+        "end": 0.3,
+        "easing": "EaseInCubic"
+      },
+      "infinite": true,
+      "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+    },
+    {
+      "name": "Drawn dust",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        190,
+        170,
+        210,
+        255
+      ],
+      "color_end": [
+        120,
+        60,
+        200,
+        255
+      ],
+      "count": 1,
+      "life": [
+        12,
+        16
+      ],
+      "delay": 0,
+      "interval": 1,
+      "billboard": "Billboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          1.1,
+          1.5
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            -1.45,
+            -1.05
+          ],
+          0
+        ],
+        "easing": "EaseInCubic"
+      },
+      "size": [
+        0.06,
+        0.11
+      ],
+      "size_end": 0,
+      "easing": "EaseInCubic",
+      "forces": [
+        {
+          "type": "Turbulence",
+          "power": 0,
+          "scale": 5
+        }
+      ],
+      "fade_in": 3,
+      "fade_out": 2,
+      "emissive": 1.5,
+      "infinite": true,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Hot center",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        235,
+        215,
+        255,
+        255
+      ],
+      "life": 5,
+      "delay": 0,
+      "size": 0.15,
+      "size_curve": [
+        [
+          0,
+          0.25
+        ],
+        [
+          18,
+          1
+        ],
+        [
+          100,
+          1.25
+        ]
+      ],
+      "billboard": "Billboard",
+      "fade_in": 0,
+      "fade_out": 4.0,
+      "position": [
+        -0.09,
+        0.08,
+        0.1
+      ],
+      "emissive": 1.8,
+      "infinite": true,
+      "interval": 2,
+      "count": 1,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Hot wisps",
+      "renderer": "Ring",
+      "texture": "vfx/textures/processed/T_WispTrail01.png",
+      "color": [
+        235,
+        215,
+        255,
+        255
+      ],
+      "count": 1,
+      "interval": 2,
+      "life": 8,
+      "delay": 0,
+      "billboard": "Fixed",
+      "rotation": [
+        [
+          -90,
+          90
+        ],
+        [
+          0,
+          360
+        ],
+        [
+          0,
+          360
+        ]
+      ],
+      "size": [
+        0.7,
+        1.3
+      ],
+      "ring": {
+        "vertices": 72,
+        "outer": [
+          0.52,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.445,
+            0
+          ],
+          "end": [
+            0.4975,
+            0
+          ]
+        },
+        "center_ratio": 0.45,
+        "outer_color": [
+          235,
+          215,
+          255,
+          85
+        ],
+        "center_color": [
+          235,
+          215,
+          255,
+          255
+        ],
+        "inner_color": [
+          235,
+          215,
+          255,
+          0
+        ],
+        "angle_start": [
+          0,
+          65.0
+        ],
+        "angle_end": [
+          26.0,
+          130
+        ],
+        "angle_easing": "EaseOutCubic",
+        "angle_fade": [
+          20,
+          6
+        ]
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+      "alpha_scroll": [
+        -0.1,
+        0
+      ],
+      "cutoff": {
+        "start": 0.1,
+        "end": 0.8,
+        "easing": "EaseInQuadratic"
+      },
+      "fade_in": 1,
+      "fade_out": 3.6,
+      "wrap": "Clamp",
+      "emissive": 2.4,
+      "infinite": true,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Ember underside",
+      "renderer": "Ring",
+      "texture": "vfx/textures/processed/T_WispTrail01.png",
+      "color": [
+        255,
+        140,
+        55,
+        255
+      ],
+      "count": 1,
+      "interval": 3,
+      "life": 8,
+      "delay": 0,
+      "billboard": "Fixed",
+      "rotation": [
+        [
+          -20,
+          20
+        ],
+        [
+          -20,
+          20
+        ],
+        [
+          -15,
+          15
+        ]
+      ],
+      "size": 1,
+      "ring": {
+        "vertices": 72,
+        "outer": [
+          0.8,
+          0
+        ],
+        "inner": {
+          "start": [
+            0.5800000000000001,
+            0
+          ],
+          "end": [
+            0.734,
+            0
+          ]
+        },
+        "center_ratio": 0.45,
+        "outer_color": [
+          255,
+          140,
+          55,
+          85
+        ],
+        "center_color": [
+          255,
+          140,
+          55,
+          255
+        ],
+        "inner_color": [
+          255,
+          140,
+          55,
+          0
+        ],
+        "angle_start": [
+          140,
+          182.5
+        ],
+        "angle_end": [
+          157.0,
+          225
+        ],
+        "angle_easing": "EaseOutCubic",
+        "angle_fade": [
+          20,
+          6
+        ]
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak01.png",
+      "alpha_scroll": [
+        -0.05,
+        0
+      ],
+      "cutoff": {
+        "start": 0.1,
+        "end": 0.8,
+        "easing": "EaseInQuadratic"
+      },
+      "fade_in": 1,
+      "fade_out": 3.6,
+      "wrap": "Clamp",
+      "emissive": 1.5,
+      "infinite": true,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Path glints",
+      "texture": "vfx/textures/processed/T_Star01.png",
+      "color": [
+        255,
+        210,
+        255,
+        255
+      ],
+      "color_end": [
+        170,
+        90,
+        255,
+        255
+      ],
+      "count": 1,
+      "life": [
+        14,
+        18
+      ],
+      "delay": 0,
+      "interval": 3,
+      "billboard": "Billboard",
+      "spawn": {
+        "shape": "Sphere",
+        "radius": [
+          0,
+          0.2
+        ],
+        "rot_x": [
+          -90,
+          90
+        ]
+      },
+      "travel": {
+        "end": [
+          0,
+          [
+            0.05,
+            0.3
+          ],
+          0
+        ],
+        "easing": "EaseOutCubic"
+      },
+      "size": [
+        0.06,
+        0.12
+      ],
+      "size_end": 0,
+      "easing": "EaseInCubic",
+      "forces": [
+        {
+          "type": "Turbulence",
+          "power": 0.003,
+          "scale": 5
+        }
+      ],
+      "fade_in": 1,
+      "fade_out": 6,
+      "emissive": 1.5,
+      "inherit": {
+        "location": "WhenCreating",
+        "rotation": "WhenCreating",
+        "scale": "WhenCreating"
+      },
+      "infinite": true,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    }
+  ],
+  "design": "An alpha-black orb with a refraction lens and an off-centre glint inside broken magenta wisp strokes that cross at shifting tilts; needles and grey-violet dust are dragged in, an orange underside accent; it leaves broken strokes on the path that cool from magenta to grey over a grey smoke wake, and glints hang after it has passed.",
+  "delivery": {
+    "kind": "projectile"
+  },
+  "flight": 0.6
+}

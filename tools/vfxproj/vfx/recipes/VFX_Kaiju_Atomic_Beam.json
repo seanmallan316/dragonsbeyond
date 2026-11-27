@@ -1,0 +1,821 @@
+{
+  "id": "VFX_Kaiju_Atomic_Beam",
+  "name": "Kaiju Atomic Beam",
+  "category": "beam",
+  "element": "atomic",
+  "duration": 6.3,
+  "loop": false,
+  "attach": "caster",
+  "peak": 0.075,
+  "impact": 0.6,
+  "light": [
+    0.55,
+    0.75,
+    1
+  ],
+  "seed": 1729,
+  "layers": [
+    {
+      "name": "Breath haze",
+      "texture": "vfx/textures/processed/T_DistortHaze01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "billboard": "YAxisFixed",
+      "pivot": "bottom",
+      "bind": {
+        "scale": [
+          [
+            66.0,
+            "@In1"
+          ],
+          "@In0",
+          40.0
+        ]
+      },
+      "material": "BackDistortion",
+      "distortion": 0.6,
+      "uv_scroll": [
+        0.0,
+        -0.004
+      ],
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "fade_in": 15.0,
+      "fade_out": 15.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Breath rim",
+      "texture": "vfx/textures/processed/T_BeamSection01.png",
+      "color": [
+        25,
+        60,
+        220,
+        130
+      ],
+      "billboard": "YAxisFixed",
+      "pivot": "bottom",
+      "bind": {
+        "scale": [
+          [
+            57.2,
+            "@In1"
+          ],
+          "@In0",
+          40.0
+        ]
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseStreak02.png",
+      "alpha_scroll": [
+        0.0,
+        -0.0144
+      ],
+      "emissive": 0.7,
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "fade_in": 15.0,
+      "fade_out": 15.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Breath body",
+      "texture": "vfx/textures/processed/T_BeamSection01.png",
+      "color": [
+        60,
+        150,
+        255,
+        255
+      ],
+      "billboard": "YAxisFixed",
+      "pivot": "bottom",
+      "bind": {
+        "scale": [
+          [
+            22.0,
+            "@In1"
+          ],
+          "@In0",
+          40.0
+        ]
+      },
+      "blend_texture": "vfx/textures/processed/T_NoiseStreak02.png",
+      "blend_scroll": [
+        0.0,
+        -0.024
+      ],
+      "blend_type": "Add",
+      "emissive": 1.1,
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "fade_in": 15.0,
+      "fade_out": 15.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Breath core",
+      "texture": "vfx/textures/processed/T_BeamSection01.png",
+      "color": [
+        230,
+        246,
+        255,
+        255
+      ],
+      "billboard": "YAxisFixed",
+      "pivot": "bottom",
+      "bind": {
+        "scale": [
+          [
+            3.96,
+            "@In1"
+          ],
+          "@In0",
+          40.0
+        ]
+      },
+      "emissive": 1.8,
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "fade_in": 15.0,
+      "fade_out": 15.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Breath origin glow",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        60,
+        150,
+        255,
+        255
+      ],
+      "billboard": "Billboard",
+      "bind": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          [
+            44.0,
+            "@In1"
+          ],
+          [
+            44.0,
+            "@In1"
+          ],
+          40.0
+        ]
+      },
+      "emissive": 1.0,
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "fade_in": 15.0,
+      "fade_out": 15.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Breath origin flare",
+      "texture": "vfx/textures/processed/T_Flare01.png",
+      "color": [
+        230,
+        246,
+        255,
+        255
+      ],
+      "billboard": "RotatedBillboard",
+      "bind": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          [
+            35.2,
+            "@In1"
+          ],
+          [
+            35.2,
+            "@In1"
+          ],
+          40.0
+        ]
+      },
+      "emissive": 1.8,
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "fade_in": 15.0,
+      "fade_out": 15.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Breath end glow",
+      "texture": "vfx/textures/processed/T_Glow01.png",
+      "color": [
+        60,
+        150,
+        255,
+        255
+      ],
+      "billboard": "Billboard",
+      "bind": {
+        "position": [
+          0.0,
+          "@In0",
+          0.0
+        ],
+        "scale": [
+          [
+            60.0,
+            "@In1"
+          ],
+          [
+            60.0,
+            "@In1"
+          ],
+          40.0
+        ]
+      },
+      "emissive": 1.0,
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "fade_in": 15.0,
+      "fade_out": 15.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Breath end flare",
+      "texture": "vfx/textures/processed/T_Flare01.png",
+      "color": [
+        230,
+        246,
+        255,
+        255
+      ],
+      "billboard": "RotatedBillboard",
+      "bind": {
+        "position": [
+          0.0,
+          "@In0",
+          0.0
+        ],
+        "scale": [
+          [
+            41.99999999999999,
+            "@In1"
+          ],
+          [
+            41.99999999999999,
+            "@In1"
+          ],
+          40.0
+        ]
+      },
+      "emissive": 2.0,
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "fade_in": 15.0,
+      "fade_out": 15.0,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Breath hit point",
+      "renderer": "None",
+      "infinite": true,
+      "count": 1,
+      "interval": 15.0,
+      "life": 30,
+      "bind": {
+        "position": [
+          0.0,
+          "@In0",
+          0.0
+        ]
+      },
+      "children": [
+        {
+          "name": "Breath end sparks",
+          "texture": "vfx/textures/processed/T_Spark01.png",
+          "color": [
+            230,
+            246,
+            255,
+            255
+          ],
+          "color_end": [
+            60,
+            150,
+            255,
+            255
+          ],
+          "count": 6,
+          "life": [
+            25,
+            40
+          ],
+          "delay": 0,
+          "billboard": "DirectionalBillboard",
+          "spawn": {
+            "shape": "Sphere",
+            "radius": [
+              0,
+              0.08
+            ],
+            "rot_x": [
+              -90,
+              90
+            ]
+          },
+          "travel": {
+            "end": [
+              0,
+              [
+                0.75,
+                1.9500000000000002
+              ],
+              0
+            ],
+            "easing": "EaseOutQuartic"
+          },
+          "scale_start": [
+            0.1,
+            [
+              0.35,
+              0.7
+            ],
+            1
+          ],
+          "scale_end": [
+            0.03,
+            0.06999999999999999,
+            1
+          ],
+          "easing": "EaseInQuadratic",
+          "forces": [
+            {
+              "type": "Gravity",
+              "gravity": [
+                0.0,
+                -0.00024,
+                0.0
+              ]
+            }
+          ],
+          "fade_in": 0,
+          "fade_out": 12.5,
+          "emissive": 1.5,
+          "inherit": {
+            "location": "WhenCreating",
+            "rotation": "WhenCreating",
+            "scale": "WhenCreating"
+          },
+          "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+        },
+        {
+          "name": "Breath end steam",
+          "texture": "vfx/textures/processed/T_SmokeSheet01.png",
+          "color": [
+            205,
+            215,
+            225,
+            150
+          ],
+          "color_end": [
+            205,
+            215,
+            225,
+            75
+          ],
+          "count": 1,
+          "life": [
+            100,
+            125
+          ],
+          "delay": 0,
+          "interval": 0,
+          "blend": "Blend",
+          "billboard": "RotatedBillboard",
+          "spawn": {
+            "shape": "Sphere",
+            "radius": [
+              0,
+              0.25
+            ]
+          },
+          "velocity": [
+            0.0,
+            [
+              0.004,
+              0.008
+            ],
+            0.0
+          ],
+          "rotation": [
+            0,
+            0,
+            [
+              -180,
+              180
+            ]
+          ],
+          "spin": [
+            0.0,
+            0.0,
+            [
+              -0.24,
+              0.24
+            ]
+          ],
+          "size": [
+            0.75,
+            1.0499999999999998
+          ],
+          "size_end": [
+            1.7999999999999998,
+            2.5199999999999996
+          ],
+          "easing": "EaseOutCubic",
+          "forces": [
+            {
+              "type": "Gravity",
+              "gravity": [
+                0.0,
+                9.599999999999999e-05,
+                0.0
+              ]
+            }
+          ],
+          "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+          "fade_in": 5.0,
+          "fade_out": 25.0,
+          "flipbook": {
+            "x": 4,
+            "y": 4,
+            "frame_length": 10,
+            "loop": "Once"
+          },
+          "cutoff": {
+            "start": 0,
+            "end": 0.3,
+            "easing": "EaseInCubic"
+          },
+          "inherit": {
+            "location": "WhenCreating",
+            "rotation": "WhenCreating",
+            "scale": "WhenCreating"
+          },
+          "soft": 12.000000000000002,
+          "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+        },
+        {
+          "name": "Breath scorch",
+          "texture": "vfx/textures/processed/T_Glow01.png",
+          "color": [
+            170,
+            215,
+            255,
+            220
+          ],
+          "color_curve": {
+            "R": [
+              [
+                0,
+                170
+              ],
+              [
+                30,
+                255
+              ],
+              [
+                70,
+                150
+              ],
+              [
+                100,
+                60
+              ]
+            ],
+            "G": [
+              [
+                0,
+                215
+              ],
+              [
+                30,
+                150
+              ],
+              [
+                70,
+                50
+              ],
+              [
+                100,
+                20
+              ]
+            ],
+            "B": [
+              [
+                0,
+                255
+              ],
+              [
+                30,
+                70
+              ],
+              [
+                70,
+                20
+              ],
+              [
+                100,
+                10
+              ]
+            ],
+            "A": [
+              [
+                0,
+                220
+              ],
+              [
+                30,
+                220
+              ],
+              [
+                70,
+                146
+              ],
+              [
+                100,
+                0
+              ]
+            ]
+          },
+          "life": 125,
+          "size": 1.2000000000000002,
+          "size_curve": [
+            [
+              0,
+              1
+            ],
+            [
+              100,
+              0.75
+            ]
+          ],
+          "billboard": "Billboard",
+          "inherit": {
+            "location": "WhenCreating",
+            "rotation": "WhenCreating",
+            "scale": "WhenCreating"
+          },
+          "fade_in": 0,
+          "fade_out": 62.5,
+          "emissive": 1.3,
+          "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+        },
+        {
+          "name": "Breath smoulder",
+          "texture": "vfx/textures/processed/T_SmokeSheet02.png",
+          "color": [
+            58,
+            54,
+            52,
+            175
+          ],
+          "color_end": [
+            58,
+            54,
+            52,
+            120
+          ],
+          "count": 1,
+          "life": [
+            140,
+            150
+          ],
+          "delay": 0,
+          "interval": 0,
+          "blend": "Blend",
+          "billboard": "RotatedBillboard",
+          "spawn": {
+            "shape": "Sphere",
+            "radius": [
+              0,
+              0.2
+            ],
+            "rotate": false
+          },
+          "velocity": [
+            0.0,
+            [
+              0.0012000000000000001,
+              0.0024000000000000002
+            ],
+            0.0
+          ],
+          "rotation": [
+            0,
+            0,
+            [
+              -12,
+              12
+            ]
+          ],
+          "spin": [
+            0.0,
+            0.0,
+            [
+              -0.04,
+              0.04
+            ]
+          ],
+          "size": [
+            0.9,
+            1.2
+          ],
+          "size_end": [
+            1.62,
+            2.16
+          ],
+          "easing": "EaseOutCubic",
+          "forces": [
+            {
+              "type": "Gravity",
+              "gravity": [
+                0.0,
+                3.2000000000000005e-05,
+                0.0
+              ]
+            }
+          ],
+          "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+          "fade_in": 5.0,
+          "fade_out": 20.0,
+          "flipbook": {
+            "x": 4,
+            "y": 4,
+            "frame_length": 15,
+            "loop": "Once"
+          },
+          "cutoff": {
+            "start": 0,
+            "end": 0.3,
+            "easing": "EaseInCubic"
+          },
+          "inherit": {
+            "location": "WhenCreating",
+            "rotation": "WhenCreating",
+            "scale": "WhenCreating"
+          },
+          "soft": 12.0,
+          "material_profile": "vfx/materials/M_Alpha.vfxmat.json"
+        }
+      ],
+      "scale_start": [
+        40.0,
+        40.0,
+        40.0
+      ],
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Ignition flash",
+      "texture": "vfx/textures/processed/T_Flare01.png",
+      "color": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "life": 12,
+      "delay": 2.5,
+      "size": 88.0,
+      "size_curve": [
+        [
+          0,
+          0.55
+        ],
+        [
+          25,
+          1
+        ],
+        [
+          100,
+          0.15
+        ]
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "fade_in": 0,
+      "fade_out": 7.5,
+      "emissive": 1.6,
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    },
+    {
+      "name": "Ignition shell",
+      "renderer": "Model",
+      "procedural_model": {
+        "Name": "Ignition shell",
+        "Shape/PrimitiveType": "Sphere",
+        "Shape/Radius": 1,
+        "Mesh/Divisions/X": 48,
+        "Mesh/Divisions/Y": 24
+      },
+      "color": [
+        150,
+        205,
+        255,
+        200
+      ],
+      "life": 35,
+      "fade_in": 0,
+      "fade_out": 24.5,
+      "scale_start": [
+        48.0,
+        48.0,
+        48.0
+      ],
+      "scale_curve": [
+        [
+          0,
+          0.15
+        ],
+        [
+          35,
+          0.75
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "culling": "Front",
+      "delay": 2.5,
+      "falloff": {
+        "begin": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "end": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "pow": 0.35,
+        "blend": "Mul"
+      },
+      "alpha_texture": "vfx/textures/processed/T_NoiseTile01.png",
+      "cutoff": {
+        "start": 0,
+        "end": 0.75,
+        "easing": "EaseInQuadratic"
+      },
+      "material_profile": "vfx/materials/M_Additive.vfxmat.json"
+    }
+  ],
+  "design": "A white-hot line inside a saturated blue beam with a wide dim rim; noise streams outward along it, steam, sparks, cooling scorch and smouldering smoke stay where it lands, and it stays locked to its end point while the game rakes it.",
+  "delivery": {
+    "kind": "beam",
+    "charge": "VFX_Kaiju_Atomic_Charge"
+  },
+  "hold": 3.75,
+  "inputs": [
+    160,
+    1.0,
+    0,
+    0
+  ],
+  "scale": {
+    "profile": "kaiju",
+    "world": 40.0,
+    "time": 2.5,
+    "budget": 3.0
+  }
+}

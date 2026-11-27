@@ -20,7 +20,7 @@ enum { WK_FOREST = 0, WK_SKY, WK_SNOW, WK_CRYSTAL, WK_SAND, WK_WATER, WK_LAVA, W
 #define W_CLOUDS -22.0f      /* the top of the cloud sea: fall below it and you are lost in the clouds */
 enum { F_BERRY = 0, F_MUSHROOM, F_GRUB, F_FISH, F_N };   /* berries and mushrooms are plants; grubs and fish are meat */
 
-typedef struct { int kind; float x, z, yaw, scale; } Prop;
+typedef struct { int kind; float x, z, yaw, scale; float broken, pop; } Prop;   /* broken: seconds until a smashed rock or crystal grows back; pop: it is growing back */
 typedef struct { int kind, alive; float x, y, z, yaw, regrow, wander, phase; } Food;
 /* a dragon's attack this step: anything within r of (x, y, z) is hit (r = 0: no attack) */
 typedef struct { float x, y, z, r; } Attack;
@@ -66,6 +66,10 @@ int   world_thieves(World *w, float dt, float px, float py, float pz, float reac
 int   world_blast(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone);
 int   food_is_meat(int kind);
 float food_growth(int kind);                                  /* growth points it gives */
+float world_prop_radius(const World *w, const Prop *p);
+/* smash what can be smashed (rocks, spires, crystals) in reach: a ball of radius `range` round (x,y,z), or a cone along (dx,dz) when cos_cone > -1.
+   Props up to max_scale break; their indices go to out (up to nout). Returns how many broke. */
+int   world_break(World *w, float x, float y, float z, float dx, float dz, float range, float cos_cone, float max_scale, int *out, int nout);   /* solid radius at the foot of a prop (0 = soft) */
 int   world_push_out(const World *w, float *x, float *y, float *z, float r, int air);   /* keep a body of radius r out of trees, rocks and spires; 1 if pushed */
 float world_fbm(float x, float y, unsigned seed);   /* layered noise 0..1, for scenery builders */
 #endif
