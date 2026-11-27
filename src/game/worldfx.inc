@@ -3,20 +3,23 @@
    every world (sky rings, dust devils, lava geysers, sea animals, lightning). Included by game.c. */
 
 typedef struct { float sun, amb, tint[3], fog[3], f0, f1, sky[3]; } Env;
-static Env g_env = {1, 1, {1, 1, 1}, {0.74f, 0.82f, 0.92f}, 140, 620, {1, 1, 1}};
+static Env g_env = {1, 1, {1, 1, 1}, {0.74f, 0.82f, 0.92f}, 170, 800, {1, 1, 1}};
 static int g_uw;   /* the camera is under the sea */
 static void env_compute(Vec3 eye) {
-    Env e = {1, 1, {1, 1, 1}, {0, 0, 0}, 140, 620, {TH->sky[0], TH->sky[1], TH->sky[2]}};
+    Env e = {1, 1, {1, 1, 1}, {0, 0, 0}, 170, 800, {TH->sky[0], TH->sky[1], TH->sky[2]}};   /* the world goes on past the fog now: it starts later and ends further out */
     for (int i = 0; i < 3; i++) e.fog[i] = (g_sky_photo ? (0.66f + 0.04f * i + (i == 2 ? 0.06f : 0)) / (0.74f + 0.08f * i + (i == 2 ? 0.02f : 0)) : 1.0f) * TH->fog[i];
     g_uw = g_world.sea_on && eye.y < g_world.sea - 0.05f;
     switch (g_wk) {
     case WK_CRYSTAL: e.sun = 0.35f; e.amb = 0.75f; e.tint[0] = 0.8f; e.tint[1] = 0.65f; e.tint[2] = 1.15f; e.fog[0] = 0.05f; e.fog[1] = 0.03f; e.fog[2] = 0.1f; e.f0 = 22; e.f1 = 200; e.sky[0] = 0.05f; e.sky[1] = 0.03f; e.sky[2] = 0.1f; break;
-    case WK_LAVA: e.sun = 0.75f; e.amb = 0.85f; e.tint[0] = 1.15f; e.tint[1] = 0.8f; e.tint[2] = 0.7f; e.f0 = 60; e.f1 = 420; break;
-    case WK_KAINE: e.sun = 0.5f; e.amb = 0.7f; e.tint[0] = 0.8f; e.tint[1] = 0.82f; e.tint[2] = 1.0f; e.f0 = 40; e.f1 = 330; break;
-    case WK_SNOW: e.f0 = 90; e.f1 = 520; break;
-    case WK_SAND: e.f0 = 110; e.f1 = 520; break;
+    case WK_LAVA: e.sun = 0.75f; e.amb = 0.85f; e.tint[0] = 1.15f; e.tint[1] = 0.8f; e.tint[2] = 0.7f; e.f0 = 80; e.f1 = 560; break;
+    case WK_KAINE: e.sun = 0.5f; e.amb = 0.7f; e.tint[0] = 0.8f; e.tint[1] = 0.82f; e.tint[2] = 1.0f; e.f0 = 55; e.f1 = 460; break;
+    case WK_SNOW: e.f0 = 120; e.f1 = 700; break;
+    case WK_SAND: e.f0 = 140; e.f1 = 720; break;
     default: break; }
     if (g_uw) { e.sun = 0.7f; e.amb = 0.95f; e.tint[0] = 0.45f; e.tint[1] = 0.9f; e.tint[2] = 1.1f; e.fog[0] = 0.02f; e.fog[1] = 0.25f; e.fog[2] = 0.4f; e.f0 = 3; e.f1 = 100; e.sky[0] = 0.08f; e.sky[1] = 0.4f; e.sky[2] = 0.55f; }
+#if defined(DB_TOUR) && !defined(DB_LOOK)   /* DB_LOOK: the tour with the real view, for look checks on a PC */
+    e.f1 = fminf(e.f1, TR_FAR_TOUR); e.f0 = fminf(e.f0, e.f1 * 0.3f);   /* the emulator build keeps a small world round the camera */
+#endif
     g_env = e; }
 static void env_light3(Vec3 sun, Vec3 sky, Vec3 ground, Vec3 eye) {
     float s = g_env.sun, a = g_env.amb; if (sun.x > 1.02f) { s = fmaxf(s, 0.8f); a = fmaxf(a, 0.9f); }   /* the player's own dragon keeps its character light, even in the dark */
@@ -25,7 +28,18 @@ static void env_light3(Vec3 sun, Vec3 sky, Vec3 ground, Vec3 eye) {
 
 static Mesh *m_sea, *m_cave;
 static float wfx_h(int i, int k) { unsigned h = (unsigned)i * 374761393u + (unsigned)k * 668265263u + (unsigned)g_wk * 2246822519u; h = (h ^ (h >> 13)) * 1274126177u; return (float)((h ^ (h >> 16)) & 0xFFFFFF) / 16777216.0f; }
-static float cave_top(float x, float z) { float r2 = x * x + z * z; float R = 275; if (r2 > R * R) return -30; return -32 + 0.36f * sqrtf(R * R - r2) - 9.0f * world_fbm(x * 0.02f, z * 0.02f, 4411); }
+static float g_cave_cx, g_cave_cz;   /* the cave roof is built round this point (it moves with you through the huge cavern) */
+static float cave_top(float x, float z) { float dx = x - g_cave_cx, dz = z - g_cave_cz; float r2 = dx * dx + dz * dz; const float R = 420; if (r2 > R * R) return -30;
+    float r = sqrtf(r2), drop = r < 260 ? 0 : (r - 260) / (R - 260); return 66 - 98 * drop * drop - 9.0f * world_fbm(x * 0.02f, z * 0.02f, 4411) + 6 * (world_fbm(x * 0.004f, z * 0.004f, 4412) - 0.5f); }
+static void cave_build(float cx, float cz) {   /* the roof: a grid of dark rock round (cx, cz), dropping to the floor far off in the dark */
+    tr_free_later(m_cave); m_cave = NULL; if (g_side) return; g_cave_cx = cx; g_cave_cz = cz; const int N = 44; const float S = 840;
+    tv_begin(N * N * 6); float ox = floorf(cx / (S / N)) * (S / N), oz = floorf(cz / (S / N)) * (S / N); g_cave_cx = ox; g_cave_cz = oz;
+    for (int j = 0; j < N; j++) for (int i = 0; i < N; i++) { Vec3 q[4]; for (int c = 0; c < 4; c++) { float x = ox - S / 2 + S * (i + (c == 1 || c == 2)) / N, z = oz - S / 2 + S * (j + (c >= 2)) / N; q[c] = v3(x, cave_top(x, z), z); }
+        Vec3 n = v3_norm(v3_cross(v3_sub(q[1], q[0]), v3_sub(q[3], q[0]))); if (n.y > 0) n = v3(-n.x, -n.y, -n.z);
+        float g = 0.5f + 0.5f * world_fbm(q[0].x * 0.02f, q[0].z * 0.02f, 771);
+        tv_tri(q[0], q[2], q[1], n, n, n, q[0].x * 0.04f, q[0].z * 0.04f, q[2].x * 0.04f, q[2].z * 0.04f, q[1].x * 0.04f, q[1].z * 0.04f, 0.5f * g, 0.42f * g, 0.62f * g);
+        tv_tri(q[0], q[3], q[2], n, n, n, q[0].x * 0.04f, q[0].z * 0.04f, q[3].x * 0.04f, q[3].z * 0.04f, q[2].x * 0.04f, q[2].z * 0.04f, 0.5f * g, 0.42f * g, 0.62f * g); }
+    m_cave = tv_mesh(); }
 static void wfx_build(void) {
     if (m_sea) { gfx_mesh_free(m_sea); m_sea = NULL; } if (m_cave) { gfx_mesh_free(m_cave); m_cave = NULL; }
     if (g_world.sea_on) { const int N = 24; float S = 720, y = g_world.sea; tv_begin(N * N * 6);
@@ -33,31 +47,30 @@ static void wfx_build(void) {
             tv_tri(v3(x0, y, z0), v3(x1, y, z0), v3(x1, y, z1), n, n, n, x0 * 0.06f, z0 * 0.06f, x1 * 0.06f, z0 * 0.06f, x1 * 0.06f, z1 * 0.06f, 1, 1, 1);
             tv_tri(v3(x0, y, z0), v3(x1, y, z1), v3(x0, y, z1), n, n, n, x0 * 0.06f, z0 * 0.06f, x1 * 0.06f, z1 * 0.06f, x0 * 0.06f, z1 * 0.06f, 1, 1, 1); }
         m_sea = tv_mesh(); }
-    if (g_wk == WK_CRYSTAL && !g_side) {   /* the cave roof: a great dome of dark rock over the whole world */
-        const int M = 48, K = 14; float R = 275; tv_begin(M * K * 6);
-        for (int k = 0; k < K; k++) for (int i = 0; i < M; i++) { Vec3 q[4]; float rr[4] = {R * k / K, R * k / K, R * (k + 1) / K, R * (k + 1) / K}; float aa[4] = {i * 6.2831853f / M, (i + 1) * 6.2831853f / M, (i + 1) * 6.2831853f / M, i * 6.2831853f / M};
-            for (int c = 0; c < 4; c++) { float x = sinf(aa[c]) * rr[c], z = cosf(aa[c]) * rr[c]; q[c] = v3(x, cave_top(x, z), z); }
-            Vec3 e1 = v3_sub(q[1], q[0]), e2 = v3_sub(q[3], q[0]); if (k == 0) e1 = v3_sub(q[2], q[0]); Vec3 n = v3_norm(v3_cross(e1, e2)); if (n.y > 0) n = v3(-n.x, -n.y, -n.z);
-            float g = 0.5f + 0.5f * world_fbm(i * 0.4f, k * 0.6f, 771);
-            tv_tri(q[0], q[1], q[2], n, n, n, q[0].x * 0.04f, q[0].z * 0.04f, q[1].x * 0.04f, q[1].z * 0.04f, q[2].x * 0.04f, q[2].z * 0.04f, 0.5f * g, 0.42f * g, 0.62f * g);
-            tv_tri(q[0], q[2], q[3], n, n, n, q[0].x * 0.04f, q[0].z * 0.04f, q[2].x * 0.04f, q[2].z * 0.04f, q[3].x * 0.04f, q[3].z * 0.04f, 0.5f * g, 0.42f * g, 0.62f * g); }
-        m_cave = tv_mesh(); } }
+    /* (the cave roof is built round the dragon as it travels: cave_build) */ }
 
 /* ---- things in each world (their places are worked out from a number, the same every visit) ---- */
 #define WFX_N 12
-static float g_ring_t[WFX_N];   /* sky rings: > 0 = just flown through, comes back when it runs out */
+static float g_ring_t[9 * WFX_N];   /* sky rings (9 tiles of them): > 0 = just flown through, comes back when it runs out */
+#define WFX_TILE 360.0f
+static int g_wtx, g_wtz;   /* the tile the dragon is in; things are placed in the 3 x 3 tiles round it */
+static void wfx_tile_at(float x, float z) { int tx = (int)floorf(x / WFX_TILE + 0.5f), tz = (int)floorf(z / WFX_TILE + 0.5f); if (tx != g_wtx || tz != g_wtz) { g_wtx = tx; g_wtz = tz; memset(g_ring_t, 0, sizeof g_ring_t); } }
+static float tile_ox(int t) { return (g_wtx + t % 3 - 1) * WFX_TILE; }
+static float tile_oz(int t) { return (g_wtz + t / 3 - 1) * WFX_TILE; }
+static int tile_key(int t) { int x = g_wtx + t % 3 - 1, z = g_wtz + t / 3 - 1; return x == 0 && z == 0 ? 0 : (x * 7919 + z * 104729) & 0xFFFF; }
 static float g_zapw_t, g_zapw_x, g_zapw_z, g_zapw_next = 4;   /* Kaine's keep: lightning strikes */
 static Vec3 wfx_spot(int i, float rmin, float rmax) { float a = wfx_h(i, 1) * 6.2831853f, r = rmin + wfx_h(i, 2) * (rmax - rmin); return v3(cosf(a) * r, 0, sinf(a) * r); }
-static Vec3 ring_pos(int i) { Vec3 p = wfx_spot(i, 22, 105); p.y = 16 + 16 * wfx_h(i, 3); return p; }
-static Vec3 geyser_pos(int i) { Vec3 p = wfx_spot(i, 28, 150); p.y = world_height(&g_world, p.x, p.z); return p; }
+static Vec3 ring_pos(int s) { int t = s / WFX_N, i = s % WFX_N + tile_key(t) * 13; Vec3 p = wfx_spot(i, 22, 105); p.x += tile_ox(t); p.z += tile_oz(t); p.y = fmaxf(16 + 16 * wfx_h(i, 3), world_height(&g_world, p.x, p.z) + 6); return p; }   /* s = tile * WFX_N + ring */
+static Vec3 geyser_pos(int s) { int t = s / WFX_N, i = s % WFX_N + tile_key(t) * 13; Vec3 p = wfx_spot(i, 28, 150); p.x += tile_ox(t); p.z += tile_oz(t); p.y = world_height(&g_world, p.x, p.z); return p; }
 static float geyser_phase(int i) { return fmodf(g_time * 0.16f + wfx_h(i, 5), 1.0f); }   /* 0..0.72 quiet, ..0.84 rumbling, ..1 erupting */
-static Vec3 devil_pos(int i) { float t = g_time * 0.05f + i * 1.7f; Vec3 p = v3(cosf(t * (1 + 0.2f * i)) * (40 + 25 * i), 0, sinf(t * 1.3f) * (35 + 22 * i)); p.y = world_height(&g_world, p.x, p.z); return p; }
+static Vec3 devil_pos(int s) { int tl = s / 4, i = s % 4; float t = g_time * 0.05f + i * 1.7f + tile_key(tl) * 0.01f; Vec3 p = v3(tile_ox(tl) + cosf(t * (1 + 0.2f * i)) * (40 + 25 * i), 0, tile_oz(tl) + sinf(t * 1.3f) * (35 + 22 * i)); p.y = world_height(&g_world, p.x, p.z); return p; }   /* 4 per tile */
 typedef struct { int pm; float x, y, z, yaw, s, roll; } Critter;
-static int critters(Critter *c, int max) {   /* the sea's animals, each swimming its own slow loop */
+static int critters(Critter *c, int max, Vec3 eye) {   /* the sea's animals, each swimming its own slow loop (16 to every tile of sea) */
     int n = 0; if (!g_world.sea_on) return 0;
-    for (int i = 0; i < 16 && n < max; i++) { int kind = i < 5 ? 0 : i < 8 ? 1 : i < 15 ? 2 : 3;   /* turtles, manta rays, jellyfish, one whale */
-        Vec3 o = wfx_spot(i + 40, 55, 150); float R = kind == 3 ? 95 : 14 + 22 * wfx_h(i, 7), sp = (kind == 3 ? 0.035f : kind == 2 ? 0.02f : 0.12f) * (wfx_h(i, 8) > 0.5f ? 1 : -1), a = g_time * sp + i * 2.1f;
-        if (kind == 3) o = v3(0, 0, 0);
+    for (int s = 0; s < 9 * 16 && n < max; s++) { int t = s / 16, i = s % 16, hi = i + tile_key(t) * 17; int kind = i < 5 ? 0 : i < 8 ? 1 : i < 15 ? 2 : 3;   /* turtles, manta rays, jellyfish, one whale */
+        Vec3 o = wfx_spot(hi + 40, 55, 150); float R = kind == 3 ? 95 : 14 + 22 * wfx_h(hi, 7), sp = (kind == 3 ? 0.035f : kind == 2 ? 0.02f : 0.12f) * (wfx_h(hi, 8) > 0.5f ? 1 : -1), a = g_time * sp + i * 2.1f;
+        if (kind == 3) o = v3(0, 0, 0); o.x += tile_ox(t); o.z += tile_oz(t);
+        if (fabsf(o.x - eye.x) > 140 + R || fabsf(o.z - eye.z) > 140 + R) continue;
         Critter *q = &c[n++]; q->x = o.x + cosf(a) * R; q->z = o.z + sinf(a) * R; float bed = world_height(&g_world, q->x, q->z);
         float depth = kind == 2 ? 3 + 5 * wfx_h(i, 9) + 1.2f * sinf(g_time * 0.8f + i) : kind == 3 ? 9 : 4 + 5 * wfx_h(i, 9) + sinf(g_time * 0.4f + i);
         q->y = fminf(bed + depth, g_world.sea - 2.5f); if (q->y < bed + 1.5f) { n--; continue; }
@@ -66,15 +79,14 @@ static int critters(Critter *c, int max) {   /* the sea's animals, each swimming
     return n; }
 
 static void wfx_update(float dt) {
-    Dragon *d = &g_dragon; if (g_side) return;
-    if (g_wk == WK_SKY) for (int i = 0; i < WFX_N; i++) { if (g_ring_t[i] > 0) { g_ring_t[i] -= dt; continue; } Vec3 p = ring_pos(i);
+    Dragon *d = &g_dragon; if (g_side) return; wfx_tile_at(d->x, d->z);
+    if (g_wk == WK_SKY) for (int i = 0; i < 9 * WFX_N; i++) { if (g_ring_t[i] > 0) { g_ring_t[i] -= dt; continue; } Vec3 p = ring_pos(i);
         float dx = d->x - p.x, dy = d->y + 0.6f - p.y, dz = d->z - p.z; if (dx * dx + dy * dy + dz * dz < 3.4f * 3.4f) { g_ring_t[i] = 40; d->growth += 35; d->hearts = fminf(d->max_hearts, d->hearts + 0.5f); d->stamina = 1; d->speed += 6;
             sfx_play(SFX_COIN, 0.9f, 0); sfx_play(SFX_GROW, 0.4f, 0); burst(p, 30, 7, 0.3f, 1, 0.9f, 0.4f, 0.7f); snprintf(g_msg, sizeof g_msg, "SKY RING! +35 FOOD AND A BURST OF SPEED"); g_msg_t = 2.5f; } }
-    if (g_wk == WK_LAVA || g_wk == WK_KAINE) for (int i = 0; i < WFX_N; i++) { float ph = geyser_phase(i); Vec3 p = geyser_pos(i); if (world_in_pond(&g_world, p.x, p.z)) continue;
-        float dx = d->x - p.x, dz = d->z - p.z, d2 = dx * dx + dz * dz;
+    if (g_wk == WK_LAVA || g_wk == WK_KAINE) for (int i = 0; i < 9 * WFX_N; i++) { Vec3 p = geyser_pos(i); float dx = d->x - p.x, dz = d->z - p.z, d2 = dx * dx + dz * dz; if (d2 > 70 * 70) continue; float ph = geyser_phase(i); if (world_in_pond(&g_world, p.x, p.z)) continue;
         if (ph > 0.84f && ph - dt * 0.16f <= 0.84f && d2 < 60 * 60) { sfx_play(SFX_FIRE, 0.5f * (1 - sqrtf(d2) / 60), 0); }
         if (ph > 0.84f && d2 < 2.4f * 2.4f && d->y < p.y + 13 && d->invuln_t <= 0) { d->invuln_t = 1.2f; hurt_dragon(d, 0.75f, "WHOOSH! A FIRE GEYSER! WATCH FOR THE GLOWING CRACKS"); if (d->mode != DM_AIR) { d->mode = DM_AIR; } d->vy = 9; } }
-    if (g_wk == WK_SAND) for (int i = 0; i < 4; i++) { Vec3 p = devil_pos(i); float dx = d->x - p.x, dz = d->z - p.z; static float cd; if (cd > 0) cd -= dt * 0.25f;
+    if (g_wk == WK_SAND) for (int i = 0; i < 9 * 4; i++) { Vec3 p = devil_pos(i); float dx = d->x - p.x, dz = d->z - p.z; static float cd; if (cd > 0) cd -= dt * 0.25f;
         if (dx * dx + dz * dz < 3.0f * 3.0f && d->y < p.y + 10 && cd <= 0) { cd = 1.5f; d->mode = DM_AIR; d->vy = 15; d->vx = sinf(d->yaw) * 6; d->vz = cosf(d->yaw) * 6; d->stamina = 1; sfx_play(SFX_WIND, 0.9f, 0); platform_rumble(0.5f, 0.4f);
             snprintf(g_msg, sizeof g_msg, "WHEEE! THE DUST DEVIL THROWS YOU SKY HIGH. HOLD A TO GLIDE"); g_msg_t = 3; } }
     if (g_wk == WK_KAINE) { g_zapw_next -= dt; if (g_zapw_t > 0) g_zapw_t -= dt;
@@ -87,16 +99,16 @@ static void wfx_update(float dt) {
 static void wfx_draw_solid(Vec3 eye) {
     Mat4 id = m4_identity();
     if (m_cave) { gfx_state(ST_DEPTH | ST_DEPTH_WRITE); gfx_bind(tx_rock); gfx_draw(m_cave, &id, 1, 1, 1, 1); gfx_state(ST_SOLID);
-        if (g_pm[PM_STALAC].ok) for (int i = 0; i < 70; i++) { Vec3 p = wfx_spot(i + 100, 10, 190); float dx = p.x - eye.x, dz = p.z - eye.z, d2 = dx * dx + dz * dz; if (d2 > 170 * 170) continue;
+        if (g_pm[PM_STALAC].ok) for (int si = 0; si < 9 * 70; si++) { int t = si / 70, i = si % 70 + tile_key(t) * 7; Vec3 p = wfx_spot(i + 100, 10, 190); p.x += tile_ox(t); p.z += tile_oz(t); float dx = p.x - eye.x, dz = p.z - eye.z, d2 = dx * dx + dz * dz; if (d2 > 170 * 170) continue;
             float s = 0.7f + 1.3f * wfx_h(i, 20); float top = cave_top(p.x, p.z) + 2.0f; const PropModel *m = &g_pm[PM_STALAC]; int lod = d2 > 60 * 60;   /* hung upside down from the roof */
             Mat4 mm = m4_mul(m4_mul(m4_mul(m4_translate(p.x, top, p.z), m4_rotate_y(wfx_h(i, 21) * 6.28f)), m4_rotate_x(3.14159265f)), m4_scale(s, s, s)); gfx_bind(m->tex); gfx_draw_ex(m->mesh[lod], &mm, 1.7f, 1.7f, 2.0f, 1, 0, 0, 0, 0); } gfx_bind(NULL); }
-    if (g_world.sea_on) { Critter c[16]; int n = critters(c, 16);
+    if (g_world.sea_on) { Critter c[48]; int n = critters(c, 48, eye);
         for (int i = 0; i < n; i++) { const PropModel *m = &g_pm[c[i].pm]; if (!m->ok) continue; float dx = c[i].x - eye.x, dz = c[i].z - eye.z, d2 = dx * dx + dz * dz; if (d2 > 130 * 130) continue;
             propmodel_draw(m, d2 > 45 * 45, c[i].x, c[i].y, c[i].z, c[i].yaw + CRIT_YAW[c[i].pm - PM_TURTLE], c[i].s, 1.15f, 1.15f, 1.15f); } }
     if (g_wk == WK_KAINE && g_pm[PM_TOWER].ok && !g_side) for (int i = 0; i < 5; i++) { float a = i * 1.2566f + 0.9f, r = g_world.arena_r + 16; float x = g_world.arena_x + cosf(a) * r, z = g_world.arena_z + sinf(a) * r;
         propmodel_draw(&g_pm[PM_TOWER], 0, x, world_height(&g_world, x, z) - 1.5f, z, -a, 1.0f + 0.25f * (i % 2), 1, 1, 1); } }
 static void wfx_draw_sea(void) {   /* the sea's surface, seen from above or from below */
-    if (!m_sea) return; Mat4 id = m4_identity(); gfx_state(ST_TRANSPARENT); gfx_bind(tx_water);
+    if (!m_sea) return; Mat4 id = m4_translate(floorf(g_eye.x / 50) * 50, 0, floorf(g_eye.z / 50) * 50); gfx_state(ST_TRANSPARENT); gfx_bind(tx_water);   /* follows you, in steps of 50 m (3 whole ripple tiles) */
     if (g_uw) gfx_draw_ex(m_sea, &id, 0.6f, 1.2f, 1.4f, 0.55f, 0, 1, g_time * 0.015f, g_time * 0.01f);
     else gfx_draw_ex(m_sea, &id, 0.55f, 0.95f, 1.15f, 0.78f, 0.9f, 0, g_time * 0.02f, g_time * 0.013f);
     gfx_state(ST_SOLID); }
@@ -124,24 +136,24 @@ static void wfx_draw_add(Vec3 eye) {
     default: break; }
     if (g_side) return;
     if (g_wk == WK_SNOW) for (int k = 0; k < 3; k++) for (int i = 0; i < 40; i++) {   /* the northern lights: three slow green and violet curtains */
-        float u = i / 40.0f, a = u * 3.0f + k * 2.1f + 0.3f, R = 330 + 40 * k, x = cosf(a) * R, z = sinf(a) * R, y = 120 + 30 * k + 16 * sinf(u * 9 + g_time * 0.5f + k), h = 50 + 18 * sinf(u * 13 - g_time * 0.4f);
+        float u = i / 40.0f, a = u * 3.0f + k * 2.1f + 0.3f, R = 330 + 40 * k, x = eye.x + cosf(a) * R, z = eye.z + sinf(a) * R, y = 120 + 30 * k + 16 * sinf(u * 9 + g_time * 0.5f + k), h = 50 + 18 * sinf(u * 13 - g_time * 0.4f);
         float al = (0.1f + 0.08f * sinf(u * 21 + g_time * 0.9f + k)) * sinf(u * 3.14159f);
         batch_quad(&g_b, v3(x, y, z), v3(-sinf(a) * 14, 0, cosf(a) * 14), v3(0, h, 0), v3(0, 1, 0), 0.4f, 0.4f, 0.6f, 0.6f, k == 1 ? 0.6f : 0.2f, k == 1 ? 0.3f : 1.0f, k == 1 ? 1.0f : 0.5f, al); }
-    if (g_wk == WK_CRYSTAL) { int shown = 0; for (int i = 0; i < g_world.nprop && shown < 46; i++) { const Prop *p = &g_world.prop[i]; if (p->kind != P_TREE && p->kind != P_SPIRE && p->kind != P_PALM) continue;   /* every crystal lights the dark round it */
+    if (g_wk == WK_CRYSTAL) { int shown = 0; WORLD_FOR_CHUNKS(eye.x, eye.z, 75, gc) for (int i = g_world.pch[gc]; i < g_world.pch[gc + 1] && shown < 46; i++) { const Prop *p = &g_world.prop[i]; if (p->kind != P_TREE && p->kind != P_SPIRE && p->kind != P_PALM) continue;   /* every crystal lights the dark round it */
             float dx = p->x - eye.x, dz = p->z - eye.z; if (dx * dx + dz * dz > 75 * 75) continue; shown++; float gy = world_height(&g_world, p->x, p->z), pu = 0.7f + 0.3f * sinf(g_time * 1.7f + i), s = 4.5f * p->scale;
             int c = i % 3; batch_quad(&g_b, v3(p->x, gy + 2.2f * p->scale, p->z), v3(rt.x * s, 0, rt.z * s), v3(0, s, 0), v3(0, 1, 0), 0, 0, 1, 1, c == 0 ? 1.0f : 0.35f, c == 1 ? 0.9f : 0.4f, 1.0f, 0.42f * pu); } }
-    if (g_wk == WK_SKY) for (int i = 0; i < WFX_N; i++) { if (g_ring_t[i] > 0) continue; Vec3 p = ring_pos(i); float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;   /* golden rings to fly through */
+    if (g_wk == WK_SKY) for (int i = 0; i < 9 * WFX_N; i++) { if (g_ring_t[i] > 0) continue; Vec3 p = ring_pos(i); float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 160 * 160) continue;   /* golden rings to fly through */
         float ya = wfx_h(i, 4) * 3.14159f; Vec3 ax = v3(cosf(ya), 0, sinf(ya));
         for (int k = 0; k < 20; k++) { float a = k * 0.314159f + g_time * 0.8f; Vec3 c = v3(p.x + ax.x * cosf(a) * 3.0f, p.y + sinf(a) * 3.0f, p.z + ax.z * cosf(a) * 3.0f); float sz = 0.55f + 0.15f * sinf(g_time * 5 + k);
             batch_quad(&g_b, c, v3(rt.x * sz, 0, rt.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.85f, 0.3f, 1); }
         batch_quad(&g_b, p, v3(rt.x * 3.4f, 0, rt.z * 3.4f), v3(0, 3.4f, 0), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.9f, 0.5f, 0.16f); }
-    if (g_wk == WK_LAVA || g_wk == WK_KAINE) for (int i = 0; i < WFX_N; i++) { Vec3 p = geyser_pos(i); float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 120 * 120 || world_in_pond(&g_world, p.x, p.z)) continue; float ph = geyser_phase(i);
+    if (g_wk == WK_LAVA || g_wk == WK_KAINE) for (int i = 0; i < 9 * WFX_N; i++) { Vec3 p = geyser_pos(i); float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 120 * 120 || world_in_pond(&g_world, p.x, p.z)) continue; float ph = geyser_phase(i);
         float glow = ph > 0.72f ? 1 : 0.35f + 0.15f * sinf(g_time * 2 + i); batch_quad(&g_b, v3(p.x, p.y + 0.25f, p.z), v3(1.6f * glow + 0.6f, 0, 0), v3(0, 0, 1.6f * glow + 0.6f), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.4f, 0.08f, 0.8f * glow);   /* the glowing crack */
         if (ph > 0.72f && ph <= 0.84f) for (int k = 0; k < 8; k++) { float u = fmodf(g_time * 2 + k * 0.125f, 1.0f); batch_quad(&g_b, v3(p.x + 0.8f * sinf(k * 2.4f), p.y + u * 1.5f, p.z + 0.8f * cosf(k * 2.4f)), v3(rt.x * 0.3f, 0, rt.z * 0.3f), v3(0, 0.3f, 0), v3(0, 1, 0), 0, 0, 1, 1, 1, 0.6f, 0.2f, 1 - u); }
         if (ph > 0.84f) { float e = (ph - 0.84f) / 0.16f, hgt = 13 * sinf(fminf(1, e * 4) * 1.5708f) * (e > 0.8f ? (1 - e) * 5 : 1);
             for (int k = 0; k < 34; k++) { float u = fmodf(k * 0.618f + g_time * 2.5f, 1.0f), wob = 0.5f + 1.2f * u; float sz = 1.3f - 0.7f * u;
                 batch_quad(&g_b, v3(p.x + wob * sinf(k * 2.4f + g_time * 3), p.y + u * hgt, p.z + wob * cosf(k * 2.4f + g_time * 3)), v3(rt.x * sz, 0, rt.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.75f - 0.55f * u, 0.25f - 0.2f * u, 1 - u * 0.7f); } } }
-    if (g_wk == WK_SAND) for (int i = 0; i < 4; i++) { Vec3 p = devil_pos(i); float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 150 * 150) continue;   /* dust devils wander the dunes */
+    if (g_wk == WK_SAND) for (int i = 0; i < 9 * 4; i++) { Vec3 p = devil_pos(i); float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 150 * 150) continue;   /* dust devils wander the dunes */
         for (int k = 0; k < 70; k++) { float u = fmodf(k * 0.618f + g_time * 0.5f, 1.0f), a = k * 2.4f + g_time * (7 - 4 * u), r = 0.5f + 2.6f * u * u + 0.3f * sinf(k); float sz = 0.5f + 0.7f * u;
             batch_quad(&g_b, v3(p.x + cosf(a) * r + 0.8f * sinf(g_time * 2 + u * 5), p.y + u * 11, p.z + sinf(a) * r), v3(rt.x * sz, 0, rt.z * sz), v3(0, sz, 0), v3(0, 1, 0), 0, 0, 1, 1, 1.0f, 0.82f, 0.5f, 0.5f * (1 - u * 0.6f)); } }
     if (g_wk == WK_KAINE && g_zapw_t > 0) { float gy = world_height(&g_world, g_zapw_x, g_zapw_z); Vec3 a = v3(g_zapw_x + 6, gy + 90, g_zapw_z); float al = g_zapw_t / 0.35f;   /* a fork of lightning */
@@ -199,32 +211,37 @@ static void clouds_draw(Vec3 eye) {
 
 /* water: built with the world - a second, finer layer of ripples crossing the first, and foam wherever water meets land */
 static void water_build(void) {
-    if (m_foam) { gfx_mesh_free(m_foam); m_foam = NULL; } if (m_water2) { gfx_mesh_free(m_water2); m_water2 = NULL; }
+    tr_free_later(m_foam); m_foam = NULL; tr_free_later(m_water2); m_water2 = NULL;
     int sea = g_world.sea_on; float wy = sea ? g_world.sea : g_world.pond_y; if (!sea && g_world.pond_r <= 0) return; if (g_wk == WK_LAVA || g_wk == WK_KAINE) return;
-    float cs = W_SIZE / (W_GRID - 1); tv_begin((W_GRID - 1) * (W_GRID - 1) * 6);
-    for (int j = 0; j < W_GRID - 1; j++) for (int i = 0; i < W_GRID - 1; i++) { float h0 = g_world.h[j][i], h1 = g_world.h[j][i + 1], h2 = g_world.h[j + 1][i], h3 = g_world.h[j + 1][i + 1]; float mn = fminf(fminf(h0, h1), fminf(h2, h3)), mx = fmaxf(fmaxf(h0, h1), fmaxf(h2, h3));
-        if (!(mn < wy + 0.05f && mx > wy - 0.5f)) continue; float x0 = -W_SIZE / 2 + cs * i, z0 = -W_SIZE / 2 + cs * j; if (!sea) { float ddx = x0 - g_world.pond_x, ddz = z0 - g_world.pond_z; if (ddx * ddx + ddz * ddz > (g_world.pond_r * 1.08f) * (g_world.pond_r * 1.08f)) continue; }
+    float cs = W_SIZE / (W_GRID - 1); int nbox = sea ? 1 : g_world.nlake; float BX[W_MAXLAKES], BZ[W_MAXLAKES], BR[W_MAXLAKES], BY[W_MAXLAKES];
+    if (sea) { BX[0] = g_dragon.x; BZ[0] = g_dragon.z; BR[0] = 260; BY[0] = wy; } else for (int k = 0; k < nbox; k++) { BX[k] = g_world.lake_x[k]; BZ[k] = g_world.lake_z[k]; BR[k] = g_world.lake_r[k] * 1.1f; BY[k] = g_world.lake_y[k]; }
+    uint32_t cap = 6; for (int k = 0; k < nbox; k++) { uint32_t n = (uint32_t)(2 * BR[k] / cs + 2); cap += n * n * 6; } tv_begin(cap);
+    for (int k = 0; k < nbox; k++) { int i0 = (int)((BX[k] - BR[k] + W_SIZE / 2) / cs), i1 = (int)((BX[k] + BR[k] + W_SIZE / 2) / cs), j0 = (int)((BZ[k] - BR[k] + W_SIZE / 2) / cs), j1 = (int)((BZ[k] + BR[k] + W_SIZE / 2) / cs); wy = BY[k];
+      if (i0 < 0) i0 = 0; if (j0 < 0) j0 = 0; if (i1 > W_GRID - 2) i1 = W_GRID - 2; if (j1 > W_GRID - 2) j1 = W_GRID - 2;
+      for (int j = j0; j <= j1; j++) for (int i = i0; i <= i1; i++) { float h0 = g_world.h[j][i], h1 = g_world.h[j][i + 1], h2 = g_world.h[j + 1][i], h3 = g_world.h[j + 1][i + 1]; float mn = fminf(fminf(h0, h1), fminf(h2, h3)), mx = fmaxf(fmaxf(h0, h1), fmaxf(h2, h3));
+        if (!(mn < wy + 0.05f && mx > wy - 0.5f)) continue; float x0 = -W_SIZE / 2 + cs * i, z0 = -W_SIZE / 2 + cs * j; { float ddx = x0 - BX[k], ddz = z0 - BZ[k]; if (ddx * ddx + ddz * ddz > BR[k] * BR[k]) continue; }
         Vec3 n = v3(0, 1, 0), a = v3(x0, wy + 0.03f, z0), b = v3(x0 + cs, wy + 0.03f, z0), c = v3(x0 + cs, wy + 0.03f, z0 + cs), d = v3(x0, wy + 0.03f, z0 + cs); float s = 0.3f;
-        tv_tri(a, b, c, n, n, n, a.x * s, a.z * s, b.x * s, b.z * s, c.x * s, c.z * s, 1, 1, 1); tv_tri(a, c, d, n, n, n, a.x * s, a.z * s, c.x * s, c.z * s, d.x * s, d.z * s, 1, 1, 1); }
+        tv_tri(a, b, c, n, n, n, a.x * s, a.z * s, b.x * s, b.z * s, c.x * s, c.z * s, 1, 1, 1); tv_tri(a, c, d, n, n, n, a.x * s, a.z * s, c.x * s, c.z * s, d.x * s, d.z * s, 1, 1, 1); } }
     m_foam = tv_mesh();
-    if (!sea) { tv_begin(48 * 3); Vec3 cc = v3(g_world.pond_x, wy + 0.02f, g_world.pond_z); float R = g_world.pond_r * 1.25f; Vec3 n = v3(0, 1, 0);
+    if (!sea) { tv_begin((uint32_t)(48 * 3 * g_world.nlake)); for (int L = 0; L < g_world.nlake; L++) { Vec3 cc = v3(g_world.lake_x[L], g_world.lake_y[L] + 0.02f, g_world.lake_z[L]); float R = g_world.lake_r[L] * 1.25f; Vec3 n = v3(0, 1, 0);
         for (int i = 0; i < 48; i++) { float a0 = i * 6.2831853f / 48, a1 = (i + 1) * 6.2831853f / 48; float s = 0.21f;   /* finer ripples, turned a third of the way round */
             Vec3 e1 = v3(cc.x + sinf(a1) * R, cc.y, cc.z + cosf(a1) * R), e0 = v3(cc.x + sinf(a0) * R, cc.y, cc.z + cosf(a0) * R);
 #define W2U(p) ((p.x * 0.5f + p.z * 0.866f) * s)
 #define W2V(p) ((-p.x * 0.866f + p.z * 0.5f) * s)
-            tv_tri(cc, e1, e0, n, n, n, W2U(cc), W2V(cc), W2U(e1), W2V(e1), W2U(e0), W2V(e0), 1, 1, 1); }
+            tv_tri(cc, e1, e0, n, n, n, W2U(cc), W2V(cc), W2U(e1), W2V(e1), W2U(e0), W2V(e0), 1, 1, 1); } }
         m_water2 = tv_mesh(); } }
 static void water_draw_extra(Vec3 eye) {   /* after the main water */
     Mat4 id = m4_identity(); float bob = 0.02f * sinf(g_time * 1.3f); Mat4 bm = m4_translate(0, bob, 0);
     if (m_water2) { gfx_state(ST_TRANSPARENT); gfx_bind(tx_water); float wr = 1.1f, wg = 1.15f, wb = 1.2f; if (g_wk == WK_SNOW) { wb = 1.35f; } else if (g_wk == WK_CRYSTAL) { wr = 1.2f; wg = 0.85f; wb = 1.4f; }
         gfx_draw_ex(m_water2, &bm, wr, wg, wb, 0.38f, 1.0f, 0, -g_time * 0.031f, g_time * 0.017f); }
-    if (m_sea && !g_uw) { gfx_state(ST_TRANSPARENT); gfx_bind(tx_water); Mat4 sm = m4_mul(m4_translate(13.0f, 0.02f + bob, 7.0f), m4_rotate_y(1.0f)); gfx_draw_ex(m_sea, &sm, 0.8f, 1.1f, 1.25f, 0.32f, 1.0f, 0, -g_time * 0.027f, g_time * 0.019f); }
+    if (m_sea && !g_uw) { gfx_state(ST_TRANSPARENT); gfx_bind(tx_water); Mat4 sm = m4_mul(m4_translate(13.0f + floorf(g_eye.x / 50) * 50, 0.02f + bob, 7.0f + floorf(g_eye.z / 50) * 50), m4_rotate_y(1.0f)); gfx_draw_ex(m_sea, &sm, 0.8f, 1.1f, 1.25f, 0.32f, 1.0f, 0, -g_time * 0.027f, g_time * 0.019f); }
     if (m_foam && tx_foam && !g_uw) { gfx_state(ST_TRANSPARENT); gfx_bind(tx_foam); float pu = 0.55f + 0.2f * sinf(g_time * 1.1f); gfx_draw_ex(m_foam, &bm, 1, 1, 1, pu, 0, 1, g_time * 0.012f, sinf(g_time * 0.6f) * 0.02f); gfx_draw_ex(m_foam, &bm, 1, 1, 1, pu * 0.6f, 0, 1, -g_time * 0.009f, 0.37f + g_time * 0.007f); }
     gfx_state(ST_SOLID); gfx_bind(NULL); (void)id; (void)eye; }
 /* sunlight dancing on the water: a field of quick glints, in the sparkle batch */
 static void water_glints(Vec3 eye) {
     int sea = g_world.sea_on; if (g_uw || (!sea && g_world.pond_r <= 0) || g_wk == WK_LAVA || g_wk == WK_KAINE || g_wk == WK_CRYSTAL) return; float wy = (sea ? g_world.sea : g_world.pond_y) + 0.06f;
     for (int i = 0; i < 110; i++) { float x, z; if (sea) { x = eye.x + wrapc(wfx_h(i, 90) * 120 - eye.x, 120); z = eye.z + wrapc(wfx_h(i, 91) * 120 - eye.z, 120); if (world_height(&g_world, x, z) > wy - 0.2f) continue; }
-        else { float a = wfx_h(i, 90) * 6.2831853f, r = sqrtf(wfx_h(i, 91)) * g_world.pond_r * 1.15f; x = g_world.pond_x + cosf(a) * r; z = g_world.pond_z + sinf(a) * r; if (world_height(&g_world, x, z) > wy - 0.1f) continue; }
+        else { int L = 0; float bd = 1e18f; for (int k = 0; k < g_world.nlake; k++) { float dx = g_world.lake_x[k] - eye.x, dz = g_world.lake_z[k] - eye.z; if (dx * dx + dz * dz < bd) { bd = dx * dx + dz * dz; L = k; } }   /* the nearest lake */
+            if (bd > 200 * 200) return; wy = g_world.lake_y[L] + 0.06f; float a = wfx_h(i, 90) * 6.2831853f, r = sqrtf(wfx_h(i, 91)) * g_world.lake_r[L] * 1.15f; x = g_world.lake_x[L] + cosf(a) * r; z = g_world.lake_z[L] + sinf(a) * r; if (world_height(&g_world, x, z) > wy - 0.1f) continue; }
         float tw = sinf(g_time * (2.5f + 3 * wfx_h(i, 92)) + i * 2.7f); if (tw < 0.55f) continue; tw = (tw - 0.55f) / 0.45f; float sz = (0.25f + 0.35f * wfx_h(i, 93)) * tw;
         batch_quad(&g_b, v3(x, wy, z), v3(sz * 1.6f, 0, 0), v3(0, 0, sz * 0.5f), v3(0, 1, 0), 0.2f, 0.2f, 0.8f, 0.8f, 1.0f, 0.98f, 0.9f, 0.9f * tw); } }

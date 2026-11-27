@@ -31,7 +31,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
     if (in->side && d->mode != DM_AIR) d->stamina = fminf(1, d->stamina + dt * 0.5f);   /* side levels: tired wings rest on the ground */
     d->atk_r = 0; d->atk_kind = ATK_NONE; if (d->invuln_t > 0) d->invuln_t -= dt; if (d->chirp_cd > 0) d->chirp_cd -= dt;
     if (d->air_act <= 0) d->roll *= expf(-dt * 10);
-    float gy = world_height(w, d->x, d->z); int inpond = world_in_pond(w, d->x, d->z); float waterline = inpond ? w->pond_y : -1e9f;
+    float gy = world_height(w, d->x, d->z); int inpond = world_in_pond(w, d->x, d->z); float waterline = inpond ? world_pond_y(w, d->x, d->z) : -1e9f;
     float L = LEN[d->stage];
     if (d->evolve_t > 0) { d->evolve_t -= dt; set_anim(d, DA_ROAR); d->speed = 0; return ev; }
     /* one-shot actions block steering until done */
@@ -71,7 +71,7 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
             float mx = d->x - px, mz = d->z - pz, up = mx * ux + mz * uz; if (up > 0) { d->x -= ux * up; d->z -= uz * up; }
             float slide = (0.72f - n.y) * 22.0f + 2.0f; d->x -= ux * slide * dt; d->z -= uz * slide * dt;
             d->x = clampf(d->x, -lim, lim); d->z = clampf(d->z, -lim, lim); }
-        gy = world_height(w, d->x, d->z); inpond = world_in_pond(w, d->x, d->z); waterline = inpond ? w->pond_y : -1e9f;
+        gy = world_height(w, d->x, d->z); inpond = world_in_pond(w, d->x, d->z); waterline = inpond ? world_pond_y(w, d->x, d->z) : -1e9f;
         if (!inpond && gy < py - (w->kind == WK_SKY ? 2.0f : 0.8f) && d->act_t <= 0) {   /* walked off a ledge: fall (glide) instead of snapping down the drop */
             d->mode = DM_AIR; d->y = py; d->vy = 0; d->vx = sy * d->speed; d->vz = cy * d->speed; set_anim(d, DA_GLIDE); return ev; }
         if (w->sea_on && gy < w->sea - 0.75f * L - 0.4f) {   /* deep enough to float: nobody walks on the sea bed, they swim */
@@ -126,14 +126,14 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
             else { d->vy += (lift - 3.5f + d->pitch * 6.0f) * dt; d->vy = clampf(d->vy, -12, 6); d->slam = 0; }
             d->x += sinf(d->yaw) * d->speed * dt; d->z += cosf(d->yaw) * d->speed * dt; d->y += d->vy * dt;
             if (!(d->air_act > 0 && d->air_kind == ATK_TALON)) set_anim(d, uw ? (d->speed > 2.0f || in->a ? DA_FLY : DA_GLIDE) : (in->a && d->stamina > 0.01f && !diving ? DA_FLY : DA_GLIDE));
-            float ceiling = 70; if (d->y > ceiling) { d->y = ceiling; d->vy = fminf(d->vy, 0); }
+            float ceiling = fmaxf(70, world_height(w, d->x, d->z) + 55); if (d->y > ceiling) { d->y = ceiling; d->vy = fminf(d->vy, 0); }
         } else {   /* a dragonet only hops and glides a little */
             d->vy -= 11.0f * dt; d->x += d->vx * dt; d->z += d->vz * dt; d->y += d->vy * dt;
             if (in->a && d->vy < 0 && !d->slam) d->vy += 7.0f * dt;   /* flutter: falls slower */
             if (in->sy < -0.55f || in->zl) d->vy -= 9.0f * dt;   /* stick down: drop faster */
             d->speed = sqrtf(d->vx * d->vx + d->vz * d->vz); }
         float lim = W_SIZE / 2 - 6; d->x = clampf(d->x, -lim, lim); d->z = clampf(d->z, -lim, lim);
-        gy = world_height(w, d->x, d->z); inpond = world_in_pond(w, d->x, d->z); waterline = inpond ? w->pond_y : -1e9f;
+        gy = world_height(w, d->x, d->z); inpond = world_in_pond(w, d->x, d->z); waterline = inpond ? world_pond_y(w, d->x, d->z) : -1e9f;
         float floor_y = fmaxf(gy, waterline - 0.25f * L);
         Vec3 fn = world_normal(w, d->x, d->z);
         if (d->y <= floor_y && fn.y < 0.6f && gy > waterline) {   /* came down on a cliff face: slide off it and keep falling, never land on the wall */

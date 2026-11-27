@@ -31,9 +31,15 @@ void propmodel_draw(const PropModel *m, int lod, float x, float y, float z, floa
     if (!m->ok) return; Mat4 mm = m4_mul(m4_mul(m4_translate(x, y, z), m4_rotate_y(yaw)), m4_scale(s, s, s)); gfx_bind(m->tex); gfx_draw(m->mesh[lod], &mm, r, g, b, 1); }
 
 void scenelayer_build(SceneLayer *L, PropModel *model, const World *w, int kind, float height_scale, float sink) {
-    memset(L, 0, sizeof *L); L->model = model; if (!model->ok) return;
-    for (int i = 0; i < w->nprop && L->n < SC_MAX; i++) { const Prop *p = &w->prop[i]; if (p->kind != kind) continue;
-        SceneInst *I = &L->inst[L->n++]; I->x = p->x; I->z = p->z; I->y = world_height(w, p->x, p->z) - sink * p->scale; I->yaw = p->yaw; I->s = p->scale * height_scale; } }
+    SceneInst *keep = L->inst; int cap = L->cap; memset(L, 0, sizeof *L); L->inst = keep; L->cap = cap; L->model = model;
+    int need = 0; for (int i = 0; i < w->nprop; i++) need += w->prop[i].kind == kind;
+    if (need > L->cap) { free(L->inst); L->cap = need + 256; L->inst = malloc(sizeof(SceneInst) * (size_t)L->cap); if (!L->inst) { L->cap = 0; return; } }
+    for (int c = 0; c < W_NCH; c++) { L->cs[c] = L->n; if (!model->ok) continue;
+        for (int i = w->pch[c]; i < w->pch[c + 1]; i++) { const Prop *p = &w->prop[i]; if (p->kind != kind) continue;
+            SceneInst *I = &L->inst[L->n++]; I->x = p->x; I->z = p->z; I->y = world_height(w, p->x, p->z) - sink * p->scale; I->yaw = p->yaw; I->s = p->scale * height_scale; } }
+    L->cs[W_NCH] = L->n; }
+static const unsigned char *g_scmask;
+void scenelayer_mask(const unsigned char *near_chunks) { g_scmask = near_chunks; }
 static float g_vfx, g_vfz; static int g_vcull;
 void scenelayer_view(float fx, float fz) { float l = sqrtf(fx * fx + fz * fz); g_vcull = l > 1e-3f; if (g_vcull) { g_vfx = fx / l; g_vfz = fz / l; } }
 static int g_foc; static Vec3 g_fe, g_ff;
@@ -48,12 +54,14 @@ static float occlude(const SceneLayer *L, const SceneInst *I) {
     if (t < 0) t = 0; float px = g_fe.x + d.x * t - c.x, py = g_fe.y + d.y * t - c.y, pz = g_fe.z + d.z * t - c.z; float dist = sqrtf(px * px + py * py + pz * pz);
     if (dist > r * 1.15f) return 1; float k = (dist - r * 0.75f) / (r * 0.4f); if (k < 0) k = 0; return 0.28f + 0.72f * k * k; }
 void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist, float skip_dist) {
-    if (!L->model || !L->model->ok) return; gfx_bind(L->model->tex);
-    for (int i = 0; i < L->n; i++) { const SceneInst *I = &L->inst[i]; float dx = I->x - eye.x, dz = I->z - eye.z; float d2 = dx * dx + dz * dz;
-        if (skip_dist > 0 && d2 > skip_dist * skip_dist) continue;
+    if (!L->model || !L->model->ok || !L->inst) return; gfx_bind(L->model->tex);
+    if (skip_dist <= 0) skip_dist = SCENE_FAR;
+    WORLD_FOR_CHUNKS(eye.x, eye.z, skip_dist, c) { if (g_scmask && !g_scmask[c]) continue;
+      for (int i = L->cs[c]; i < L->cs[c + 1]; i++) { const SceneInst *I = &L->inst[i]; float dx = I->x - eye.x, dz = I->z - eye.z; float d2 = dx * dx + dz * dz;
+        if (d2 > skip_dist * skip_dist) continue;
         if (g_vcull && dx * g_vfx + dz * g_vfz < -12 * I->s - 4) continue;   /* behind the camera (with room for big canopies) */
         float a = occlude(L, I); if (a < 0.999f && g_nfade < 24) { Faded *f = &g_fade[g_nfade++]; f->L = L; f->i = i; f->a = a; continue; }
-        Mat4 mm = m4_mul(m4_mul(m4_translate(I->x, I->y, I->z), m4_rotate_y(I->yaw)), m4_scale(I->s, I->s, I->s)); gfx_draw(L->model->mesh[d2 < hi_dist * hi_dist ? 0 : 1], &mm, 1, 1, 1, 1); } }
+        Mat4 mm = m4_mul(m4_mul(m4_translate(I->x, I->y, I->z), m4_rotate_y(I->yaw)), m4_scale(I->s, I->s, I->s)); gfx_draw(L->model->mesh[d2 < hi_dist * hi_dist ? 0 : 1], &mm, 1, 1, 1, 1); } } }
 void scenelayer_draw_faded(void) {
     if (!g_nfade) { g_foc = 0; return; }
     gfx_state(ST_DEPTH | ST_BLEND | ST_CULL);

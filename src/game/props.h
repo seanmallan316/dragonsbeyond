@@ -12,12 +12,15 @@ void propmodel_place(const PropModel *m, int lod, float x, float y, float z, flo
 /* draw one instance on its own (bushes that can be eaten, mushrooms) */
 void propmodel_draw(const PropModel *m, int lod, float x, float y, float z, float yaw, float s, float r, float g, float b);
 
-/* a layer draws every instance of one kind on its own, near ones in high detail; far ones (beyond skip_dist) not at all */
-#define SC_MAX 800
+/* a layer draws every instance of one kind on its own, near ones in high detail; far ones (beyond skip_dist) not at all.
+   Instances are filed by world chunk (cs[c] .. cs[c + 1] - 1), so drawing only visits the chunks near the eye. */
 typedef struct { float x, y, z, yaw, s; } SceneInst;
-typedef struct { PropModel *model; int n; SceneInst inst[SC_MAX]; } SceneLayer;
+typedef struct { PropModel *model; int n, cap; SceneInst *inst; int cs[W_NCH + 1]; } SceneLayer;
 void scenelayer_build(SceneLayer *L, PropModel *model, const World *w, int kind, float height_scale, float sink);
+/* skip_dist 0 = out to SCENE_FAR. Only chunks marked in scenelayer_mask (if set) are drawn (the far ones are drawn as part of the ground) */
+#define SCENE_FAR 270.0f
 void scenelayer_draw(const SceneLayer *L, Vec3 eye, float hi_dist, float skip_dist);
+void scenelayer_mask(const unsigned char *near_chunks);
 void scenelayer_view(float fx, float fz);
 /* see-through scenery: between the camera (eye) and what it watches (focus), instances are not drawn by scenelayer_draw but kept;
    scenelayer_draw_faded then draws them see-through (call it last, after the characters). on = 0 turns it off. */
