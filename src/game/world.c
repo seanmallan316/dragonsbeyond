@@ -63,7 +63,7 @@ static void make_ground(World *w, unsigned seed, int kind) {
     { const Prop *ct = &w->prop[w->arena_tree[0]]; float dx = w->arena_x - ct->x, dz = w->arena_z - ct->z, l = sqrtf(dx * dx + dz * dz);
       w->cage_x = ct->x + dx / l * 3.2f; w->cage_z = ct->z + dz / l * 3.2f; w->cage_y = w->arena_y + 6.5f; }
     /* trees and rocks: scattered, denser toward the edges, none in the start meadow or the pond */
-    for (int tries = 0; tries < 9000 && w->nprop < W_MAXPROPS; tries++) {
+    for (int tries = 0; tries < 16000 && w->nprop < W_MAXPROPS; tries++) {
         float x = (frand() - 0.5f) * (W_SIZE - 16), z = (frand() - 0.5f) * (W_SIZE - 16); float d = sqrtf(x * x + z * z);
         if (d < 14) continue;
         if ((x + 12) * (x + 12) + (z - 7) * (z - 7) < 9 * 9) continue;   /* keep the whirlwind spot clear */
@@ -86,25 +86,25 @@ static void make_ground(World *w, unsigned seed, int kind) {
         if (kind == WK_SAND && p->kind == P_PALM && sqrtf((x - w->pond_x) * (x - w->pond_x) + (z - w->pond_z) * (z - w->pond_z)) > w->pond_r * 2.6f) p->kind = P_TREE;   /* palms only round the oasis */
         p->x = x; p->z = z; p->yaw = frand() * 6.2831853f; p->scale = p->kind == P_SPIRE ? 0.6f + frand() * 0.5f : 0.8f + frand() * 0.5f; }
     /* food: berry bushes and mushrooms near the meadow and paths, grubs on the open ground, fish in the pond */
-    for (int tries = 0; tries < 7000 && w->nfood < W_MAXFOOD - 8; tries++) {
+    for (int tries = 0; tries < 12000 && w->nfood < W_MAXFOOD - 8; tries++) {
         float x = (frand() - 0.5f) * (W_SIZE - 30), z = (frand() - 0.5f) * (W_SIZE - 30); float d = sqrtf(x * x + z * z);
         { float ax = x - w->arena_x, az = z - w->arena_z; if (ax * ax + az * az < (w->arena_r + 2) * (w->arena_r + 2)) continue; }
         int inpond = world_in_pond(w, x, z); int kind;
         if (inpond) { if (frand() < 0.5f || w->kind == WK_LAVA || w->kind == WK_KAINE) continue; kind = F_FISH; }   /* nothing swims in lava */
         else if (w->sea_on && world_height(w, x, z) < w->sea - 3) { if (frand() < 0.45f) continue; kind = frand() < 0.75f ? F_FISH : F_GRUB; }   /* under the sea: fish everywhere */
         else if (w->sea_on && world_height(w, x, z) < w->sea + 0.6f) continue;
-        else { float r = frand(); kind = r < 0.45f ? F_BERRY : (r < 0.72f ? F_MUSHROOM : F_GRUB); if (d > 150 && frand() < 0.5f) continue; }
+        else { float r = frand(); kind = r < 0.45f ? F_BERRY : (r < 0.72f ? F_MUSHROOM : F_GRUB); if (d > 200 && frand() < 0.5f) continue; }
         int ok = 1; for (int k = 0; k < w->nfood; k++) { float dx = w->food[k].x - x, dz = w->food[k].z - z; if (dx * dx + dz * dz < 4.0f * 4.0f) { ok = 0; break; } }
         for (int k = 0; k < w->nprop && ok; k++) { float dx = w->prop[k].x - x, dz = w->prop[k].z - z; if (dx * dx + dz * dz < 2.2f * 2.2f) ok = 0; }
         if (!ok) continue;
         Food *f = &w->food[w->nfood++]; f->kind = kind; f->alive = 1; f->x = x; f->z = z; f->y = inpond ? w->pond_y : world_height(w, x, z) + (kind == F_FISH ? 0.9f : 0);
         f->yaw = frand() * 6.2831853f; f->phase = frand() * 6.2831853f; }
     /* the hidden egg crystal: tucked on the high ground at the far side, behind the trees */
-    { float best = -1e9f; for (int tries = 0; tries < 400; tries++) { float a = frand() * 6.2831853f, r = 120 + frand() * 40; float x = cosf(a) * r, z = sinf(a) * r; float h = world_height(w, x, z); if (h > best && !world_in_pond(w, x, z)) { best = h; w->crystal_x = x; w->crystal_z = z; } } w->crystal_y = world_height(w, w->crystal_x, w->crystal_z); }
+    { float best = -1e9f; for (int tries = 0; tries < 400; tries++) { float a = frand() * 6.2831853f, r = (120 + frand() * 40) * (W_SIZE / 360.0f); float x = cosf(a) * r, z = sinf(a) * r; float h = world_height(w, x, z); if (h > best && !world_in_pond(w, x, z)) { best = h; w->crystal_x = x; w->crystal_z = z; } } w->crystal_y = world_height(w, w->crystal_x, w->crystal_z); }
     /* Kaine's drones patrol the middle distance, never the start meadow */
-    w->ndrone = 8; for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; float a = i * 1.26f + 0.5f, r = 45 + (i % 2) * 25 + (i >= 5 ? 55 : 0); d->hx = cosf(a) * r; d->hz = sinf(a) * r; d->x = d->hx; d->z = d->hz; d->y = world_height(w, d->x, d->z) + 9; d->yaw = a; d->t = frand() * 6; }
+    w->ndrone = 12; for (int i = 0; i < w->ndrone; i++) { Drone *d = &w->drone[i]; float a = i * 1.26f + 0.5f, r = 45 + (i % 2) * 25 + (i >= 5 ? 55 : 0) + (i >= 9 ? 60 : 0); d->hx = cosf(a) * r; d->hz = sinf(a) * r; d->x = d->hx; d->z = d->hz; d->y = world_height(w, d->x, d->z) + 9; d->yaw = a; d->t = frand() * 6; }
     /* Shock Hounds guard the outer woods */
-    w->nhound = 6; for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; float a = i * 2.1f + 1.2f, r = 62 + (i % 3) * 8 + (i >= 3 ? 60 : 0); h->hx = cosf(a) * r; h->hz = sinf(a) * r; h->x = h->hx; h->z = h->hz; h->y = world_height(w, h->x, h->z); h->yaw = a; h->t = frand() * 5; }
+    w->nhound = 9; for (int i = 0; i < w->nhound; i++) { Drone *h = &w->hound[i]; float a = i * 2.1f + 1.2f, r = 62 + (i % 3) * 8 + (i >= 3 ? 60 : 0) + (i >= 6 ? 55 : 0); h->hx = cosf(a) * r; h->hz = sinf(a) * r; h->x = h->hx; h->z = h->hz; h->y = world_height(w, h->x, h->z); h->yaw = a; h->t = frand() * 5; }
     /* a few berry bushes right by the start so the first minute teaches eating */
     for (int i = 0; i < 6 && w->nfood < W_MAXFOOD; i++) { float a = i * 1.047f + 0.3f, r = 6 + (i % 2) * 3; Food *f = &w->food[w->nfood++]; f->kind = i % 3 == 2 ? F_MUSHROOM : F_BERRY; f->alive = 1; f->x = cosf(a) * r; f->z = sinf(a) * r; f->y = world_height(w, f->x, f->z); f->yaw = a; }
 }
@@ -208,7 +208,12 @@ static const Isle ISLES[] = {
     {   20,   62, 16, 18 },   /* the high island (the egg crystal) */
     {   78,   30, 13, 6 },
     {  -14,  -70, 14, 12 },
-    {  -84,   78, 10, 22 } };
+    {  -84,   78, 10, 22 },
+    {  150,   40, 20, 12 },   /* the far islands: more to explore */
+    { -135, -115, 22, 16 },
+    {   55,  160, 16, 24 },
+    { -170,   20, 14, 9 },
+    {  120, -150, 18, 20 } };
 #define N_ISLES (int)(sizeof ISLES / sizeof ISLES[0])
 static const int BRIDGES[][2] = { {0, 1}, {0, 2}, {0, 3}, {2, 4}, {1, 5}, {3, 6} };   /* pairs of islands joined by a walkway */
 #define N_BRIDGES (int)(sizeof BRIDGES / sizeof BRIDGES[0])

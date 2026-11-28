@@ -11,13 +11,16 @@
 
 static int g_power_big; static float g_charge = -1, g_pw_x, g_pw_y, g_pw_z, g_pw_yaw, g_pw_len, g_pw_dur = 1.4f, g_boom_t;
 static int g_ever_i;   /* which power Everwing uses next */
+static int g_pw_boss;  /* this blast has already hit the boss */
+static void cine(Vec3 at, float dist, float len, float slow); static void tr_robot_down(int n); static void ev_robot_down(float x, float z);
 typedef struct { float x, y, z, t; } IceBlock; static IceBlock g_ice[10]; static int g_nice;
 static int power_of(int kind) { return kind == 7 ? g_ever_i % 7 : kind; }
 
 static void power_start(int big) {
     Dragon *d = &g_dragon; float L = dragon_length(d->stage); int k = power_of(g_kind); if (g_kind == 7) g_ever_i++;
-    g_power_kind = k; g_power_big = big; g_pw_dur = big ? 2.6f : (k == 0 || k == 4 || k == 5 || k == 6 ? 1.9f : 1.4f); g_power_t = g_pw_dur; g_power_cd = big ? 5.0f : 2.6f;
-    g_pw_yaw = d->yaw; g_pw_len = L; g_pw_x = d->x; g_pw_y = d->y; g_pw_z = d->z;
+    g_power_kind = k; g_power_big = big; g_pw_dur = big ? 2.6f : (k == 0 || k == 4 || k == 5 || k == 6 ? 1.9f : 1.4f); g_power_t = g_pw_dur; g_power_cd = (big ? 5.0f : 2.6f) * (1 - 0.08f * g_runes);
+    g_pw_yaw = d->yaw; g_pw_len = L; g_pw_x = d->x; g_pw_y = d->y; g_pw_z = d->z; g_pw_boss = 0;
+    if (big) cine(v3(d->x + sinf(d->yaw) * 0.4f * L, d->y + 0.55f * L, d->z + cosf(d->yaw) * 0.4f * L), 1.3f * L + 3.5f, 1.5f, 0.7f);   /* a mega blast: the camera swings in close, time slows */
     static const int SND[7] = {SFX_WIND, SFX_FIRE, SFX_ICE, SFX_ICE, SFX_WIND, SFX_SPLASH, SFX_FIRE};
     fx_power_start(k, big, d);
     sfx_play(SND[k], 1.0f, 0); sfx_play(SFX_ROAR, big ? 1.0f : 0.6f, 0); platform_rumble(big ? 1.0f : 0.7f, big ? 1.2f : 0.6f);
@@ -53,9 +56,13 @@ static void power_frame(const Pad *p, const Pad *q, DragonInput *in, float dt) {
         if (fire) { power_start(big); in->y_press = 1; }
     } else { g_charge = -1; if (in->y_press && can) power_start(0); }
     if (g_power_t > 0) { float x, y, z, range, cone; power_shape(&x, &y, &z, &range, &cone);
+        if (!g_pw_boss && range > 0 && g_boss.woke && g_boss.state != B_DOWN && !g_rescued) {   /* the blast reaches the boss */
+            float ex = g_boss.x - x, ey = g_boss.y + 2.0f * BOSS_SCALE - y, ez = g_boss.z - z, dist = sqrtf(ex * ex + ey * ey + ez * ez), R = range + 2.5f * BOSS_SCALE;
+            int in = dist < R && (cone <= -1 || dist < 3 || (ex * sinf(d->yaw) + ez * cosf(d->yaw)) / sqrtf(ex * ex + ez * ez + 1e-6f) > cone - 0.15f);
+            if (in) { g_pw_boss = 1; g_boss_pev |= boss_power_hit(&g_boss, g_power_big ? 6 + d->stage : 2 + (d->power >= 3), g_power_big); } }
         int hit = range > 0 ? world_blast(&g_world, x, y, z, sinf(d->yaw), cosf(d->yaw), range, cone) : 0;
         if (range > 0) smash(x, y, z, sinf(d->yaw), cosf(d->yaw), range, cone, g_power_big ? 99.0f : 1.6f + 0.2f * d->power);   /* powers blast rocks and crystals apart; a mega blast breaks anything */
-        if (hit) { d->growth += 5 * hit; sfx_play(SFX_BLOCK, 0.6f, 0);
+        if (hit) { d->growth += 5 * hit; sfx_play(SFX_BLOCK, 0.6f, 0); tr_robot_down(hit); for (int q = 0; q < hit; q++) ev_robot_down(d->x, d->z);
             static const char *HIT[7] = {"SLICED BY LEAVES!", "TOASTED!", "FROZEN SOLID!", "SHATTERED!", "STUNG AND BURIED!", "WASHED AWAY!", "MELTED!"}; snprintf(g_msg, sizeof g_msg, "%s", HIT[g_power_kind]); g_msg_t = 2;
             if (g_power_kind == 2) for (int k = 0; k < g_world.nkill && g_nice < 10; k++) {   /* frost: they freeze where they stand, in a block of ice, then shatter */
                 float kx = g_world.kill_x[k], kz = g_world.kill_z[k]; g_ice[g_nice].x = kx; g_ice[g_nice].y = g_world.kill_y[k]; g_ice[g_nice].z = kz; g_ice[g_nice].t = 0; g_nice++;

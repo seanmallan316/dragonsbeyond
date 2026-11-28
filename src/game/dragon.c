@@ -5,7 +5,7 @@
 
 static const float LEN[ST_N] = {1.3f, 3.6f, 7.0f};          /* metres nose to tail */
 static const float WALK[ST_N] = {3.2f, 5.0f, 6.5f}, RUN[ST_N] = {6.5f, 10.0f, 13.0f}, FLY[ST_N] = {0, 14.0f, 20.0f};
-static const float NEED[ST_N] = {400.0f, 1200.0f, 1e9f};   /* growing up is a journey: about 40 plants (or 13 meats, or a mix with robots knocked down) to become a dragon, three times that to become a Beyonder */
+static const float NEED[ST_N] = {650.0f, 2000.0f, 1e9f};   /* growing up is a journey: about 40 plants (or 13 meats, or a mix with robots knocked down) to become a dragon, three times that to become a Beyonder */
 static const char *NAMES[ST_N] = {"DRAGONET", "DRAGON", "BEYONDER"};
 static const char *ANIMS[DA_N] = {"idle", "walk", "run", "fly", "glide", "eat", "roar", "tailwhip", "hit", "chirp", "claw", "pounce", "talon"};
 #define MODEL_LEN 1.88f
@@ -17,6 +17,7 @@ const char *dragon_stage_name(int s) { return NAMES[s]; }
 const char *dragon_anim_name(int a) { return ANIMS[a]; }
 static float wrapa(float a) { while (a > 3.14159265f) a -= 6.2831853f; while (a < -3.14159265f) a += 6.2831853f; return a; }
 static float lerp(float a, float b, float t) { return a + (b - a) * t; }
+static float mag_of(const DragonInput *in) { return sqrtf(in->sx * in->sx + in->sy * in->sy); }
 
 void dragon_init(Dragon *d, const World *w, float x, float z) {
     memset(d, 0, sizeof *d); d->x = x; d->z = z; d->y = world_height(w, x, z); d->eating = -1; d->max_hearts = d->hearts = 3; d->stamina = 1; }
@@ -29,8 +30,8 @@ float dragon_tail_reach(int stage) { float L = LEN[stage]; return fmaxf(2.8f, 0.
 int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, float dt) {
     int ev = 0; d->anim_t += dt;
     if (in->side && d->mode != DM_AIR) d->stamina = fminf(1, d->stamina + dt * 0.5f);   /* side levels: tired wings rest on the ground */
-    d->atk_r = 0; d->atk_kind = ATK_NONE; if (d->invuln_t > 0) d->invuln_t -= dt; if (d->chirp_cd > 0) d->chirp_cd -= dt;
-    if (d->air_act <= 0) d->roll *= expf(-dt * 10);
+    d->atk_r = 0; d->atk_kind = ATK_NONE; if (d->invuln_t > 0) d->invuln_t -= dt; if (d->chirp_cd > 0) d->chirp_cd -= dt; if (d->dodge_cd > 0) d->dodge_cd -= dt; if (d->combo_t > 0) d->combo_t -= dt; else d->combo = 0; d->dodge_age += dt;
+    if (d->air_act <= 0 && d->dodge_t <= 0) d->roll *= expf(-dt * 10);
     float gy = world_height(w, d->x, d->z); int inpond = world_in_pond(w, d->x, d->z); float waterline = inpond ? w->pond_y : -1e9f;
     float L = LEN[d->stage];
     if (d->evolve_t > 0) { d->evolve_t -= dt; set_anim(d, DA_ROAR); d->speed = 0; return ev; }
@@ -42,10 +43,25 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
             d->eating = -1; }
         float Lr = LEN[d->stage];
         if (d->anim == DA_TAILWHIP && d->act_t > 0.2f && d->act_t < 0.85f) hitbox(d, ATK_TAIL, 0, 0.3f * Lr, dragon_tail_reach(d->stage));   /* all round */
+        if (d->dodge_t > 0) {   /* the dodge: a quick dash (stick direction, or back), facing kept, a tumble for the look */
+            float u = 1 - d->dodge_t / 0.42f; d->dodge_t -= dt; float v = (13.0f + 1.5f * d->stage) * (1 - u) * (1 - u) + 2.0f;
+            d->x += sinf(d->dodge_dir) * v * dt; d->z += cosf(d->dodge_dir) * v * dt; d->roll = d->roll_dir * 6.2831853f * clampf(u * 1.15f, 0, 1);
+            float lim = W_SIZE / 2 - 6; d->x = clampf(d->x, -lim, lim); d->z = clampf(d->z, -lim, lim);
+            if (d->mode == DM_GROUND) { gy = world_height(w, d->x, d->z); }
+            if (d->dodge_t <= 0) { d->dodge_t = 0; d->act_t = 0; } }
+        if (in->x_press && (d->anim == DA_CLAW || (d->anim == DA_POUNCE && d->mode == DM_GROUND && d->combo == 2))) d->claw_queued = 1;   /* pressed again mid-swing: the next one follows on */
         if (d->anim == DA_CLAW) {   /* a quick swipe in front, with a small lunge */
-            if (d->act_t > 0.3f) { d->x += sinf(d->yaw) * 2.2f * dt; d->z += cosf(d->yaw) * 2.2f * dt; }
-            if (d->act_t > 0.12f && d->act_t < 0.42f) hitbox(d, ATK_CLAW, 0.4f * Lr + 0.7f, 0.3f * Lr, 0.35f * Lr + 1.2f); }
-        if (d->anim == DA_POUNCE && d->act_t > 0.22f) hitbox(d, ATK_SLAM, 0.2f * Lr, 0.2f, 3.2f + 0.4f * Lr);   /* the landing's shock wave */
+            if (d->act_t > 0.3f) { d->x += sinf(d->yaw) * 2.6f * dt; d->z += cosf(d->yaw) * 2.6f * dt; }
+            if (d->act_t > 0.12f && d->act_t < 0.42f) hitbox(d, ATK_CLAW, 0.4f * Lr + 0.7f, 0.3f * Lr, 0.35f * Lr + 1.2f);
+            if (d->claw_queued && d->act_t < 0.2f) { d->claw_queued = 0; d->combo++; d->combo_t = 0.9f; d->atk_id++;
+                if (mag_of(in) > 0.15f) d->yaw = cam_yaw + atan2f(-in->sx, in->sy);
+                if (d->combo >= 2) { d->combo = 2; d->act_t = 0.75f; d->anim = DA_POUNCE; d->anim_t = 0; }   /* the third: a heavy pounce */
+                else { d->act_t = 0.6f; d->anim_t = 0; } } }
+        if (d->anim == DA_POUNCE && d->mode == DM_GROUND && d->combo == 2) {   /* the combo's finisher: a leap forward that slams down */
+            if (d->act_t > 0.4f) { d->x += sinf(d->yaw) * 6.0f * dt; d->z += cosf(d->yaw) * 6.0f * dt; }
+            if (d->act_t > 0.18f && d->act_t < 0.4f) hitbox(d, ATK_SLAM, 0.45f * Lr + 0.6f, 0.2f, 2.6f + 0.45f * Lr);
+            if (d->act_t <= dt) { d->combo = 0; d->combo_t = 0; d->claw_queued = 0; } }
+        else if (d->anim == DA_POUNCE && d->act_t > 0.22f) hitbox(d, ATK_SLAM, 0.2f * Lr, 0.2f, 3.2f + 0.4f * Lr);   /* the landing's shock wave */
         if (d->anim == DA_CHIRP && d->stage == ST_DRAGONET && d->act_t > 0.45f && d->act_t < 0.7f) hitbox(d, ATK_CHIRP, 0.3f * Lr, 0.4f, 4.5f);   /* a sparking chirp knocks small robots over */
         if (d->act_t <= 0) { d->act_t = 0; set_anim(d, DA_IDLE); }
         if (d->growth >= NEED[d->stage] && d->stage < ST_BEYONDER && d->act_t == 0) { d->stage++; d->growth = 0; d->max_hearts += 2; d->hearts = d->max_hearts; d->evolve_t = 2.0f; ev |= 2; }
@@ -86,9 +102,12 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         /* actions */
         int near = world_nearest_food(w, d->x + sinf(d->yaw) * 0.45f * L, d->z + cosf(d->yaw) * 0.45f * L, 0.5f * L + 1.2f);
         if (in->x_press && near >= 0) { d->eating = near; d->act_t = 1.77f; set_anim(d, DA_EAT); Food *f = &w->food[near]; d->yaw = atan2f(f->x - d->x, f->z - d->z); return ev; }
-        if (in->x_press) { d->act_t = 0.6f; set_anim(d, DA_CLAW); if (mag > 0.1f) d->yaw = want_yaw; return ev; }   /* no food in reach: X claws */
-        if (in->b_press) { d->act_t = 0.97f; set_anim(d, DA_TAILWHIP); return ev; }
-        if (in->y_press) { if (d->stage == ST_DRAGONET) { if (d->chirp_cd > 0) return ev; d->chirp_cd = 2.5f; d->act_t = 0.8f; set_anim(d, DA_CHIRP); } else { d->act_t = 1.97f; set_anim(d, DA_ROAR); } ev |= 16; return ev; }
+        if (in->zl_press && d->dodge_cd <= 0 && d->stamina > 0.12f && d->mode == DM_GROUND) {   /* ZL: dodge, a short dash you can't be hurt in */
+            d->dodge_dir = mag > 0.2f ? want_yaw : d->yaw + 3.14159265f; d->dodge_t = 0.42f; d->act_t = 0.42f; d->dodge_age = 0; d->dodge_cd = 0.6f; d->invuln_t = fmaxf(d->invuln_t, 0.36f);
+            d->roll_dir = wrapa(d->dodge_dir - d->yaw) < 0 ? 1.0f : -1.0f; d->stamina = fmaxf(0, d->stamina - 0.15f); set_anim(d, DA_RUN); d->combo = 0; d->claw_queued = 0; ev |= 64; return ev; }
+        if (in->x_press) { if (d->combo_t <= 0) d->combo = 0; d->combo_t = 0.9f; d->atk_id++; d->act_t = 0.6f; set_anim(d, DA_CLAW); d->anim_t = 0; if (mag > 0.1f) d->yaw = want_yaw; return ev; }   /* no food in reach: X claws (press again for a combo) */
+        if (in->b_press) { d->act_t = 0.97f; set_anim(d, DA_TAILWHIP); d->atk_id++; return ev; }
+        if (in->y_press) { if (d->stage == ST_DRAGONET) { if (d->chirp_cd > 0) return ev; d->chirp_cd = 2.5f; d->act_t = 0.8f; set_anim(d, DA_CHIRP); d->atk_id++; } else { d->act_t = 1.97f; set_anim(d, DA_ROAR); } ev |= 16; return ev; }
         if (d->mode == DM_SWIM) set_anim(d, d->speed > 0.3f ? DA_WALK : DA_IDLE);
         else set_anim(d, d->speed > 0.6f * RUN[d->stage] ? DA_RUN : (d->speed > 0.25f ? DA_WALK : DA_IDLE));
         d->land_t -= dt;
@@ -98,10 +117,10 @@ int dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, flo
         if (uw && in->x_press) { int nf = world_nearest_food(w, d->x + sinf(d->yaw) * 0.45f * La, d->z + cosf(d->yaw) * 0.45f * La, 0.5f * La + 2.2f);   /* snap up a fish as you swim */
             if (nf >= 0) { d->eating = nf; d->act_t = 1.2f; set_anim(d, DA_EAT); return ev; } }
         if (!canfly && !d->slam && (in->b_press || in->x_press)) {   /* from a hop: pounce down onto whatever is below */
-            d->slam = 1; d->vy = -15.0f; d->vx *= 0.6f; d->vz *= 0.6f; set_anim(d, DA_POUNCE); }
-        if (canfly && d->air_act <= 0 && in->x_press) { d->air_act = 0.6f; d->air_kind = ATK_TALON; set_anim(d, DA_TALON); }   /* talon strike: a lunge with the claws out */
+            d->slam = 1; d->vy = -15.0f; d->vx *= 0.6f; d->vz *= 0.6f; set_anim(d, DA_POUNCE); d->atk_id++; d->combo = 0; }
+        if (canfly && d->air_act <= 0 && in->x_press) { d->air_act = 0.6f; d->air_kind = ATK_TALON; set_anim(d, DA_TALON); d->atk_id++; }   /* talon strike: a lunge with the claws out */
         if (canfly && d->air_act <= 0 && in->b_press) {   /* barrel roll: a quick sideways dodge with a spinning tail that hits all round */
-            d->air_act = 0.7f; d->air_kind = ATK_ROLL; d->roll_dir = in->sx < -0.2f ? -1.0f : 1.0f; d->invuln_t = 0.65f; }
+            d->atk_id++; d->air_act = 0.7f; d->air_kind = ATK_ROLL; d->roll_dir = in->sx < -0.2f ? -1.0f : 1.0f; d->invuln_t = 0.65f; }
         if (d->air_act > 0) {
             d->air_act -= dt; float u = 1 - d->air_act / (d->air_kind == ATK_TALON ? 0.6f : 0.7f);
             if (d->air_kind == ATK_TALON) { d->speed += 10 * dt * (u < 0.5f ? 1 : -1); if (u > 0.2f && u < 0.85f) hitbox(d, ATK_TALON, 0.35f * La + 1.0f, -0.15f * La, 0.35f * La + 1.7f); }

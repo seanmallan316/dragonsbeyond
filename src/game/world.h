@@ -4,12 +4,12 @@
 #define DB_WORLD_H
 #include "../render/kkmath.h"
 
-#define W_SIZE 360.0f          /* the patch is W_SIZE x W_SIZE metres, centred on the origin */
-#define W_GRID 144             /* height samples per side */
-#define W_MAXPROPS 1100
-#define W_MAXFOOD 340
-#define W_MAXDRONES 10
-#define W_MAXHOUNDS 8
+#define W_SIZE 480.0f          /* the patch is W_SIZE x W_SIZE metres, centred on the origin */
+#define W_GRID 192             /* height samples per side */
+#define W_MAXPROPS 1800
+#define W_MAXFOOD 520
+#define W_MAXDRONES 14
+#define W_MAXHOUNDS 12
 #define W_MAXTHIEVES 5
 
 enum { P_TREE = 0, P_PALM, P_BUSH, P_ROCK, P_FERN, P_SPIRE, P_N };   /* spires: tall rock needles on the sky islands */

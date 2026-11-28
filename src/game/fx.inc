@@ -31,6 +31,15 @@ static void fx_frame(float dt) {
     else if (g_fx_charge) { gfx_fx_stop(g_fx_charge); g_fx_charge = 0; }
     if (final_master() && g_boss.woke && g_boss.state != B_DOWN) { Vec3 at = v3(g_boss.x, g_boss.y + 0.5f, g_boss.z);
         if (!gfx_fx_alive(g_fx_spell)) g_fx_spell = fx_play_c("VFX_Dark_Vortex", at, g_time, 1.6f, 0.8f, 0.5f, 1.0f); else gfx_fx_move(g_fx_spell, at.x, at.y, at.z, g_time * 0.3f, 1.6f); }
-    else if (g_fx_spell) { gfx_fx_stop(g_fx_spell); g_fx_spell = 0; } }
+    else if (g_fx_spell) { gfx_fx_stop(g_fx_spell); g_fx_spell = 0; }
+    /* the boss's bolts and the power gathering before a volley */
+    { static int hs[BOSS_SHOTS], charge; static float lx[BOSS_SHOTS], ly[BOSS_SHOTS], lz[BOSS_SHOTS];
+      static const char *PJ[WK_N] = {"VFX_Projectile_Poison", "VFX_Projectile_Ice", "VFX_Projectile_Ice", "VFX_Projectile_Dark", "VFX_Projectile_Fire", "VFX_Projectile_Ice", "VFX_Projectile_Fire", "VFX_Projectile_Fire"};
+      int wk = g_wk < WK_N ? g_wk : 0; const Boss *b = &g_boss;
+      for (int i = 0; i < BOSS_SHOTS; i++) { const BossShot *q = &b->shot[i];
+          if (q->on) { float yaw = atan2f(q->vx, q->vz); if (!gfx_fx_alive(hs[i])) hs[i] = fx_play_c(PJ[wk], v3(q->x, q->y, q->z), yaw, final_keep() ? 1.1f : 0.6f, 1, 1, 1); else gfx_fx_move(hs[i], q->x, q->y, q->z, yaw, final_keep() ? 1.1f : 0.6f); lx[i] = q->x; ly[i] = q->y; lz[i] = q->z; }
+          else if (hs[i]) { gfx_fx_stop(hs[i]); hs[i] = 0; fx_play_c("VFX_Hit_Heavy", v3(lx[i], ly[i], lz[i]), g_cam_yaw, 0.6f, 1, 0.9f, 0.7f); } }
+      if (b->state == B_WINDUP && b->atk == BA_VOLLEY) { Vec3 m = v3(b->x + sinf(b->yaw) * 2.4f, b->y + 2.8f, b->z + cosf(b->yaw) * 2.4f); if (!gfx_fx_alive(charge)) charge = fx_play_c("VFX_Magic_Charge", m, b->yaw, final_keep() ? 1.4f : 0.8f, 1, 1, 1); else gfx_fx_move(charge, m.x, m.y, m.z, b->yaw, final_keep() ? 1.4f : 0.8f); }
+      else if (charge) { gfx_fx_stop(charge); charge = 0; } } }
 static void fx_grow(const Dragon *d) { if (gfx_fx_ok()) fx_play_c("VFX_Heal", v3(d->x, world_height(&g_world, d->x, d->z), d->z), 0, 0.6f + 0.4f * d->stage, 1, 1, 1); }
 static void fx_boom(Vec3 at, float s) { if (gfx_fx_ok()) fx_play_c("VFX_Kaiju_Explosion", at, g_time, s, 1, 1, 1); }

@@ -64,7 +64,7 @@ static void res_adapt(float dt) {
 
 /* ------------------------------------------------------------------ touch controls */
 typedef struct { const char *file, *menu_file; float cx, cy, r; int key; int in_menu; float mx, my; GLuint tex, menu_tex; int down; } TButton;   /* mx, my: where it sits in the menus */   /* cx, cy, r: screen fractions (r of the height) */
-enum { K_A, K_B, K_X, K_Y, K_PLUS, K_CAM };
+enum { K_A, K_B, K_X, K_Y, K_PLUS, K_CAM, K_ZL };
 /* laid out for a modern phone (about 20:9): the 16:9 picture sits in the middle and the right-hand buttons lean out into the
    carved side panel, so they cover as little of the game as possible. Pushing the move stick all the way runs (no RUN button). */
 /* laid out round the right thumb, above the game's message box at the bottom: FLY in the corner, the others in an arc above it */
@@ -75,6 +75,7 @@ static TButton BTN[] = {
     {"btn_roar", NULL, 0.790f, 0.380f, 0.075f, K_Y, 0},
     {"btn_cam", NULL, 0.955f, 0.095f, 0.060f, K_CAM, 0},
     {"btn_swap", NULL, 0.955f, 0.260f, 0.060f, K_PLUS, 0},
+    {"btn_dodge", NULL, 0.772f, 0.845f, 0.072f, K_ZL, 0},
 };
 #define NBTN (int)(sizeof BTN / sizeof BTN[0])
 static GLuint g_stick_base, g_stick_knob, g_panel_l, g_panel_r, g_share_tex; static int g_stick_finger = -1, g_look_finger = -1; static float g_stick_x0, g_stick_y0, g_stick_dx, g_stick_dy, g_look_x0, g_look_dx;
@@ -206,7 +207,7 @@ static void touch_pad(Pad *p) {
     { static int was[16]; for (int i = 0; i < NBTN && i < 16; i++) { if (BTN[i].down && !was[i]) haptic_tap(); was[i] = BTN[i].down; } }
     for (int i = 0; i < NBTN; i++) if (BTN[i].down) switch (BTN[i].key) {
         case K_A: p->a = 1; break; case K_B: p->b = 1; break; case K_X: p->x = 1; break; case K_Y: p->y = 1; break;
-        case K_CAM: p->cam = 1; break; default: break; }
+        case K_CAM: p->cam = 1; break; case K_ZL: p->zl = 1; break; default: break; }
     { static int was_plus = 0; int now = 0; for (int i = 0; i < NBTN; i++) if (BTN[i].key == K_PLUS && BTN[i].down) now = 1; p->plus = now && !was_plus; was_plus = now; }   /* + is a press, not a hold */
     if (g_stick_finger >= 0) {
         float dx = g_stick_dx, dy = -g_stick_dy; float m = sqrtf(dx * dx + dy * dy);

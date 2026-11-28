@@ -35,9 +35,13 @@ typedef struct {
     float invuln_t;             /* can't be hurt (rolling) */
     float chirp_cd;             /* the dragonet's spark chirp needs a breath between uses */
     float dive;                 /* 0..1: wings tucked, diving at the ground (stick down in flight) */
+    float dodge_t, dodge_age, dodge_cd, dodge_dir;   /* ground dodge (ZL): time left, time since it started (a perfect dodge is early), cooldown, which way */
+    int combo, claw_queued;     /* claw combo: 0, 1, 2 (the third is a heavy pounce), and a press buffered during a claw */
+    float combo_t;              /* time left to chain the next claw */
+    int atk_id;                 /* goes up with every new attack (so a swing hits once) */
 } Dragon;
 
-typedef struct { float sx, sy; int a, a_press, b_press, x_press, zr, zl, y_press;
+typedef struct { float sx, sy; int a, a_press, b_press, x_press, zr, zl, y_press, zl_press;
     int side;   /* side-view levels: sx walks left/right along the lane, sy is only up/down (climb, dive) */ } DragonInput;
 
 /* sizes and speeds per stage: model length (m), walk, run, fly speeds */
@@ -48,7 +52,7 @@ const char *dragon_stage_name(int stage);
 const char *dragon_anim_name(int anim);
 
 void dragon_init(Dragon *d, const World *w, float x, float z);
-/* one step; returns a bitmask of events: 1 ate something, 2 grew a stage, 4 took off, 8 landed, 16 roared, 32 pounce landed */
+/* one step; returns a bitmask of events: 1 ate something, 2 grew a stage, 4 took off, 8 landed, 16 roared, 32 pounce landed, 64 dodged */
 float dragon_tail_reach(int stage);
 int  dragon_update(Dragon *d, World *w, const DragonInput *in, float cam_yaw, float dt);
 #endif
