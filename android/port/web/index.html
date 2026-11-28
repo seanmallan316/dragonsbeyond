@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Dragons Beyond</title>
+<style>
+  :root { --bg: #04100a; --gold: #f0c860; --ink: #f4ead2; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: Georgia, "Times New Roman", serif; overflow: hidden; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; outline: none; background: #000; }
+  #veil { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+          background: radial-gradient(ellipse at center, #123222 0%, #04100a 70%); text-align: center; padding: 16px; box-sizing: border-box; }
+  h1 { margin: 0; color: var(--gold); font-size: clamp(34px, 7vw, 72px); letter-spacing: 2px; text-shadow: 0 3px 12px #000; }
+  .sub { opacity: 0.85; font-size: clamp(14px, 2.4vw, 20px); }
+  #status { min-height: 1.4em; color: var(--gold); font-size: 18px; }
+  #go { font: inherit; font-size: 22px; padding: 12px 34px; border-radius: 30px; border: 2px solid var(--gold); background: #0b2a19; color: var(--ink); cursor: pointer; display: none; }
+  #go:hover { background: #134026; }
+  .keys { font-size: 14px; opacity: 0.8; line-height: 1.7; max-width: 640px; }
+  .keys b { color: var(--gold); font-weight: normal; }
+  #bar { position: fixed; right: 10px; bottom: 10px; display: flex; gap: 8px; align-items: center; }
+  #bar button { font: 13px Georgia, serif; padding: 6px 12px; border-radius: 14px; border: 1px solid var(--gold); background: #0b2a19cc; color: var(--ink); cursor: pointer; }
+  #load { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); color: var(--gold); font-size: 15px; text-shadow: 0 1px 4px #000; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="load"></div>
+<div id="bar"><button id="fs">Full screen</button></div>
+<div id="veil">
+  <h1>Dragons Beyond</h1>
+  <div class="sub">A game designed by a 10-year-old dragon expert &middot; PC preview</div>
+  <div id="status">Starting&hellip;</div>
+  <button id="go">Play</button>
+  <div class="keys">
+    <b>WASD</b> or <b>arrows</b> move &nbsp; <b>SPACE</b> fly / jump / OK &nbsp; <b>SHIFT</b> run &nbsp; <b>J</b> eat / claw &nbsp; <b>K</b> tail / back
+    &nbsp; <b>L</b> roar / power &nbsp; <b>CTRL</b> dive &nbsp; <b>Q E</b> turn camera &nbsp; <b>C</b> camera view &nbsp; <b>ESC</b> or <b>ENTER</b> menu
+    <br>A game controller works too. The first start downloads the dragons (about 100 MB); after that it is quicker.
+  </div>
+</div>
+<script>
+  const veil = document.getElementById('veil'), status = document.getElementById('status'), go = document.getElementById('go'), load = document.getElementById('load');
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    dbProgress: (t) => { load.textContent = t; if (veil.style.display !== 'none') status.textContent = t || 'Getting the world ready…'; },
+    print: (t) => console.log(t), printErr: (t) => console.warn(t),
+    setStatus: (t) => { if (t) status.textContent = t; },
+    onRuntimeInitialized: () => { status.textContent = 'Getting the world ready…'; },
+    noInitialRun: true,
+  };
+  // start only after a click: browsers allow sound after the player has pressed something
+  function start() { veil.style.display = 'none'; Module.canvas.focus(); Module.callMain([]); }
+  Module.onRuntimeInitialized = () => { status.textContent = 'Ready!'; go.style.display = 'inline-block'; };
+  go.onclick = start;
+  document.getElementById('fs').onclick = () => { const el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen).call(el); };
+  window.addEventListener('keydown', (e) => { if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault(); });
+  if (!document.createElement('canvas').getContext('webgl2')) status.textContent = 'This browser cannot show WebGL 2. Try Chrome, Edge or Firefox.';
+</script>
+<script src="dragonsbeyond.js"></script>
+</body>
+</html>

@@ -20,6 +20,11 @@
 #include <math.h>
 #include <sys/stat.h>
 #include <errno.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+void kk_files_init(void); void kk_web_frame(void);
+EM_ASYNC_JS(void, web_wait_frame, (void), { await new Promise((ok) => requestAnimationFrame(ok)); });   /* hand the browser its turn: one frame */
+#endif
 
 void gfx_set_logfile(FILE *f);
 static SDL_Window *g_win; static SDL_GLContext g_ctx;
@@ -229,6 +234,28 @@ static void open_controllers(void) {
         for (int k = 0; k < 4; k++) if (!g_gc[k]) { g_gc[k] = SDL_GameControllerOpen(i); port_log("controller %d: %s", k + 1, SDL_GameControllerName(g_gc[k])); break; }
     }
 }
+#ifndef __ANDROID__
+/* the keyboard, for playing on a PC: WASD or the arrows move (menus too), SPACE flies / jumps / OK, J or X eats / claws,
+   K or B tail whip / back, L or Y roar / power, SHIFT runs, CTRL or Z dives, Q and E turn the camera, C changes the view,
+   ENTER is OK in the menus and the pause menu while playing (as is ESC) */
+static void keyboard_pad(Pad *w) {
+    const Uint8 *k = SDL_GetKeyboardState(NULL); static int was_c, was_enter;
+    float sx = (k[SDL_SCANCODE_D] || k[SDL_SCANCODE_RIGHT]) - (k[SDL_SCANCODE_A] || k[SDL_SCANCODE_LEFT]), sy = (k[SDL_SCANCODE_W] || k[SDL_SCANCODE_UP]) - (k[SDL_SCANCODE_S] || k[SDL_SCANCODE_DOWN]);
+    int any = 0;
+    if (sx || sy) { w->sx = sx; w->sy = sy; any = 1; }
+    if (k[SDL_SCANCODE_LEFT] || k[SDL_SCANCODE_A]) w->left = 1; if (k[SDL_SCANCODE_RIGHT] || k[SDL_SCANCODE_D]) w->right = 1;
+    if (k[SDL_SCANCODE_UP] || k[SDL_SCANCODE_W]) w->up = 1; if (k[SDL_SCANCODE_DOWN] || k[SDL_SCANCODE_S]) w->down = 1;
+    if (k[SDL_SCANCODE_SPACE]) { w->a = 1; any = 1; }
+    int enter = k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER]; if (enter) { if (g_playing) { if (!was_enter) w->plus = 1; } else w->a = 1; any = 1; } was_enter = enter;
+    if (k[SDL_SCANCODE_J] || k[SDL_SCANCODE_X]) { w->x = 1; any = 1; }
+    if (k[SDL_SCANCODE_K] || k[SDL_SCANCODE_B]) { w->b = 1; any = 1; }
+    if (k[SDL_SCANCODE_L] || k[SDL_SCANCODE_Y]) { w->y = 1; any = 1; }
+    if (k[SDL_SCANCODE_LSHIFT] || k[SDL_SCANCODE_RSHIFT]) { w->zr = 1; any = 1; }
+    if (k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL] || k[SDL_SCANCODE_Z]) { w->zl = 1; any = 1; }
+    float rx = k[SDL_SCANCODE_E] - k[SDL_SCANCODE_Q]; if (rx) { w->rx = rx; any = 1; }
+    int c = k[SDL_SCANCODE_C]; if (c && !was_c) { w->cam = 1; any = 1; } was_c = c;
+    if (any) { g_touch_mode = 0; w->source = 1; } }
+#endif
 static void controller_pad(int k, Pad *w) {
     SDL_GameController *c = g_gc[k]; memset(w, 0, sizeof *w);
     if (!c || !SDL_GameControllerGetAttached(c)) { if (c) { SDL_GameControllerClose(c); g_gc[k] = NULL; } return; }
@@ -335,7 +362,12 @@ int main(int argc, char **argv) {
     SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
     SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC) != 0) { SDL_Log("SDL: %s", SDL_GetError()); return 1; }
+#ifdef __EMSCRIPTEN__
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0) {   /* (no rumble in a browser) */
+#else
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC) != 0) {
+#endif
+        SDL_Log("SDL: %s", SDL_GetError()); return 1; }
     char *pref = SDL_GetPrefPath("Sean", "DragonsBeyond");
     if (pref) { char p[512]; snprintf(p, sizeof p, "%sdragonsbeyond_log.txt", pref); g_log = fopen(p, "w"); gfx_set_logfile(g_log);
         snprintf(p, sizeof p, "%sdragonsbeyond_save.txt", pref); game_set_save_path(p); }
@@ -345,6 +377,9 @@ int main(int argc, char **argv) {
     const char *test = getenv("KK_FRAMES");
 #ifdef __ANDROID__
     g_win = SDL_CreateWindow("Dragons Beyond", 0, 0, 0, 0, SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_ALLOW_HIGHDPI);
+#elif defined(__EMSCRIPTEN__)
+    g_win = SDL_CreateWindow("Dragons Beyond", 0, 0, 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);   /* the page scales the picture to the browser window */
+    g_touch_mode = EM_ASM_INT({ return ('ontouchstart' in window) ? 1 : 0; });   /* the on-screen buttons only on touch screens */
 #else
     g_win = SDL_CreateWindow("Dragons Beyond", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, test ? 1560 : 1600, test ? 720 : 740, SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
 #endif
@@ -355,6 +390,9 @@ int main(int argc, char **argv) {
     layout();
 #ifdef __ANDROID__
     kk_files_init(); remove_old_copy();
+#endif
+#ifdef __EMSCRIPTEN__
+    kk_files_init();   /* the saves from the browser's storage, and the list of the site's files */
 #endif
     overlay_init();
     {   /* the loading picture while the game reads its models and music (a few seconds the first time) */
@@ -416,6 +454,9 @@ int main(int argc, char **argv) {
 #endif
         memset(pads, 0, sizeof pads);
         touch_pad(&pads[0]);
+#ifndef __ANDROID__
+        keyboard_pad(&pads[0]);
+#endif
         { static int was_back; const Uint8 *ks = SDL_GetKeyboardState(NULL); int bk = ks[SDL_SCANCODE_AC_BACK] || ks[SDL_SCANCODE_ESCAPE];
           for (int k = 0; k < 4; k++) if (g_gc[k] && SDL_GameControllerGetAttached(g_gc[k]) && SDL_GameControllerGetButton(g_gc[k], SDL_CONTROLLER_BUTTON_B)) bk = 0;   /* some Bluetooth pads also send BACK for their B button: that is a tail whip, not the swap menu */   /* the phone's back key: BACK in the menus, SWAP while playing */
           if (bk) { if (g_playing) pads[0].plus = pads[0].plus || !was_back; else pads[0].b = 1; } was_back = bk; }
@@ -431,6 +472,9 @@ int main(int argc, char **argv) {
 #endif
         game_frame(pads, KK_PADS, dt);
         frame++;
+#ifdef __EMSCRIPTEN__
+        kk_web_frame(); web_wait_frame();
+#endif
         if (frames_left > 0 && --frames_left == 0) running = 0;
     }
     if (dev) SDL_CloseAudioDevice(dev);
