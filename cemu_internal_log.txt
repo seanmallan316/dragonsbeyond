@@ -1,0 +1,145 @@
+[01:47:04.492] can't create cubeb audio api
+[01:47:04.492] can't create cubeb audio api
+[01:47:04.498] ------- Init Cemu 2.6 -------
+[01:47:04.498] Init Wii U memory space (base: 0x00007d7b68000000)
+[01:47:04.498] mlc01 path: /home/runner/.local/share/Cemu/mlc01
+[01:47:04.498] CPU: AMD EPYC 7763 64-Core Processor                
+[01:47:04.498] RAM: 15983MB
+[01:47:04.498] Platform: Linux
+[01:47:04.498] Used CPU extensions: SSSE3, SSE4.1, AVX, AVX2, LZCNT, MOVBE, BMI2, AES-NI, INVARIANT-TSC
+[01:47:04.501] Unable to open or create PlayStats.dat
+[01:47:04.502] IOSU_CRYPTO: No otp.bin found. Online mode cannot be used
+[01:47:04.502] IOSU_CRYPTO: No Seeprom.bin found. Online mode cannot be used
+[01:47:05.218] Mounting title 0005000012345678
+[01:47:05.219] Base: /home/runner/work/dragonsbeyond/dragonsbeyond/title [Folder]
+[01:47:05.219] Update: Not present
+[01:47:05.219] DLC: Not present
+[01:47:05.237] COS: System fonts found. Generated shareddata (26609KB)
+[01:47:05.249] Recompiler initialized
+[01:47:05.274] RPLLoader: Section 11 uncompresses to 32 bytes but sectionSize is 44
+[01:47:05.274] RPLLoader: Section 20 uncompresses to 24 bytes but sectionSize is 27
+[01:47:05.342] ------- Init Vulkan graphics backend -------
+[01:47:05.348] Vulkan instance version: 1.4
+[01:47:05.357] Using GPU: llvmpipe (LLVM 21.1.8, 256 bits)
+[01:47:05.357] Driver version: Mesa 26.0.8-1ubuntu0.3 (LLVM 21.1.8)
+[01:47:05.357] Vulkan: present_wait extension: unsupported
+[01:47:05.357] VulkanLimits: UBAlignment 16 nonCoherentAtomSize 64
+[01:47:06.000] Using available debug function: vkCreateDebugUtilsMessengerEXT()
+[01:47:06.000] Vulkan device memory info:
+[01:47:06.000] Heap 0 - Size 15983MB Flags 0x00000001
+[01:47:06.000] Memory 0 - HeapIndex 0 Flags 0x0000000f
+[01:47:06.000] VK_FORMAT_R4G4_UNORM_PACK8 not supported
+[01:47:07.486] ------- Loaded title -------
+[01:47:07.486] TitleId: 00050000-12345678
+[01:47:07.486] TitleVersion: v0
+[01:47:07.486] Save path:   /home/runner/.local/share/Cemu/mlc01/usr/save/00050000/12345678/user/ (not present)
+[01:47:07.486] Shader cache file: shaderCache/transferable/0005000012345678.bin
+[01:47:07.486] gameprofile path:  (not present)
+[01:47:07.486] RPX hash (updated): e26a18be
+[01:47:07.486] RPX hash (base): e26a18be
+[01:47:07.494] Loaded module 'dragonsbeyond' with checksum 0x13d16d0e
+[01:47:07.494] RPL link time: 5ms
+[01:47:07.497] HLE scan time: 3ms
+[01:47:07.497] ------- Active settings -------
+[01:47:07.497] CPU-Mode: 3
+[01:47:07.497] Load shared libraries: true
+[01:47:07.497] Use precompiled shaders: 0
+[01:47:07.497] Full sync at GX2DrawDone: true
+[01:47:07.497] Strict shader mul: true
+[01:47:07.497] Async compile: true
+[01:47:07.497] Console language: 1
+[01:47:07.659] ------- Activate graphic packs -------
+[01:47:07.659] ------- Init Audio backend -------
+[01:47:07.659] DirectSound: not supported
+[01:47:07.659] XAudio 2.8: not supported
+[01:47:07.659] XAudio 2.7: not supported
+[01:47:07.659] Cubeb: not supported
+[01:47:07.659] ------- Init Audio input backend -------
+[01:47:07.659] Cubeb: not supported
+[01:47:07.659] ------- Run title -------
+[01:47:08.033] Loading RPL: /cafeLibs/glslcompiler.rpl
+[01:47:08.146] Loaded module 'glslcompiler' with checksum 0x133d4fab
+Error: signal 11:
+/home/runner/work/dragonsbeyond/dragonsbeyond/cemu/squashfs-root/AppRun.wrapped(coreinit::OSFastMutex_LockInternal(coreinit::OSFastMutex*)+0x5f) [0x5dc90525fc5f]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0x47dd0) [0x7d7c92447dd0]
+/home/runner/work/dragonsbeyond/dragonsbeyond/cemu/squashfs-root/AppRun.wrapped(coreinit::OSFastMutex_LockInternal(coreinit::OSFastMutex*)+0x5f) [0x5dc90525fc5f]
+/home/runner/work/dragonsbeyond/dragonsbeyond/cemu/squashfs-root/AppRun.wrapped(void cafeExportCallWrapper<&coreinit::OSFastMutex_Lock, coreinit::InitializeConcurrency()::StringWrapper, (LogType)3>(PPCInterpreter_t*) [clone .llvm.10271107006932571874]+0xb7) [0x5dc90526a327]
+/home/runner/work/dragonsbeyond/dragonsbeyond/cemu/squashfs-root/AppRun.wrapped(PPCRecompiler_virtualHLE(PPCInterpreter_t*, unsigned int)+0xa8) [0x5dc90515f3f8]
+[0x7d7c7856ebf7]+[0x7d7c7856ebf7]
+
+-----------------------------------------
+   Game info
+-----------------------------------------
+Game: Dragons Beyond
+TitleId: 0005000012345678
+RPXHash: e26a18be (Update: e26a18be)
+
+-----------------------------------------
+   Active PPC instance
+-----------------------------------------
+IP 0x00e00594 LR 0x020b2c70 Thread 0x0e074bc0
+
+r0 =020b2c10 r1 =0e2747f0 r2 =00000000 r3 =00000005 r4 =00000000 r5 =00000000 r6 =0e274a34 r7 =00000004
+r8 =0e274a34 r9 =00000005 r10=00000000 r11=00000008 r12=00e00594 r13=11401f24 r14=10010000 r15=10010000
+r16=10bf6720 r17=0e274b10 r18=1000b938 r19=0000002d r20=116701c0 r21=10010000 r22=10010000 r23=10bf0000
+r24=10020000 r25=00000001 r26=10bbbca8 r27=1b9e81e0 r28=10c09080 r29=10008ba4 r30=10008ba4 r31=10bf6720
+
+-----------------------------------------
+   PPC stack trace
+-----------------------------------------
+[01:48:30.670] Trace starting at SP 0e274b18 r1 = 0e2747f0
+[01:48:30.670] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.670] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.670] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.670] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.670] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+[01:48:30.671] SP 0e274b18 ReturnAddr 10bf0000
+
+-----------------------------------------
+   PPC stack dump
+-----------------------------------------
+[0x0e2747f0] 0e274b08 020b2c10 43db5742 3c717da6 - 00000000 3f800000 00000000 c381543b
+[0x0e274810] 42eeae85 436dc2d9 c3895649 42eeae85 - 43877bfe c348e12a 42eeae85 439947ac
+[0x0e274830] c350adae c0394dd8 43d8185f c35b7f4c - 418b1781 43db5742 3c05ba6a 3c9bff91
+[0x0e274850] 3d3d250f 42809474 4125b967 c1f9d982 - 42fe1183 419921ec c315f8a8 3c98a4f2
+[0x0e274870] 3d3212ea bd01c7f8 0e274908 3c8f5106 - 3d3bd539 bd013fd6 3c9d55c8 3c973c01
+[0x0e274890] 3d1f9584 bd0d4e83 3b9d3cdb 3cff233f - 3d1fbcc6 bd28ea69 0e274938 3d3189b9
+[0x0e2748b0] 1bb6cb80 bd2f993e 0e274920 3d5fc270 - 80202424 1a7ea8c0 1a7e5000 00005898
+[0x0e2748d0] 1000bb70 00000091 0e274908 0e274b88 - 00001220 00000091 00000174 0000017e
+[0x0e2748f0] 0000011e 00000091 1a7e9678 1a7ea8c0 - 0e274a90 1a7ea858 0e274938 02072a6c
+[0x0e274910] 00000002 0000008f 00000174 0000008f - 0000011c 00000091 1a7e9678 1a7ea8c0
+[0x0e274930] 0e274a90 1a7ea838 0e274968 02072a6c - 00000003 0000008e 00000174 0000008e
+[0x0e274950] 00000118 00000091 1a7e9678 1a7ea8c0 - 0e274a90 1a7ea7f8 0e274998 02072a6c
+[0x0e274970] 00000005 0000008c 000001f4 0000008c - 0000010e 00000091 1a7e9678 1a7ea8c0
+[0x0e274990] 0e274a90 1a7ea758 0e2749c8 02072a6c - 0000000a 00000087 00000164 00000087
+[0x0e2749b0] 000000fc 00000091 1a7e9678 1a7ea8c0 - 0e274a90 1a7ea638 0e2749f8 02072a6c
+[0x0e2749d0] 00000013 0000007e 00000164 0000007e - 000000d8 00000091 1a7e9678 1a7ea8c0
+
+-----------------------------------------
+   PPC threads
+-----------------------------------------
+0e005c40 Ent 00e0000c IP 00e0000c LR 00e00004 WAITING   Aff 111 Pri 32 Name Alarm Thread
+0e0664c0 Ent 00e00010 IP 00e00010 LR 00e00004 WAITING   Aff 100 Pri 15 Name {SYS IPC Core 0}
+0e066b60 Ent 00e00010 IP 00e00010 LR 00e00004 WAITING   Aff 010 Pri 15 Name {SYS IPC Core 1}
+0e067200 Ent 00e00010 IP 00e00010 LR 00e00004 WAITING   Aff 001 Pri 15 Name {SYS IPC Core 2}
+0e4f9fc0 Ent 00e00018 IP 00e00018 LR 00e00004 WAITING   Aff 111 Pri 32 Name Callback Thread
+0e074bc0 Ent 00e00f3c IP 02072ac0 LR 02072ac0 RUNNING   Aff 010 Pri 80 Name Default Core 1
+0e4c8520 Ent 00e00f60 IP 00e00f60 LR 00e00004 WAITING   Aff 100 Pri 16 Name {SYS ProcUI Core 0}
+0e4c8bc0 Ent 00e00f60 IP 00e00f60 LR 00e00004 WAITING   Aff 010 Pri 16 Name {SYS ProcUI Core 1}
+0e4c9260 Ent 00e00f60 IP 00e00f60 LR 00e00004 WAITING   Aff 001 Pri 16 Name {SYS ProcUI Core 2}
+0e382f80 Ent 00e00f64 IP 00e00f64 LR 00e00004 WAITING   Aff 010 Pri 48 Name GX2 event callback
+0e4d0240 Ent 00e00f9c IP 00e00f9c LR 00e00004 WAITING   Aff 010 Pri 14 Name NULL

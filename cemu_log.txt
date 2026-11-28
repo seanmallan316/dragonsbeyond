@@ -1,0 +1,13 @@
+
+(AppRun.wrapped:4759): dbind-WARNING **: 01:47:04.446: AT-SPI: Error retrieving accessibility bus address: org.freedesktop.DBus.Error.ServiceUnknown: The name org.a11y.Bus was not provided by any .service files
+Error: signal 11:
+/home/runner/work/dragonsbeyond/dragonsbeyond/cemu/squashfs-root/AppRun.wrapped(coreinit::OSFastMutex_LockInternal(coreinit::OSFastMutex*)+0x5f) [0x5dc90525fc5f]
+/usr/lib/x86_64-linux-gnu/libc.so.6(+0x47dd0) [0x7d7c92447dd0]
+/home/runner/work/dragonsbeyond/dragonsbeyond/cemu/squashfs-root/AppRun.wrapped(coreinit::OSFastMutex_LockInternal(coreinit::OSFastMutex*)+0x5f) [0x5dc90525fc5f]
+/home/runner/work/dragonsbeyond/dragonsbeyond/cemu/squashfs-root/AppRun.wrapped(void cafeExportCallWrapper<&coreinit::OSFastMutex_Lock, coreinit::InitializeConcurrency()::StringWrapper, (LogType)3>(PPCInterpreter_t*) [clone .llvm.10271107006932571874]+0xb7) [0x5dc90526a327]
+/home/runner/work/dragonsbeyond/dragonsbeyond/cemu/squashfs-root/AppRun.wrapped(PPCRecompiler_virtualHLE(PPCInterpreter_t*, unsigned int)+0xa8) [0x5dc90515f3f8]
+[0x7d7c7856ebf7]+[0x7d7c7856ebf7]
+Segmentation fault!
+
+Stacktrace and additional info written to:
+/home/runner/.local/share/Cemu/log.txt
